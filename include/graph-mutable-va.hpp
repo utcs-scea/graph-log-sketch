@@ -1,3 +1,5 @@
+#ifndef _GRAPH_MUTABLE_VA_H_
+#define _GRAPH_MUTABLE_VA_H_
 #include <cassert>
 #include <cstdint>
 #include <stdlib.h>
@@ -125,8 +127,35 @@ public:
   Graph(): num_nodes(0), edge_end(0), nodes((NodeEntry*)malloc(1<<29)), edges((EdgeEntry*)malloc(1<<29)) {}
 
 
-  inline EdgeEntry* get_edge(uint64_t e) { return edges + e;}
-  inline NodeEntry* get_node(uint64_t n) { return nodes + n;}
+  inline EdgeEntry* get_edge(uint64_t e)
+  {
+    if(edge_end.get_value() > e) return edges + e;
+    edge_end.lock();
+    auto ee = edge_end.get_value();
+    edge_end.unlock();
+    if(ee > e)
+    {
+      return edges + e;
+    }
+    return nullptr;
+  }
+
+  inline NodeEntry* get_node(uint64_t n)
+  {
+    if(num_nodes.get_value() > n) return nodes + n;
+    num_nodes.lock();
+    auto nn = num_nodes.get_value();
+    num_nodes.unlock();
+    if(nn > n)
+    {
+      return nodes + n;
+    }
+    return nullptr;
+  }
+
+  //THESE ARE NOT THREAD SAFE, IF YOU WANT THEM TO BE SAFE TODO
+  inline uint64_t   get_num_nodes() {return num_nodes.get_value();}
+  inline uint64_t   get_edge_end() {return edge_end  .get_value();}
 private:
 
   void edge_placement(uint64_t start, uint64_t stop, uint64_t num_orig,
@@ -306,7 +335,7 @@ public:
     return ret;
   }
 
-  uint64_t deleteNode(uint64_t src)
+  void deleteNode(uint64_t src)
   {
     auto ns = get_node(src);
     if(ns->lock())
@@ -328,7 +357,6 @@ public:
     ns->unlock();
   }
 
-
   void deleteEdge(uint64_t src, uint64_t dest)
   {
     NodeEntry* n = get_node(src);
@@ -346,4 +374,7 @@ public:
 
     n->unlock();
   }
+
 };
+
+#endif
