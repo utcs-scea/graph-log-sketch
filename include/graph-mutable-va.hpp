@@ -9,7 +9,8 @@ enum VertexState : uint16_t
 {
   UNLK = 0x0 << 0,
   LOCK = 0x1 << 0,
-  TOMB = 0x1 << 1
+  TOMB = 0x1 << 1,
+  UMAX = 0x1 << 2
 };
 
 constexpr uint64_t mask (uint8_t mask, uint8_t shift) {return mask << shift ;}
@@ -57,9 +58,9 @@ struct __attribute__ ((packed))
     __atomic_store_2(this, f & (~LOCK), __ATOMIC_RELEASE);
   }
 
-  void  set_value(T p)  { value = get_raw_value(p); }
+  void  set_value(T p)  { if((uint64_t) p == UINT64_MAX) { flags |= UMAX;} else {value = get_raw_value(p);} }
 
-  T     get_value()     { return (T) value; }
+  T     get_value()     { return (flags & UMAX) ? (T) UINT64_MAX : (T) value; }
 
   void  unset_tomb()    { flags = flags & (~TOMB); }
 
@@ -92,7 +93,6 @@ struct EdgeEntry
 
   void set_dest(uint64_t d)
   {
-    assert(!(d >> 48));
     dest.set_value(d);
   }
 
@@ -125,7 +125,7 @@ class Graph
   //TODO deal with memory allocation
 public:
   Graph(): num_nodes(0), edge_end(0), nodes((NodeEntry*)malloc(1<<29)), edges((EdgeEntry*)malloc(1<<29)) {}
-
+  ~Graph(){ free(nodes); free(edges);}
 
   inline EdgeEntry* get_edge(uint64_t e)
   {
@@ -208,7 +208,7 @@ private:
       else if(orig_curr_edge_dst > dst_curr_edge_dst)
       {
         //swap_case
-        if(place_curr == read_orig_curr)
+        if(read_orig_curr < stop && place_curr == read_orig_curr)
         {
           dst[dst_swapped_stop] = get_edge(read_orig_curr)->get_dest();
           dst_swapped_stop++;
@@ -286,9 +286,12 @@ public:
       {
         auto e          = get_edge(start + i);
         bool e_valid    = e->lock();
-        bool dest_tomb  = get_node(e->get_dest())->atomic_is_tomb();
-        if(dest_tomb) e->set_tomb();
-        else if (e_valid) num_orig++;
+        if(e_valid)
+        {
+          bool dest_tomb  = get_node(e->get_dest())->atomic_is_tomb();
+          if(dest_tomb) e->set_tomb();
+          else num_orig++;
+        }
       }
 
       //Check if we can put all edges in place
@@ -332,6 +335,27 @@ public:
 
     this->num_nodes.unlock();
 
+    return ret;
+  }
+
+  //returns the start
+  uint64_t ingestNodes(uint64_t n, uint64_t& end)
+  {
+    if(n == 0) return UINT64_MAX;
+    this->num_nodes.lock();
+
+    auto ret = this->num_nodes.get_value();
+    this->num_nodes.set_value(ret + n);
+    for(auto r = ret; r < ret + n; r++)
+    {
+      auto nr = get_node(r);
+      nr->start.set_value(0);
+      nr->stop = 0;
+    }
+
+    this->num_nodes.unlock();
+
+    end = ret + n;
     return ret;
   }
 
