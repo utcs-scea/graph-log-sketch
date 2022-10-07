@@ -4,8 +4,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include <sched.h>
 
-constexpr uint64_t BENCH_NUM = 100000;
-constexpr uint64_t WARM_UP_COOL_DOWN = 100;
+constexpr uint64_t BENCH_NUM = 300;
+constexpr uint64_t WARM_UP_COOL_DOWN = 30;
 
 template<typename B>
 void benchmark(pa count, const char* str, int cpu, B bench)

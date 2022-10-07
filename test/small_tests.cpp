@@ -45,7 +45,6 @@ TEST_CASE("Adding Nodes and Edges Test", "[graph]")
     });
   }
 
-
   SECTION( "Add 100 Nodes One at a Time" )
   {
     for(uint32_t i = 0 ; i < 100; i++)
@@ -154,6 +153,18 @@ TEST_CASE("Adding Nodes and Edges Test", "[graph]")
     REQUIRE( g->get_edge(0) != nullptr );
     REQUIRE( g->get_edge(0)->get_dest() == 1 );
     REQUIRE( g->get_edge(0)->is_tomb() == false );
+    benchmark(c, "Add One Normal Edge", 5, [](pa c)
+    {
+      Graph* p = new Graph();
+      p->ingestNode();
+      p->ingestNode();
+      uint64_t d[1] = {1};
+      reset_counters(c);
+      start_counters(c);
+      p->ingestEdges(1, 0, d);
+      stop_counters(c);
+      delete p;
+    });
   }
 
   SECTION( "Add the same Edge Twice" )
@@ -175,7 +186,20 @@ TEST_CASE("Adding Nodes and Edges Test", "[graph]")
     REQUIRE( g->get_edge(0)->is_tomb() == false );
     REQUIRE( g->get_edge(0)->get_dest() == 1 );
     if(g->get_edge(1)) REQUIRE( g->get_edge(1)->is_tomb() == true );
-  }
 
+    benchmark(c, "Add Single Duplicate Edge", 6, [](pa c)
+    {
+      Graph* p = new Graph();
+      p->ingestNode();
+      p->ingestNode();
+      uint64_t d[1] = {1};
+      p->ingestEdges(1, 0, d);
+      reset_counters(c);
+      start_counters(c);
+      p->ingestEdges(1, 0, d);
+      stop_counters(c);
+      delete p;
+    });
+  }
   delete g;
 }
