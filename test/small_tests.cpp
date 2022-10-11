@@ -177,8 +177,8 @@ TEST_CASE("Adding Nodes and Edges Test", "[graph]")
     uint64_t d[1] = {1};
     g->ingestEdges(1, 0, d);
     /* ingestEdges should not have duplicates in any one invocation */
-    uint64_t c[1] = {1};
-    g->ingestEdges(1, 0, c);
+    uint64_t e[1] = {1};
+    g->ingestEdges(1, 0, e);
 
     REQUIRE( g->get_node(0)->start.get_value() == 0 );
     REQUIRE( g->get_node(0)->stop >= 1 );
@@ -187,16 +187,34 @@ TEST_CASE("Adding Nodes and Edges Test", "[graph]")
     REQUIRE( g->get_edge(0)->get_dest() == 1 );
     if(g->get_edge(1)) REQUIRE( g->get_edge(1)->is_tomb() == true );
 
-    benchmark(c, "Add Single Duplicate Edge", 6, [](pa c)
+    benchmark(c, "Add Same Edge", 6, [](pa c)
     {
       Graph* p = new Graph();
       p->ingestNode();
       p->ingestNode();
       uint64_t d[1] = {1};
       p->ingestEdges(1, 0, d);
+      uint64_t e[1] = {1};
       reset_counters(c);
       start_counters(c);
-      p->ingestEdges(1, 0, d);
+      p->ingestEdges(1, 0, e);
+      stop_counters(c);
+      delete p;
+    });
+  }
+
+  SECTION( "Ingest a full Graph from an Edge List" )
+  {
+    g->ingestSubGraphFromELFile("/var/local/adityat/graph_samples_subet/citeseer.el");
+
+    REQUIRE( g->get_num_nodes() == 3327 );
+    REQUIRE( g->get_edge_end() == 4676 );
+    benchmark(c, "Ingest a CiteSeer Graph", 7, [](pa c)
+    {
+      Graph* p = new Graph();
+      reset_counters(c);
+      start_counters(c);
+      p->ingestSubGraphFromELFile("/var/local/adityat/graph_samples_subet/citeseer.el");
       stop_counters(c);
       delete p;
     });

@@ -33,6 +33,7 @@ void reset_counters(pa pa0);
 void start_counters(pa pa0);
 void stop_counters(pa pa0);
 void print_counters(pa pa0, const char* str);
+uint32_t num_counters();
 
 static char buf[4096];
 
@@ -139,5 +140,11 @@ void print_counters(pa pa0)
   for(uint32_t i = 0; i < rf0->nr; i++)
     fprintf(stderr, "%" PRIu64 "\t%s\n", vals[i], raw_strings[i]);
 }
+
+uint32_t num_counters()
+{
+  return 1 + (sizeof(fix_counters)/sizeof(fix_counters[0])) + (sizeof(raw_counters)/sizeof(raw_counters[0]));
+}
+
 
 #endif

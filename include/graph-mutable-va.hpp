@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdint>
 #include <stdlib.h>
+#include <fstream>
 using namespace std;
 
 enum VertexState : uint16_t
@@ -397,6 +398,52 @@ public:
     }
 
     n->unlock();
+  }
+
+  //Lifted from the galois source code
+  /*
+  Graph readGraphFromGRFile(const std::string& filename)
+  {
+    std::ifstream graphFile(filename.c_str());
+    if (!graphFile.is_open()) {
+      exit(-2);
+    }
+    uint64_t header[4];
+    graphFile.read(reinterpret_cast<char*>(header), sizeof(uint64_t) * 4);
+    uint64_t version = header[0];
+    numNodes         = header[2];
+    numEdges         = header[3];
+    if(version != 1 || version != 2) exit(-3);
+    uint64_t end;
+    //Could use a bumper on this:
+    ingestNodes(numNodes, *&end);
+  }
+  */
+
+  void ingestSubGraphFromELFile(const std::string& filename)
+  {
+    std::ifstream graphFile(filename.c_str());
+    if (!graphFile.is_open()) {
+      exit(-2);
+    }
+    uint64_t numNodes;
+    uint64_t useless;
+    graphFile >> numNodes;
+    graphFile >> useless;
+    uint64_t end;
+    uint64_t start = this->ingestNodes(numNodes, *&end);
+    uint64_t dest;
+    uint64_t src;
+    //Using a subgraph
+    while(!graphFile.eof())
+    {
+      graphFile >> src;
+      src += start;
+      graphFile >> dest;
+      dest += start;
+      this->ingestEdges(1, src, &dest);
+    }
+    graphFile.close();
   }
 
 };
