@@ -160,76 +160,79 @@ public:
 private:
 
   void edge_placement(uint64_t start, uint64_t stop, uint64_t num_orig,
-                      uint64_t num_new, uint64_t* dst,
+                      uint64_t num_new, uint64_t* dest,
                       uint64_t place_start, uint64_t place_stop)
   {
     //This is a special case of sorting so we will do it in here
     //If you must swap places with the head of the buffer
-    uint64_t place_curr         = place_start;
+    uint64_t  place_curr      = place_start;
     //Iterators for original and new
-    uint64_t read_orig_curr     = start;
-    uint64_t dst_curr           = 0;
+    uint64_t  orig_curr       = start;
+    uint64_t  dest_curr       = 0;
     //Iterators for swapped values
-    uint64_t dst_swapped_start  = 0;
-    uint64_t dst_swapped_stop   = 0;
-    //Example:
-    //dest : 0 1 2 | 3 1 2 | 3 4 2
-    //start: 3 4 T | 0 4 T | 0 1 T
+    uint64_t* swap_arr        = nullptr;
+    uint64_t  swap_start      = 0;
+    uint64_t  swap_stop       = 0;
+
+
 
     uint64_t edges_left = num_orig + num_new;
     //deal with duplicates properly
     while(edges_left)
     {
-      assert(dst_swapped_stop <= dst_curr);
+      assert(swap_stop >= swap_start);
+      while(orig_curr < stop && get_edge(orig_curr)->is_tomb()) orig_curr++;
 
-      while(read_orig_curr < stop && get_edge(read_orig_curr)->is_tomb()) read_orig_curr++;
+      uint64_t orig_curr_dest = (orig_curr < stop) ? get_edge(orig_curr)->get_dest() : UINT64_MAX;
+      uint64_t dest_curr_dest = (dest_curr < num_new) ? dest[dest_curr] : UINT64_MAX;
+      uint64_t swap_curr_dest = (swap_stop - swap_start) ? swap_arr[swap_start] : UINT64_MAX;
+      assert((swap_stop - swap_start) ? swap_curr_dest < orig_curr_dest : true);
 
-      //Check if the original values swapped into the dst array
-      uint64_t* orig_curr_ref = &read_orig_curr;
-      uint64_t orig_curr_edge_dst = UINT64_MAX;
-      //Choose where the original edge comes from
-      if (dst_swapped_stop - dst_swapped_start)
+      //Check if we should swap
+      if(orig_curr < stop && place_curr == orig_curr
+          && (orig_curr_dest > dest_curr_dest || orig_curr_dest > swap_curr_dest))
       {
-        orig_curr_edge_dst = dst[dst_swapped_start];
-        orig_curr_ref      = &dst_swapped_start;
-      }
-      else if(read_orig_curr < stop)
-      {
-        orig_curr_edge_dst = get_edge(read_orig_curr)->get_dest();
+        if(!swap_arr) swap_arr = (uint64_t*) malloc(sizeof(uint64_t) * num_orig);
+        swap_arr[swap_stop] = orig_curr_dest;
+        orig_curr++;
+        swap_stop++;
       }
 
-      uint64_t dst_curr_edge_dst  = (dst_curr < num_new) ? dst[dst_curr] : UINT64_MAX;
+      //Now place data
 
-      //One of the above two must be valid otherwise we shouldn't be in this loop anymore
-      if(orig_curr_edge_dst < dst_curr_edge_dst)
+      if(swap_curr_dest < dest_curr_dest)
       {
-        get_edge(place_curr)->set_dest(orig_curr_edge_dst);
-        (*orig_curr_ref)++;
+        get_edge(place_curr)->set_dest(swap_curr_dest);
+        swap_start++;
       }
-      else if(orig_curr_edge_dst > dst_curr_edge_dst)
+      //This takes care of the equal case of dest_curr_dest == swap_curr_dest
+      else if(dest_curr_dest < orig_curr_dest)
       {
-        //swap_case
-        if(read_orig_curr < stop && place_curr == read_orig_curr)
-        {
-          dst[dst_swapped_stop] = get_edge(read_orig_curr)->get_dest();
-          dst_swapped_stop++;
-          read_orig_curr++;
-        }
-        get_edge(place_curr)->set_dest(dst_curr_edge_dst);
-        dst_curr ++;
+        get_edge(place_curr)->set_dest(dest_curr_dest);
+        dest_curr++;
+        if(dest_curr_dest == swap_curr_dest) {swap_start++; edges_left--;}
       }
-      //If they are equal then increment both counters
+      else if(orig_curr_dest < dest_curr_dest)
+      {
+        get_edge(place_curr)->set_dest(orig_curr_dest);
+        orig_curr++;
+      }
+      //orig_curr_dest == dest_curr_dest
       else
       {
-        get_edge(place_curr)->set_dest(orig_curr_edge_dst);
-        (*orig_curr_ref)++;
-        dst_curr ++;
+        assert(orig_curr_dest == dest_curr_dest);
+        get_edge(place_curr)->set_dest(orig_curr_dest);
+        orig_curr++;
+        dest_curr++;
         edges_left--;
       }
+
       get_edge(place_curr)->unset_tomb();
       place_curr++;
       edges_left--;
     }
+
+    if(swap_arr) free(swap_arr);
 
     while(place_curr < place_stop)
     {

@@ -11,5 +11,3 @@ cmake ../
 make -j4
 ```
 The small-test binary has an extensive help menu to aid identifying failing cases.
-
-Additionally, there is a bug upon in-place insertion.
