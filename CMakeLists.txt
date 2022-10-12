@@ -3,7 +3,15 @@ project(graph-log-sketch)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 20)
 include_directories(include)
-find_package(Catch2 3 REQUIRED)
+Include(FetchContent)
+
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG        v3.1.0 # or a later release
+)
+
+FetchContent_MakeAvailable(Catch2)
 
 add_executable(small-tests test/small_tests.cpp)
 target_link_libraries(small-tests PRIVATE Catch2::Catch2WithMain)

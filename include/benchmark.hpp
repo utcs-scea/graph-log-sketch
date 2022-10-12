@@ -7,11 +7,17 @@
 
 constexpr uint64_t BENCH_NUM = 300;
 constexpr uint64_t WARM_UP_COOL_DOWN = 30;
+constexpr const char* statsFileName = "stats.txt";
 
 template<typename B>
 void benchmark(pa count, const char* str, int cpu, B bench)
 {
-
+  std::ofstream stats(statsFileName, std::ofstream::app);
+  if (!stats.is_open())
+  {
+    std::cerr << "FAILURE TO OPEN FILE" << statsFileName << std::endl;
+    exit(-5);
+  }
   cpu_set_t old_set;
   cpu_set_t new_set;
 
@@ -22,12 +28,14 @@ void benchmark(pa count, const char* str, int cpu, B bench)
   int ret = sched_setaffinity(0, sizeof(cpu_set_t), &new_set);
   if(ret != 0) exit(-10);
 
-  fprintf(stderr, "%s\t%" PRIu32 "\t%" PRIu64 "\n", str, num_counters(), BENCH_NUM);
+ // fprintf(stderr, "%s\t%" PRIu32 "\t%" PRIu64 "\n", str, num_counters(), BENCH_NUM);
+  stats << str << "\t" << num_counters() << "\t" << BENCH_NUM << std::endl;
   for(uint64_t i = 0; i < WARM_UP_COOL_DOWN *2 + BENCH_NUM; i++)
   {
     bench(count);
+
     if(WARM_UP_COOL_DOWN <= i && WARM_UP_COOL_DOWN + BENCH_NUM > i)
-      print_counters(count);
+      print_counters(count, stats);
   }
 
   sched_setaffinity(0, sizeof(cpu_set_t), &old_set);

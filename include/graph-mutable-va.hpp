@@ -435,11 +435,9 @@ public:
     uint64_t dest;
     uint64_t src;
     //Using a subgraph
-    while(!graphFile.eof())
+    while(graphFile >> src && graphFile >> dest)
     {
-      graphFile >> src;
       src += start;
-      graphFile >> dest;
       dest += start;
       this->ingestEdges(1, src, &dest);
     }

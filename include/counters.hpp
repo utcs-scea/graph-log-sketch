@@ -32,7 +32,7 @@ pa create_counters();
 void reset_counters(pa pa0);
 void start_counters(pa pa0);
 void stop_counters(pa pa0);
-void print_counters(pa pa0, const char* str);
+void print_counters(pa pa0, std::ofstream& ofs);
 uint32_t num_counters();
 
 static char buf[4096];
@@ -42,7 +42,7 @@ static uint64_t raw_counters[] = {0x00148,0x02124,
                                   PERF_COUNT_HW_CACHE_RESULT_ACCESS<<16|PERF_COUNT_HW_CACHE_OP_READ<<8|PERF_COUNT_HW_CACHE_L1D};
 
 static uint64_t fix_counters[] = {PERF_COUNT_HW_INSTRUCTIONS, PERF_COUNT_HW_REF_CPU_CYCLES};
-static char* raw_strings[] = {"cycles", "instructions", "ref-cycles",
+static const char* raw_strings[] = {"cycles", "instructions", "ref-cycles",
   "l2_rqsts.demand_data_rd_miss", "l2_rqsts.demand_data_rd_hit",
   "L1-dcache-load-misses", "L1-dcache-loads"};
 
@@ -120,7 +120,7 @@ void stop_counters(pa pa0)
   if (fd < 0) exit(-12);
 }
 
-void print_counters(pa pa0)
+void print_counters(pa pa0, std::ofstream& ofs)
 {
   uint64_t* vals = (uint64_t*) malloc(sizeof(raw_counters) + sizeof(uint64_t) + sizeof(fix_counters));
   rf* rf0 = (rf*) buf;
@@ -138,7 +138,7 @@ void print_counters(pa pa0)
     }
   }
   for(uint32_t i = 0; i < rf0->nr; i++)
-    fprintf(stderr, "%" PRIu64 "\t%s\n", vals[i], raw_strings[i]);
+    ofs << vals[i] << "\t" << raw_strings[i] << std::endl;
 }
 
 uint32_t num_counters()
