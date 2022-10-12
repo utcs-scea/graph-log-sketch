@@ -37,24 +37,37 @@ uint32_t num_counters();
 
 static char buf[4096];
 
-static uint64_t raw_counters[] = {0x00148,0x02124,
-                                  0x10000,
-                                  PERF_COUNT_HW_CACHE_RESULT_ACCESS<<16|PERF_COUNT_HW_CACHE_OP_READ<<8|PERF_COUNT_HW_CACHE_L1D};
+struct counter
+{
+  uint32_t type;
+  uint64_t config;
+  const char raw_string[7];
+};
 
-static uint64_t fix_counters[] = {PERF_COUNT_HW_INSTRUCTIONS, PERF_COUNT_HW_REF_CPU_CYCLES};
-static const char* raw_strings[] = {"cycles", "instructions", "ref-cycles",
-  "l2_rqsts.demand_data_rd_miss", "l2_rqsts.demand_data_rd_hit",
-  "L1-dcache-load-misses", "L1-dcache-loads"};
+#define PCHCRM PERF_COUNT_HW_CACHE_RESULT_MISS
+#define PCHCRA PERF_COUNT_HW_CACHE_RESULT_ACCESS
+#define PCHCOR PERF_COUNT_HW_CACHE_OP_READ
+#define PCHW1D PERF_COUNT_HW_CACHE_L1D
+
+static constexpr counter counts[] =
+{ { .type = PERF_TYPE_HARDWARE, .config = PERF_COUNT_HW_CPU_CYCLES    , .raw_string = "cycles"},
+  { .type = PERF_TYPE_HARDWARE, .config = PERF_COUNT_HW_INSTRUCTIONS  , .raw_string = "instru"},
+  { .type = PERF_TYPE_HARDWARE, .config = PERF_COUNT_HW_REF_CPU_CYCLES, .raw_string = "ref_cy"},
+  { .type = PERF_TYPE_RAW     , .config = 0x00148                     , .raw_string = "l2rd_m"},
+  { .type = PERF_TYPE_RAW     , .config = 0x02124                     , .raw_string = "l2rd_h"},
+  { .type = PERF_TYPE_HW_CACHE, .config = PCHCRM<<16|PCHCOR<<8|PCHW1D , .raw_string = "l1_dlm"},
+  { .type = PERF_TYPE_HW_CACHE, .config = PCHCRA<<16|PCHCOR<<8|PCHW1D , .raw_string = "l1_dla"},
+};
 
 pa create_counters()
 {
-  uint64_t* ids = (uint64_t*) malloc(sizeof(raw_counters) + sizeof(uint64_t)*3);
+  uint64_t* ids = (uint64_t*) malloc(sizeof(counts)/sizeof(counts[0])* sizeof(uint64_t));
   struct perf_event_attr pea;
   uint32_t size = sizeof(struct perf_event_attr);
   memset(&pea, 0, size);
-  pea.type = PERF_TYPE_HARDWARE;
+  pea.type = counts[0].type;
   pea.size = size;
-  pea.config = PERF_COUNT_HW_CPU_CYCLES;
+  pea.config = counts[0].config;
   pea.disabled = 1;
   pea.inherit = 1;
   pea.exclude_kernel = 0;
@@ -64,12 +77,12 @@ pa create_counters()
   if(fd0 < 0) exit(-1);
   int fd = ioctl(fd0, PERF_EVENT_IOC_ID, &ids[0]);
   if(fd  < 0) exit(-2);
-  for(uint32_t i = 0; i < sizeof(fix_counters)/sizeof(fix_counters[0]); i++)
+  for(uint32_t i = 1; i < sizeof(counts)/sizeof(counts[0]); i++)
   {
     memset(&pea, 0, size);
-    pea.type = PERF_TYPE_HARDWARE;
+    pea.type = counts[i].type;
     pea.size = size;
-    pea.config = fix_counters[i];
+    pea.config = counts[i].config;
     pea.disabled = 1;
     pea.inherit = 1;
     pea.exclude_kernel = 0;
@@ -77,23 +90,7 @@ pa create_counters()
     pea.read_format = PERF_FORMAT_GROUP | PERF_FORMAT_ID;
     fd = syscall(__NR_perf_event_open, &pea, 0, -1, fd0, 0);
     if(fd < 0) exit(-1);
-    fd = ioctl(fd, PERF_EVENT_IOC_ID, &ids[i + 1]);
-    if(fd < 0) exit(-2);
-  }
-  for(uint32_t i = 0; i < sizeof(raw_counters)/sizeof(raw_counters[0]); i++)
-  {
-    memset(&pea, 0, size);
-    pea.type = PERF_TYPE_RAW;
-    pea.size = size;
-    pea.config = raw_counters[i];
-    pea.disabled = 1;
-    pea.inherit = 1;
-    pea.exclude_kernel = 0;
-    pea.exclude_hv = 1;
-    pea.read_format = PERF_FORMAT_GROUP | PERF_FORMAT_ID;
-    fd = syscall(__NR_perf_event_open, &pea, 0, -1, fd0, 0);
-    if(fd < 0) exit(-1);
-    fd = ioctl(fd, PERF_EVENT_IOC_ID, &ids[i + 1 + sizeof(fix_counters)/sizeof(fix_counters[0])]);
+    fd = ioctl(fd, PERF_EVENT_IOC_ID, &ids[i]);
     if(fd < 0) exit(-2);
   }
   pa p;
@@ -122,13 +119,13 @@ void stop_counters(pa pa0)
 
 void print_counters(pa pa0, std::ofstream& ofs)
 {
-  uint64_t* vals = (uint64_t*) malloc(sizeof(raw_counters) + sizeof(uint64_t) + sizeof(fix_counters));
+  uint64_t* vals = (uint64_t*) malloc(sizeof(counts)/sizeof(counts[0]) * sizeof(uint64_t));
   rf* rf0 = (rf*) buf;
   int i = read(pa0.fd0, buf, sizeof(buf));
   if (i < 0) exit(-3);
   for(uint32_t i = 0; i < rf0->nr; i++)
   {
-    for(uint32_t j = 0; j < sizeof(raw_counters)/sizeof(raw_counters[0]) + 1 + sizeof(fix_counters); j++)
+    for(uint32_t j = 0; j < sizeof(counts)/sizeof(counts[0]); j++)
     {
       if(rf0->values[i].id == pa0.ids[j])
       {
@@ -138,12 +135,13 @@ void print_counters(pa pa0, std::ofstream& ofs)
     }
   }
   for(uint32_t i = 0; i < rf0->nr; i++)
-    ofs << vals[i] << "\t" << raw_strings[i] << std::endl;
+    ofs << vals[i] << "\t" << counts[i].raw_string << std::endl;
+  free(vals);
 }
 
 uint32_t num_counters()
 {
-  return 1 + (sizeof(fix_counters)/sizeof(fix_counters[0])) + (sizeof(raw_counters)/sizeof(raw_counters[0]));
+  return sizeof(counts)/sizeof(counts[0]);
 }
 
 
