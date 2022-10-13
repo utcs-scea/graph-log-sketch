@@ -5,8 +5,8 @@
 #include <sched.h>
 #include <fstream>
 
-constexpr uint64_t BENCH_NUM = 300;
-constexpr uint64_t WARM_UP_COOL_DOWN = 30;
+constexpr uint64_t BENCH_NUM = 30;
+constexpr uint64_t WARM_UP_COOL_DOWN = 5;
 constexpr const char* statsFileName = "stats.txt";
 
 template<typename B>
