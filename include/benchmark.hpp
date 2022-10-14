@@ -9,6 +9,7 @@ constexpr uint64_t BENCH_NUM = 30;
 constexpr uint64_t WARM_UP_COOL_DOWN = 5;
 constexpr const char* statsFileName = "stats.txt";
 
+#ifdef BENCH
 template<typename B>
 void benchmark(pa count, const char* str, int cpu, B bench)
 {
@@ -40,5 +41,9 @@ void benchmark(pa count, const char* str, int cpu, B bench)
 
   sched_setaffinity(0, sizeof(cpu_set_t), &old_set);
 }
+#else
+template<typename B>
+void benchmark(pa count, const char* str, int cpu, B bench) {}
+#endif
 
 #endif

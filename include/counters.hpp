@@ -59,6 +59,7 @@ static constexpr counter counts[] =
   { .type = PERF_TYPE_HW_CACHE, .config = PCHCRA<<16|PCHCOR<<8|PCHW1D , .raw_string = "l1_dla"},
 };
 
+#ifdef BENCH
 pa create_counters()
 {
   uint64_t* ids = (uint64_t*) malloc(sizeof(counts)/sizeof(counts[0])* sizeof(uint64_t));
@@ -143,6 +144,21 @@ uint32_t num_counters()
 {
   return sizeof(counts)/sizeof(counts[0]);
 }
+#else
+pa create_counters()
+{
+  pa p;
+  p.fd0 = -1;
+  p.ids = nullptr;
+  return p;
+}
+
+void reset_counters(pa pa0) {}
+void start_counters(pa pa0) {}
+void stop_counters(pa pa0) {}
+void print_counters(pa pa0, std::ofstream& ofs) {}
+uint32_t num_counters() { return 0; }
+#endif
 
 
 #endif
