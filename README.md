@@ -11,3 +11,10 @@ cmake ../
 make -j4
 ```
 The small-test binary has an extensive help menu to aid identifying failing cases.
+
+## Benchmarking
+If you wish to run benchmarking then add `-DBENCH` to the GCC compiler flags in your `CMakeCache.txt` to
+`CMAKE_CXX_FLAGS_RELEASE`.
+
+
+
