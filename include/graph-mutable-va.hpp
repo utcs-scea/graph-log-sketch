@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <stdlib.h>
 #include <fstream>
+#include <iostream>
+#include <cerrno>
+#include <cstring>
 using namespace std;
 
 enum VertexState : uint16_t
@@ -426,7 +429,13 @@ public:
   void ingestSubGraphFromELFile(const std::string& filename)
   {
     std::ifstream graphFile(filename.c_str());
-    if (!graphFile.is_open()) {
+    if (!graphFile.is_open())
+    {
+      std::cerr << "UNABLE TO open graphFile: " << filename
+                << "\terrno: " << errno
+                << "\terrstr: " << std::strerror(errno)
+                << std::endl;
+
       exit(-2);
     }
     uint64_t numNodes;

@@ -1,9 +1,11 @@
 #ifndef _BENCHMARK_HPP_
 #define _BENCHMARK_HPP_
-#include "counters.hpp"
+#include <counters.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <sched.h>
 #include <fstream>
+#include <cerrno>
+#include <string>
 
 constexpr uint64_t BENCH_NUM = 30;
 constexpr uint64_t WARM_UP_COOL_DOWN = 5;
@@ -27,7 +29,13 @@ void benchmark(pa count, const char* str, int cpu, B bench)
   sched_getaffinity(0, sizeof(cpu_set_t), &old_set);
 
   int ret = sched_setaffinity(0, sizeof(cpu_set_t), &new_set);
-  if(ret != 0) exit(-10);
+  if(ret != 0)
+  {
+    std::cerr << "UNABLE TO PROPERLY SET SCHEDULER AFFINITY ret_code: " << ret
+              << "\terrno: " << errno
+              << "\terrstr: " << std::strerror(errno) << std::endl;
+    exit(-10);
+  }
 
  // fprintf(stderr, "%s\t%" PRIu32 "\t%" PRIu64 "\n", str, num_counters(), BENCH_NUM);
   stats << str << "\t" << num_counters() << "\t" << BENCH_NUM << std::endl;
@@ -39,7 +47,15 @@ void benchmark(pa count, const char* str, int cpu, B bench)
       print_counters(count, stats);
   }
 
-  sched_setaffinity(0, sizeof(cpu_set_t), &old_set);
+  ret = sched_setaffinity(0, sizeof(cpu_set_t), &old_set);
+  if (ret != 0)
+  {
+    std::cerr << "UNABLE TO PROPERLY SET SCHEDULER AFFINITY ret_code: " << ret
+              << "\terrno: " << errno
+              << "\terrstr: " << std::strerror(errno) << std::endl;
+    exit(-11);
+  }
+
 }
 #else
 template<typename B>

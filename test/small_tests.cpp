@@ -4,7 +4,7 @@
 #include <benchmark.hpp>
 #include <read_file_bench.hpp>
 
-TEST_CASE("Adding Nodes and Edges Test", "[graph]")
+TEST_CASE("Adding Nodes and Edges Test", "[updates]")
 {
   Graph* g = new Graph();
 
@@ -202,6 +202,17 @@ TEST_CASE("Adding Nodes and Edges Test", "[graph]")
     });
   }
 
+
+
+  delete g;
+}
+
+TEST_CASE( "Generating Graphs from Files", "[files]")
+{
+  Graph* g = new Graph();
+
+  pa c = create_counters();
+
   SECTION( "Ingest Citeseer Graph from Edge List" )
   {
     check_el_file_and_benchmark(g, c, "../graphs/citeseer.el");
@@ -211,7 +222,6 @@ TEST_CASE("Adding Nodes and Edges Test", "[graph]")
   {
     check_el_file_and_benchmark(g, c, "../graphs/cora.el");
   }
-
 
   delete g;
 }
