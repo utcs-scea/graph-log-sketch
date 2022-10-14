@@ -9,8 +9,33 @@ void check_el_file_and_benchmark(Graph* g, pa c, std::string ELFile)
 {
     std::string cmd = "head -n 1 " + ELFile + " && tail -n +2 " + ELFile + " | sort -t' ' -k1,1n -k2,2n";
     FILE* fpG = popen(cmd.c_str(), "r");
+    std::ifstream graphFile(ELFile.c_str());
+    if (!graphFile.is_open())
+    {
+      std::cerr << "UNABLE TO open graphFile: " << ELFile
+                << "\terrno: " << errno
+                << "\terrstr: " << std::strerror(errno)
+                << std::endl;
 
-    g->ingestSubGraphFromELFile(*&ELFile);
+      exit(-2);
+    }
+    uint64_t numNodes;
+    uint64_t src;
+    uint64_t dest;
+    std::vector<uint64_t> srcs;
+    std::vector<uint64_t> dests;
+
+    graphFile >> numNodes;
+    //Gets rid of useless character
+    graphFile >> src;
+
+    while(graphFile >> src && graphFile >> dest)
+    {
+      srcs.push_back(src);
+      dests.push_back(dest);
+    }
+
+    g->ingestEdgeList(numNodes, srcs, dests);
 
     auto fscanf_help = [fpG] (uint64_t& fst, uint64_t& snd) {
       return fscanf(fpG, "%" PRIu64 " %" PRIu64 "\n", &fst, &snd);
@@ -24,8 +49,6 @@ void check_el_file_and_benchmark(Graph* g, pa c, std::string ELFile)
 
     REQUIRE( g->get_num_nodes() == num_nodes );
 
-    uint64_t dest;
-    uint64_t src;
     uint64_t count = 0;
 
     while(2 == fscanf_help(src, dest))
@@ -47,12 +70,12 @@ void check_el_file_and_benchmark(Graph* g, pa c, std::string ELFile)
     pclose(fpG);
     std::string bench_name = "Sequentially Ingest Graph from " + ELFile;
 
-    benchmark(c, bench_name.c_str(), 7, [ELFile](pa c)
+    benchmark(c, bench_name.c_str(), 7, [&srcs, &dests, numNodes](pa c)
     {
       Graph* p = new Graph();
       reset_counters(c);
       start_counters(c);
-      p->ingestSubGraphFromELFile(*&ELFile);
+      p->ingestEdgeList(numNodes, srcs, dests);
       stop_counters(c);
       delete p;
     });

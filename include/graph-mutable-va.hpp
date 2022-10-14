@@ -7,6 +7,10 @@
 #include <iostream>
 #include <cerrno>
 #include <cstring>
+#include <vector>
+//#include <utility>
+//#include <ranges>
+//#include <concepts>
 using namespace std;
 
 enum VertexState : uint16_t
@@ -406,23 +410,40 @@ public:
     n->unlock();
   }
 
-  //Lifted from the galois source code
-  /*
-  Graph readGraphFromGRFile(const std::string& filename)
+  uint64_t ingestEdgeList(uint64_t num_nodes, const std::vector<uint64_t>& srcs, const std::vector<uint64_t>& dests)
   {
-    std::ifstream graphFile(filename.c_str());
-    if (!graphFile.is_open()) {
-      exit(-2);
-    }
-    uint64_t header[4];
-    graphFile.read(reinterpret_cast<char*>(header), sizeof(uint64_t) * 4);
-    uint64_t version = header[0];
-    numNodes         = header[2];
-    numEdges         = header[3];
-    if(version != 1 || version != 2) exit(-3);
+    assert(srcs.size() == dests.size());
     uint64_t end;
-    //Could use a bumper on this:
-    ingestNodes(numNodes, *&end);
+    uint64_t start = this->ingestNodes(num_nodes, *&end);
+    for(int i = 0; i < srcs.size(); i++)
+    {
+      auto src = srcs.at(i) + start;
+      auto dest = dests.at(i) + start;
+      assert(src < end);
+      assert(dest < end);
+      this->ingestEdges(1, src, &dest);
+    }
+    return start;
+  }
+
+  /* Not supported in g++9
+  template<typename T>
+  requires std::ranges::forward_range<T> && convertible_to<std::ranges::range_value_t<T>, std::pair<uint64_t, uint64_t>>
+  uint64_t ingestEdgeList(uint64_t num_nodes, const T& x)
+  {
+    uint64_t end;
+    uint64_t start = this->ingestNodes(numNodes, *&end);
+    auto it = std::ranges::begin(x);
+    auto end = std::ranges::end(x);
+    for(; it != end; ++it)
+    {
+      std::pair<uint64_t, uint64_t> edge = *it;
+      auto src = edge.fst + start;
+      auto dest= edge.snd + start;
+      assert(src < end);
+      assert(dest < end);
+      this->ingestEdge(1, src, &dest);
+    }
   }
   */
 
