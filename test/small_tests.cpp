@@ -204,12 +204,12 @@ TEST_CASE("Adding Nodes and Edges Test", "[graph]")
 
   SECTION( "Ingest Citeseer Graph from Edge List" )
   {
-    check_el_file_and_benchmark(g, c, "/var/local/adityat/graph_samples_subset/citeseer.el");
+    check_el_file_and_benchmark(g, c, "../graphs/citeseer.el");
   }
 
   SECTION( "Ingest Cora Graph from Edge List" )
   {
-    check_el_file_and_benchmark(g, c, "/var/local/adityat/graph_samples_subset/cora.el");
+    check_el_file_and_benchmark(g, c, "../graphs/cora.el");
   }
 
 

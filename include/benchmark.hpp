@@ -16,7 +16,7 @@ void benchmark(pa count, const char* str, int cpu, B bench)
   std::ofstream stats(statsFileName, std::ofstream::app);
   if (!stats.is_open())
   {
-    std::cerr << "FAILURE TO OPEN FILE" << statsFileName << std::endl;
+    std::cerr << "FAILURE TO OPEN FILE " << statsFileName << std::endl;
     exit(-5);
   }
   cpu_set_t old_set;

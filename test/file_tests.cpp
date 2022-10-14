@@ -11,7 +11,7 @@ TEST_CASE( "Generate Large Graphs" )
 
   SECTION( "Ingest Yelp Graph from Edge List" )
   {
-    check_el_file_and_benchmark(g, c, "/var/local/adityat/graph_samples_subset/yelp.el");
+    check_el_file_and_benchmark(g, c, "../graphs/yelp.el");
   }
 
   delete g;
