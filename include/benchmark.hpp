@@ -62,4 +62,23 @@ template<typename B>
 void benchmark(pa count, const char* str, int cpu, B bench) {}
 #endif
 
+template<typename T, typename S, typename C, typename A, typename B>
+void run_test_and_benchmark(std::string bench_name, pa count, int cpu, S setup, B bench, A asserts, C cleanup)
+{
+  T t = setup();
+  bench(t);
+  asserts(t);
+  cleanup(t);
+  auto b = [&setup, &bench, &cleanup](pa c)
+  {
+    T t = setup();
+    reset_counters(c);
+    start_counters(c);
+    bench(t);
+    stop_counters(c);
+    cleanup(t);
+  };
+  benchmark(count, bench_name.c_str(), cpu, b);
+}
+
 #endif
