@@ -6,7 +6,7 @@
 
 TEST_CASE( "Generate Large Graphs" )
 {
-  Graph* g = new Graph();
+  Graph<>* g = new Graph<>();
   pa c = create_counters();
 
   SECTION( "Ingest Yelp Graph from Edge List" )

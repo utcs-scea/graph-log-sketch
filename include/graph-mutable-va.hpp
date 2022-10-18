@@ -1,5 +1,5 @@
-#ifndef _GRAPH_MUTABLE_VA_H_
-#define _GRAPH_MUTABLE_VA_H_
+#ifndef _GRAPH_MUTABLE_VA_HPP_
+#define _GRAPH_MUTABLE_VA_HPP_
 #include <cassert>
 #include <cstdint>
 #include <stdlib.h>
@@ -8,9 +8,11 @@
 #include <cerrno>
 #include <cstring>
 #include <vector>
+#include <sys/mman.h>
 //#include <utility>
 //#include <ranges>
 //#include <concepts>
+
 using namespace std;
 
 enum VertexState : uint16_t
@@ -79,16 +81,14 @@ struct __attribute__ ((packed))
   bool  atomic_is_tomb() { return __atomic_load_2(this, __ATOMIC_RELAXED) & TOMB; }
 };
 
-// Make it complicated for tombstone checking now
-struct NodeEntry;
-
+template<bool parallel>
 struct EdgeEntry
 {
   PackedVal<uint64_t> dest;
   //false mean that the value is TOMBSTONED
-  bool      lock()        { return dest.lock(); }
+  bool      lock()        { if(parallel) return dest.lock(); else return !dest.is_tomb(); }
 
-  void      unlock()      { dest.unlock(); }
+  void      unlock()      { if(parallel) dest.unlock(); }
 
   uint64_t  get_dest()    { return dest.get_value(); }
 
@@ -97,7 +97,7 @@ struct EdgeEntry
   void      set_tomb()    { dest.set_tomb(); }
 
   bool      is_tomb()     { return dest.is_tomb(); }
-  bool atomic_is_tomb()   { return dest.atomic_is_tomb(); }
+  bool atomic_is_tomb()   { if(parallel) return dest.atomic_is_tomb(); else return dest.is_tomb(); }
 
   void set_dest(uint64_t d)
   {
@@ -106,64 +106,82 @@ struct EdgeEntry
 
 };
 
+template<bool parallel>
 struct NodeEntry
 {
   PackedVal<uint64_t> start;
             uint64_t  stop;
   //false mean that the value is TOMBSTONED
-  bool lock()           { return start.lock(); }
+  bool lock()           { if(parallel) return start.lock(); else return !start.is_tomb(); }
 
-  void unlock()         { start.unlock(); }
+  void unlock()         { if(parallel) start.unlock(); }
 
   bool is_tomb()        { return start.is_tomb(); }
 
-  bool atomic_is_tomb() { return start.atomic_is_tomb(); }
+  bool atomic_is_tomb() { if(parallel) return start.atomic_is_tomb(); else return start.is_tomb(); }
 
 };
 
+template<bool parallel = true, bool ehp = false>
 class Graph
 {
   PackedVal<uint64_t> num_nodes = 0;
   //Cache pad this location
   PackedVal<uint64_t> edge_end = 0;
-  NodeEntry* nodes;
-  EdgeEntry* edges;
+  NodeEntry<parallel>* nodes;
+  EdgeEntry<parallel>* edges;
   uint64_t          no_overflow_average(uint64_t n, uint64_t m) const { return (n / 2) + (m / 2) + (((n % 2) + (m % 2)) / 2);}
 
   //TODO deal with memory allocation
 public:
-  Graph(): num_nodes(0), edge_end(0), nodes((NodeEntry*)malloc(1<<29)), edges((EdgeEntry*)malloc(1<<29)) {}
-  ~Graph(){ free(nodes); free(edges);}
+  Graph():  num_nodes(0), edge_end(0),
+    nodes((NodeEntry<parallel>*) (ehp ? mmap(NULL, 1<<30, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT), -1, 0): malloc(1<<30))),
+    edges((EdgeEntry<parallel>*) (ehp ? mmap(NULL, 1<<30, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT), -1, 0): malloc(1<<30)))
+  {
+    assert(nodes != MAP_FAILED);
+    assert(edges != MAP_FAILED);
+  }
+  ~Graph()
+  {
+    if(ehp) { munmap(nodes, 1<<30); munmap(edges, 1<<30); }
+    else    { free(nodes); free(edges); }
+  }
 
-  inline EdgeEntry* get_edge(uint64_t e)
+  inline EdgeEntry<parallel>* get_edge(uint64_t e)
   {
     if(edge_end.get_value() > e) return edges + e;
-    edge_end.lock();
-    auto ee = edge_end.get_value();
-    edge_end.unlock();
-    if(ee > e)
+    if(parallel)
     {
-      return edges + e;
+      edge_end.lock();
+      auto ee = edge_end.get_value();
+      edge_end.unlock();
+      if(ee > e)
+      {
+        return edges + e;
+      }
     }
     return nullptr;
   }
 
-  inline NodeEntry* get_node(uint64_t n)
+  inline NodeEntry<parallel>* get_node(uint64_t n)
   {
     if(num_nodes.get_value() > n) return nodes + n;
-    num_nodes.lock();
-    auto nn = num_nodes.get_value();
-    num_nodes.unlock();
-    if(nn > n)
+    if(parallel)
     {
-      return nodes + n;
+      num_nodes.lock();
+      auto nn = num_nodes.get_value();
+      num_nodes.unlock();
+      if(nn > n)
+      {
+        return nodes + n;
+      }
     }
     return nullptr;
   }
 
   //THESE ARE NOT THREAD SAFE, IF YOU WANT THEM TO BE SAFE TODO
   inline uint64_t   get_num_nodes() {return num_nodes.get_value();}
-  inline uint64_t   get_edge_end() {return edge_end  .get_value();}
+  inline uint64_t   get_edge_end()  {return edge_end .get_value();}
 private:
 
   void edge_placement(uint64_t start, uint64_t stop, uint64_t num_orig,
@@ -251,11 +269,11 @@ private:
 
   //Key observation is tombstoned values are still sorted
   //Returns a LOCKED EdgeEntry
-  EdgeEntry* binarySearchAcquire(uint64_t find, uint64_t start, uint64_t stop, EdgeEntry* e_list)
+  EdgeEntry<parallel>* binarySearchAcquire(uint64_t find, uint64_t start, uint64_t stop, EdgeEntry<parallel>* e_list)
   {
     if(start == stop) return nullptr;
     uint64_t curr = no_overflow_average(start, stop);
-    EdgeEntry* e = &e_list[curr];
+    auto e = &e_list[curr];
     e->lock();
     auto ev = e->get_dest();
     if(find == ev)
@@ -277,7 +295,6 @@ public:
   // Add assertions for duplicate edges
   // Change values from pointers to offsets.
   // Assume dst contains no repeats and is sorted.
-  // TODO implement readFile
   // reformulate graph
   void ingestEdges(uint64_t num_new_edges, uint64_t src, uint64_t* dst)
   {
@@ -312,13 +329,13 @@ public:
       }
       else
       {
-        this->edge_end.lock();
+        if(parallel) this->edge_end.lock();
         //Check if you you are at the end.
         uint64_t new_start = (stop == this->edge_end.get_value()) ? start : this->edge_end.get_value();
         uint64_t new_stop  = new_start + num_orig + num_new_edges;
 
         this->edge_end.set_value(new_stop);
-        this->edge_end.unlock();
+        if(parallel) this->edge_end.unlock();
 
         edge_placement(start, stop, num_orig, num_new_edges, dst, new_start, new_stop);
 
@@ -336,7 +353,7 @@ public:
 
   uint64_t ingestNode()
   {
-    this->num_nodes.lock();
+    if(parallel) this->num_nodes.lock();
 
     auto ret = this->num_nodes.get_value();
     this->num_nodes.set_value(ret + 1);
@@ -344,7 +361,7 @@ public:
     nr->start.set_value(0);
     nr->stop = 0;
 
-    this->num_nodes.unlock();
+    if(parallel) this->num_nodes.unlock();
 
     return ret;
   }
@@ -353,7 +370,7 @@ public:
   uint64_t ingestNodes(uint64_t n, uint64_t& end)
   {
     if(n == 0) return UINT64_MAX;
-    this->num_nodes.lock();
+    if(parallel) this->num_nodes.lock();
 
     auto ret = this->num_nodes.get_value();
     this->num_nodes.set_value(ret + n);
@@ -364,7 +381,7 @@ public:
       nr->stop = 0;
     }
 
-    this->num_nodes.unlock();
+    if(parallel) this->num_nodes.unlock();
 
     end = ret + n;
     return ret;
@@ -394,13 +411,13 @@ public:
 
   void deleteEdge(uint64_t src, uint64_t dest)
   {
-    NodeEntry* n = get_node(src);
+    auto n = get_node(src);
     n->lock();
 
     uint64_t start = n->start.get_value();
     uint64_t stop  = n->stop;
 
-    EdgeEntry* e = binarySearchAcquire(dest, start, stop, edges);
+    auto e = binarySearchAcquire(dest, start, stop, edges);
     if(e)
     {
       e->set_tomb();

@@ -5,7 +5,8 @@
 #include <iostream>
 #include <benchmark.hpp>
 
-void check_el_file_and_benchmark(Graph* g, pa c, std::string ELFile)
+template<bool par>
+void check_el_file_and_benchmark(Graph<par>* g, pa c, std::string ELFile)
 {
     std::string cmd = "head -n 1 " + ELFile + " && tail -n +2 " + ELFile + " | sort -t' ' -k1,1n -k2,2n";
     FILE* fpG = popen(cmd.c_str(), "r");
@@ -72,7 +73,7 @@ void check_el_file_and_benchmark(Graph* g, pa c, std::string ELFile)
 
     benchmark(c, bench_name.c_str(), 7, [&srcs, &dests, numNodes](pa c)
     {
-      Graph* p = new Graph();
+      Graph<par>* p = new Graph<par>();
       reset_counters(c);
       start_counters(c);
       p->ingestEdgeList(numNodes, srcs, dests);

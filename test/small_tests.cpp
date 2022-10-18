@@ -6,7 +6,7 @@
 
 TEST_CASE("Adding Nodes and Edges Test", "[updates]")
 {
-  Graph* g = new Graph();
+  Graph<>* g = new Graph<>();
 
   REQUIRE( g != nullptr);
   REQUIRE( g->get_num_nodes() == 0 );
@@ -34,7 +34,7 @@ TEST_CASE("Adding Nodes and Edges Test", "[updates]")
 
     benchmark(c, "Add One Node", 1, [](pa c)
     {
-      Graph* p = new Graph();
+      Graph<>* p = new Graph<>();
       reset_counters(c);
       start_counters(c);
       auto n = p->ingestNode();
@@ -65,7 +65,7 @@ TEST_CASE("Adding Nodes and Edges Test", "[updates]")
 
     benchmark(c, "Add 100 Nodes One at a Time", 2,[](pa c)
     {
-      Graph* p = new Graph();
+      Graph<>* p = new Graph<>();
       reset_counters(c);
       start_counters(c);
       for(int i = 0; i < 100; i++) p->ingestNode();
@@ -93,7 +93,7 @@ TEST_CASE("Adding Nodes and Edges Test", "[updates]")
 
     benchmark(c, "Bulk Add 100 Nodes", 3, [](pa c)
     {
-      Graph* p = new Graph();
+      Graph<>* p = new Graph<>();
       uint64_t e;
       reset_counters(c);
       start_counters(c);
@@ -127,7 +127,7 @@ TEST_CASE("Adding Nodes and Edges Test", "[updates]")
 
     benchmark(c, "Add One Self Edge", 4, [](pa c)
     {
-      Graph* p = new Graph();
+      Graph<>* p = new Graph<>();
       p->ingestNode();
       uint64_t d[1] = {0};
       reset_counters(c);
@@ -154,7 +154,7 @@ TEST_CASE("Adding Nodes and Edges Test", "[updates]")
     REQUIRE( g->get_edge(0)->is_tomb() == false );
     benchmark(c, "Add One Normal Edge", 5, [](pa c)
     {
-      Graph* p = new Graph();
+      Graph<>* p = new Graph<>();
       p->ingestNode();
       p->ingestNode();
       uint64_t d[1] = {1};
@@ -188,7 +188,7 @@ TEST_CASE("Adding Nodes and Edges Test", "[updates]")
 
     benchmark(c, "Add Same Edge", 6, [](pa c)
     {
-      Graph* p = new Graph();
+      Graph<>* p = new Graph<>();
       p->ingestNode();
       p->ingestNode();
       uint64_t d[1] = {1};
@@ -209,7 +209,7 @@ TEST_CASE("Adding Nodes and Edges Test", "[updates]")
 
 TEST_CASE( "Generating Graphs from Files", "[files]")
 {
-  Graph* g = new Graph();
+  Graph<>* g = new Graph<>();
 
   pa c = create_counters();
 
