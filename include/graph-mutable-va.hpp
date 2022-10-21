@@ -443,6 +443,21 @@ public:
     return start;
   }
 
+  uint64_t ingestEdgeList(uint64_t num_nodes, const std::vector<std::pair<uint64_t, uint64_t>>& edges)
+  {
+    uint64_t end;
+    uint64_t start = this->ingestNodes(num_nodes, *&end);
+    for(const auto& [s,d]  : edges)
+    {
+      auto src  = s + start;
+      auto dest = d + start;
+      assert(src  < end);
+      assert(dest < end);
+      this->ingestEdges(1, src, &dest);
+    }
+    return start;
+  }
+
   /* Not supported in g++9
   template<typename T>
   requires std::ranges::forward_range<T> && convertible_to<std::ranges::range_value_t<T>, std::pair<uint64_t, uint64_t>>
