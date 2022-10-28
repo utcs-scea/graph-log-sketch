@@ -28,6 +28,11 @@ def graph(gtitle, xlabel, ylabel, inputf, ouputf, groups, horizon):
     yaxis.append([])
     eaxis.append([])
 
+  """
+    Input Style:
+    group0  group1
+    h0      h1      xlabel  e0  e1
+  """
   group_label = []
   for line in inputf.readlines():
     broken_line = re.split(r'\s+', line.rstrip())

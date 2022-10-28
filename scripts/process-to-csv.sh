@@ -16,5 +16,5 @@ do
     echo $j
     cat $1 | head -n $(( i * ( $BENCH_COUNT * $COUNTERS + 1 ) )) | tail -n $(( $BENCH_COUNT * $COUNTERS + 1 )) \
       | awk -v search="$j" '$2 == search {print $1}' |stats-exe | paste -d"," - - -
-  done | paste -d"," - - | awk -F, -v OFS="," '{print $2, $1, $3}'
+  done | paste -d"," - -
 done
