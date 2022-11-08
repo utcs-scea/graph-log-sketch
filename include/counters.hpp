@@ -12,6 +12,7 @@
 #include <asm/unistd.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <fstream>
 
 typedef struct read_format
 {

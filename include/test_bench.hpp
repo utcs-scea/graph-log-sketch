@@ -92,4 +92,5 @@ void check_el_file_and_benchmark(pa c, std::string ELFile)
     runner("Sequentially Ingest Graph from " + ELFile, f);
 
 }
+
 #endif

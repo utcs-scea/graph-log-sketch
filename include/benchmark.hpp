@@ -6,6 +6,8 @@
 #include <fstream>
 #include <cerrno>
 #include <string>
+#include <system_error>
+#include <iostream>
 
 constexpr uint64_t BENCH_NUM = 30;
 constexpr uint64_t WARM_UP_COOL_DOWN = 5;
@@ -33,7 +35,7 @@ void benchmark(pa count, const char* str, int cpu, B bench)
   {
     std::cerr << "UNABLE TO PROPERLY SET SCHEDULER AFFINITY ret_code: " << ret
               << "\terrno: " << errno
-              << "\terrstr: " << std::strerror(errno) << std::endl;
+              << "\terrstr: " << strerror(errno) << std::endl;
     exit(-10);
   }
 
@@ -52,7 +54,7 @@ void benchmark(pa count, const char* str, int cpu, B bench)
   {
     std::cerr << "UNABLE TO PROPERLY SET SCHEDULER AFFINITY ret_code: " << ret
               << "\terrno: " << errno
-              << "\terrstr: " << std::strerror(errno) << std::endl;
+              << "\terrstr: " << strerror(errno) << std::endl;
     exit(-11);
   }
 
@@ -79,6 +81,39 @@ void run_test_and_benchmark(std::string bench_name, pa count, int cpu, S setup, 
     cleanup(t);
   };
   benchmark(count, bench_name.c_str(), cpu, b);
+}
+
+std::vector<uint64_t>* el_file_to_edge_list(const std::string& ELFile, uint64_t& num_nodes, uint64_t& num_edges)
+{
+  std::ifstream graphFile(ELFile.c_str());
+  if (!graphFile.is_open())
+  {
+    std::cerr << "UNABLE TO open graphFile: " << ELFile
+              << "\terrno: " << errno
+              << "\terrstr: " << strerror(errno)
+              << std::endl;
+
+    exit(-2);
+  }
+
+  uint64_t src;
+  uint64_t dest;
+
+  graphFile >> num_nodes;
+  graphFile >> src;
+
+  std::vector<uint64_t>* ret = new std::vector<uint64_t>[num_nodes];
+
+  num_edges = 0;
+
+  while(graphFile >> src && graphFile >> dest)
+  {
+    num_edges++;
+    ret[src].emplace_back(dest);
+  }
+
+  graphFile.close();
+  return ret;
 }
 
 #endif
