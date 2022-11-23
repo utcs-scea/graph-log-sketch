@@ -1,0 +1,1 @@
+cmake -S $SRC_DIR -B $BUILD_DIR -DCMAKE_BUILD_TYPE=RelWithDebInfo

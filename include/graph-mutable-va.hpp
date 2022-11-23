@@ -106,11 +106,14 @@ struct EdgeEntry
 
 };
 
-template<bool parallel>
+template<bool parallel, typename NodeTy>
 struct NodeEntry
 {
   PackedVal<uint64_t> start;
             uint64_t  stop;
+            struct    empty{};
+            [[no_unique_address]]
+  std::conditional_t<std::is_same_v<NodeTy, void>, empty, NodeTy> val;
   //false mean that the value is TOMBSTONED
   bool lock()           { if(parallel) return start.lock(); else return !start.is_tomb(); }
 
@@ -122,20 +125,20 @@ struct NodeEntry
 
 };
 
-template<bool parallel = true, bool ehp = false>
+template<bool parallel = true, bool ehp = false, typename NodeTy = void>
 class Graph
 {
   PackedVal<uint64_t> num_nodes = 0;
   //Cache pad this location
   PackedVal<uint64_t> edge_end = 0;
-  NodeEntry<parallel>* nodes;
+  NodeEntry<parallel,NodeTy>* nodes;
   EdgeEntry<parallel>* edges;
   uint64_t          no_overflow_average(uint64_t n, uint64_t m) const { return (n / 2) + (m / 2) + (((n % 2) + (m % 2)) / 2);}
 
   //TODO deal with memory allocation
 public:
   Graph():  num_nodes(0), edge_end(0),
-    nodes((NodeEntry<parallel>*) (ehp ? mmap(NULL, 1<<30, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT), -1, 0): malloc(1<<30))),
+    nodes((NodeEntry<parallel,NodeTy>*) (ehp ? mmap(NULL, 1<<30, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT), -1, 0): malloc(1<<30))),
     edges((EdgeEntry<parallel>*) (ehp ? mmap(NULL, 1<<30, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT), -1, 0): malloc(1<<30)))
   {
     assert(nodes != MAP_FAILED);
@@ -163,7 +166,7 @@ public:
     return nullptr;
   }
 
-  inline NodeEntry<parallel>* get_node(uint64_t n)
+  inline NodeEntry<parallel,NodeTy>* get_node(uint64_t n)
   {
     if(num_nodes.get_value() > n) return nodes + n;
     if(parallel)
