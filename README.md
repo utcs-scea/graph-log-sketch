@@ -12,9 +12,19 @@ make -j4
 ```
 The small-test binary has an extensive help menu to aid identifying failing cases.
 
+### Docker Build Instructions
+This should build and launch the docker container
+```bash
+make -C ./docker
+```
+Inside that container you can run:
+```bash
+./prep.sh && ./build.sh
+```
+This will build `RelWithDebugInfo` into the `docker-build` folder to be run within the container.
+
 ## Benchmarking
 If you wish to run benchmarking then add `-DBENCH` to the GCC compiler flags in your `CMakeCache.txt` to
 `CMAKE_CXX_FLAGS_RELEASE`.
-
 
 
