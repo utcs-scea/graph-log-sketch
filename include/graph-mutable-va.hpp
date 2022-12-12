@@ -41,7 +41,7 @@ struct __attribute__ ((packed))
 
   PackedVal(T t): flags(get_vertex_state((uint64_t) t)), value(get_raw_value((uint64_t) t)) {}
 
-  VertexState try_lock()
+  inline VertexState try_lock()
   {
     uint16_t f = __atomic_load_2(this, __ATOMIC_RELAXED);
     bool b = false;
@@ -51,7 +51,7 @@ struct __attribute__ ((packed))
   }
 
   //Make an explicit function that returns tombstone and locks
-  bool lock()
+  inline bool lock()
   {
     uint64_t ret;
     VertexState s;
@@ -62,23 +62,23 @@ struct __attribute__ ((packed))
     return !(s & TOMB);
   }
 
-  void unlock()
+  inline void unlock()
   {
     uint64_t f = flags;
     __atomic_store_2(this, f & (~LOCK), __ATOMIC_RELEASE);
   }
 
-  void  set_value(T p)  { if((uint64_t) p == UINT64_MAX) { flags |= UMAX;} else {value = get_raw_value(p);} }
+  inline void  set_value(T p)  { if((uint64_t) p == UINT64_MAX) { flags |= UMAX;} else {value = get_raw_value(p);} }
 
-  T     get_value()     { return (flags & UMAX) ? (T) UINT64_MAX : (T) value; }
+  inline T     get_value()     { return (flags & UMAX) ? (T) UINT64_MAX : (T) value; }
 
-  void  unset_tomb()    { flags = flags & (~TOMB); }
+  inline void  unset_tomb()    { flags = flags & (~TOMB); }
 
-  void  set_tomb()      { flags = flags | TOMB; }
+  inline void  set_tomb()      { flags = flags | TOMB; }
 
-  bool  is_tomb()       { return flags & TOMB; }
+  inline bool  is_tomb()       { return flags & TOMB; }
 
-  bool  atomic_is_tomb() { return __atomic_load_2(this, __ATOMIC_RELAXED) & TOMB; }
+  inline bool  atomic_is_tomb() { return __atomic_load_2(this, __ATOMIC_RELAXED) & TOMB; }
 };
 
 template<bool parallel>
@@ -86,20 +86,20 @@ struct EdgeEntry
 {
   PackedVal<uint64_t> dest;
   //false mean that the value is TOMBSTONED
-  bool      lock()        { if(parallel) return dest.lock(); else return !dest.is_tomb(); }
+  inline bool      lock()        { if(parallel) return dest.lock(); else return !dest.is_tomb(); }
 
-  void      unlock()      { if(parallel) dest.unlock(); }
+  inline void      unlock()      { if(parallel) dest.unlock(); }
 
-  uint64_t  get_dest()    { return dest.get_value(); }
+  inline uint64_t  get_dest()    { return dest.get_value(); }
 
-  void      unset_tomb()  { dest.unset_tomb(); }
+  inline void      unset_tomb()  { dest.unset_tomb(); }
 
-  void      set_tomb()    { dest.set_tomb(); }
+  inline void      set_tomb()    { dest.set_tomb(); }
 
-  bool      is_tomb()     { return dest.is_tomb(); }
-  bool atomic_is_tomb()   { if(parallel) return dest.atomic_is_tomb(); else return dest.is_tomb(); }
+  inline bool      is_tomb()     { return dest.is_tomb(); }
+  inline bool atomic_is_tomb()   { if(parallel) return dest.atomic_is_tomb(); else return dest.is_tomb(); }
 
-  void set_dest(uint64_t d)
+  inline void set_dest(uint64_t d)
   {
     dest.set_value(d);
   }
@@ -115,13 +115,13 @@ struct NodeEntry
             [[no_unique_address]]
   std::conditional_t<std::is_same_v<NodeTy, void>, empty, NodeTy> val;
   //false mean that the value is TOMBSTONED
-  bool lock()           { if(parallel) return start.lock(); else return !start.is_tomb(); }
+  inline bool lock()           { if(parallel) return start.lock(); else return !start.is_tomb(); }
 
-  void unlock()         { if(parallel) start.unlock(); }
+  inline void unlock()         { if(parallel) start.unlock(); }
 
-  bool is_tomb()        { return start.is_tomb(); }
+  inline bool is_tomb()        { return start.is_tomb(); }
 
-  bool atomic_is_tomb() { if(parallel) return start.atomic_is_tomb(); else return start.is_tomb(); }
+  inline bool atomic_is_tomb() { if(parallel) return start.atomic_is_tomb(); else return start.is_tomb(); }
 
 };
 
@@ -166,6 +166,8 @@ public:
     return nullptr;
   }
 
+  inline EdgeEntry<parallel>* get_edge_unsafe(uint64_t e) { return this->edges + e; }
+
   inline NodeEntry<parallel,NodeTy>* get_node(uint64_t n)
   {
     if(num_nodes.get_value() > n) return nodes + n;
@@ -182,6 +184,8 @@ public:
     return nullptr;
   }
 
+  inline NodeEntry<parallel,NodeTy>* get_node_unsafe(uint64_t n) { return this->nodes + n; }
+
   //THESE ARE NOT THREAD SAFE, IF YOU WANT THEM TO BE SAFE TODO
   inline uint64_t   get_num_nodes() {return num_nodes.get_value();}
   inline uint64_t   get_edge_end()  {return edge_end .get_value();}
@@ -189,7 +193,7 @@ private:
 
   void edge_placement(uint64_t start, uint64_t stop, uint64_t num_orig,
                       uint64_t num_new, uint64_t* dest,
-                      uint64_t place_start, uint64_t place_stop)
+                     uint64_t place_start, uint64_t place_stop)
   {
     //This is a special case of sorting so we will do it in here
     //If you must swap places with the head of the buffer

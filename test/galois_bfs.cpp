@@ -21,12 +21,10 @@
 #include "galois/gstl.h"
 #include "galois/Reduction.h"
 #include "galois/Timer.h"
-#include "galois/graphs/LCGraph.h"
+#include "galois/graphs/LS_LC_CSR_64_Graph.h"
 #include "galois/graphs/TypeTraits.h"
 #include "Lonestar/BoilerPlate.h"
 #include "Lonestar/BFS_SSSP.h"
-
-#include "llvm/Support/CommandLine.h"
 
 #include <iostream>
 #include <deque>
@@ -34,8 +32,6 @@
 
 #include <benchmark.hpp>
 #include <catch2/catch_test_macros.hpp>
-
-namespace cll = llvm::cl;
 
 static const char* name = "Breadth-first Search";
 
@@ -45,41 +41,14 @@ static const char* desc =
 
 static const char* url = "breadth_first_search";
 
-static cll::opt<std::string>
-    inputFile(cll::Positional, cll::desc("<input file>"), cll::Required);
-static cll::opt<unsigned int>
-    startNode("startNode",
-              cll::desc("Node to start search from (default value 0)"),
-              cll::init(0));
-static cll::opt<unsigned int>
-    reportNode("reportNode",
-               cll::desc("Node to report distance to (default value 1)"),
-               cll::init(1));
-
-// static cll::opt<unsigned int> stepShiftw("delta",
-// cll::desc("Shift value for the deltastep"),
-// cll::init(10));
-
 enum Exec { SERIAL, PARALLEL };
 
 enum Algo { AsyncTile = 0, Async, SyncTile, Sync };
 
 const char* const ALGO_NAMES[] = {"AsyncTile", "Async", "SyncTile", "Sync"};
 
-static cll::opt<Exec> execution(
-    "exec",
-    cll::desc("Choose SERIAL or PARALLEL execution (default value PARALLEL):"),
-    cll::values(clEnumVal(SERIAL, "SERIAL"), clEnumVal(PARALLEL, "PARALLEL")),
-    cll::init(PARALLEL));
-
-static cll::opt<Algo> algo(
-    "algo", cll::desc("Choose an algorithm (default value SyncTile):"),
-    cll::values(clEnumVal(AsyncTile, "AsyncTile"), clEnumVal(Async, "Async"),
-                clEnumVal(SyncTile, "SyncTile"), clEnumVal(Sync, "Sync")),
-    cll::init(SyncTile));
-
 using Graph =
-    galois::graphs::LC_CSR_Graph<unsigned, void>::with_no_lockable<true>::type;
+    galois::graphs::LS_LC_CSR_64_Graph<unsigned, void>::with_no_lockable<true>::type;
 //::with_numa_alloc<true>::type;
 
 using GNode = Graph::GraphNode;
@@ -156,95 +125,6 @@ struct OneTilePushWrap {
 };
 
 template <bool CONCURRENT, typename T, typename P, typename R>
-void asyncAlgo(Graph& graph, GNode source, const P& pushWrap,
-               const R& edgeRange) {
-
-  namespace gwl = galois::worklists;
-  // typedef PerSocketChunkFIFO<CHUNK_SIZE> dFIFO;
-  using FIFO = gwl::PerSocketChunkFIFO<CHUNK_SIZE>;
-  using BSWL = gwl::BulkSynchronous<gwl::PerSocketChunkLIFO<CHUNK_SIZE>>;
-  using WL   = FIFO;
-
-  using Loop =
-      typename std::conditional<CONCURRENT, galois::ForEach,
-                                galois::WhileQ<galois::SerFIFO<T>>>::type;
-
-  GALOIS_GCC7_IGNORE_UNUSED_BUT_SET
-  constexpr bool useCAS = CONCURRENT && !std::is_same<WL, BSWL>::value;
-  GALOIS_END_GCC7_IGNORE_UNUSED_BUT_SET
-
-  Loop loop;
-
-  galois::GAccumulator<size_t> BadWork;
-  galois::GAccumulator<size_t> WLEmptyWork;
-
-  graph.getData(source) = 0;
-  galois::InsertBag<T> initBag;
-
-  if (CONCURRENT) {
-    pushWrap(initBag, source, 1, "parallel");
-  } else {
-    pushWrap(initBag, source, 1);
-  }
-
-  loop(
-      galois::iterate(initBag),
-      [&](const T& item, auto& ctx) {
-        constexpr galois::MethodFlag flag = galois::MethodFlag::UNPROTECTED;
-
-        const auto& sdist = graph.getData(item.src, flag);
-
-        if (TRACK_WORK) {
-          if (item.dist != sdist) {
-            WLEmptyWork += 1;
-            return;
-          }
-        }
-
-        const auto newDist = item.dist;
-
-        for (auto ii : edgeRange(item)) {
-          GNode dst   = graph.getEdgeDst(ii);
-          auto& ddata = graph.getData(dst, flag);
-
-          while (true) {
-
-            Dist oldDist = ddata;
-
-            if (oldDist <= newDist) {
-              break;
-            }
-
-            if (!useCAS ||
-                __sync_bool_compare_and_swap(&ddata, oldDist, newDist)) {
-
-              if (!useCAS) {
-                ddata = newDist;
-              }
-
-              if (TRACK_WORK) {
-                if (oldDist != BFS::DIST_INFINITY) {
-                  BadWork += 1;
-                }
-              }
-
-              pushWrap(ctx, dst, newDist + 1);
-              break;
-            }
-          }
-        }
-      },
-      galois::wl<WL>(), galois::loopname("runBFS"),
-      galois::disable_conflict_detection());
-
-  if (TRACK_WORK) {
-    galois::runtime::reportStat_Single("BFS", "BadWork", BadWork.reduce());
-    galois::runtime::reportStat_Single("BFS", "EmptyWork",
-                                       WLEmptyWork.reduce());
-  }
-}
-
-template <bool CONCURRENT, typename T, typename P, typename R>
 void syncAlgo(Graph& graph, GNode source, const P& pushWrap,
               const R& edgeRange) {
 
@@ -292,31 +172,6 @@ void syncAlgo(Graph& graph, GNode source, const P& pushWrap,
         },
         galois::steal(), galois::chunk_size<CHUNK_SIZE>(),
         galois::loopname("Sync"));
-  }
-}
-
-template <bool CONCURRENT>
-void runAlgo(Graph& graph, const GNode& source) {
-
-  switch (algo) {
-  case AsyncTile:
-    asyncAlgo<CONCURRENT, SrcEdgeTile>(
-        graph, source, SrcEdgeTilePushWrap{graph}, TileRangeFn());
-    break;
-  case Async:
-    asyncAlgo<CONCURRENT, UpdateRequest>(graph, source, ReqPushWrap(),
-                                         OutEdgeRangeFn{graph});
-    break;
-  case SyncTile:
-    syncAlgo<CONCURRENT, EdgeTile>(graph, source, EdgeTilePushWrap{graph},
-                                   TileRangeFn());
-    break;
-  case Sync:
-    syncAlgo<CONCURRENT, GNode>(graph, source, NodePushWrap(),
-                                OutEdgeRangeFn{graph});
-    break;
-  default:
-    std::cerr << "ERROR: unkown algo type\n";
   }
 }
 

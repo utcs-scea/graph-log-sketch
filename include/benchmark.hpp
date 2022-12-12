@@ -13,6 +13,15 @@ constexpr uint64_t BENCH_NUM = 30;
 constexpr uint64_t WARM_UP_COOL_DOWN = 5;
 constexpr const char* statsFileName = "stats.txt";
 
+template<typename R>
+void runner(std::string s, R r)
+{
+  r.template operator()<false, false>(s);
+  r.template operator()<false, true >(s + " EHP");
+  r.template operator()<true , false>(s + " PAR");
+  r.template operator()<true , true >(s + " PAR EHP");
+}
+
 #ifdef BENCH
 template<typename B>
 void benchmark(pa count, const char* str, int cpu, B bench)

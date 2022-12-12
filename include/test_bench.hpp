@@ -4,15 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
 #include <benchmark.hpp>
-
-template<typename R>
-void runner(std::string s, R r)
-{
-  r.template operator()<false, false>(s);
-  r.template operator()<false, true >(s + " EHP");
-  r.template operator()<true , false>(s + " PAR");
-  r.template operator()<true , true >(s + " PAR EHP");
-}
+#include <galois/graphs/MorphGraph.h>
 
 void check_el_file_and_benchmark(pa c, std::string ELFile)
 {
@@ -89,6 +81,49 @@ void check_el_file_and_benchmark(pa c, std::string ELFile)
         [](Graph<par, ehp>* g) { delete g; });
     };
 
+    auto g = [c, &edges, numNodes, &s_edges, s_num_nodes, ELFile]()
+    {
+      using MGraph = galois::graphs::MorphGraph<void, void, true>;
+      using GNode = MGraph::GraphNode;
+      struct RType
+      {
+        MGraph* g;
+        vector<GNode>* nodes;
+      };
+      run_test_and_benchmark<RType>("Sequentially Ingest Graph from " + ELFile + "Galois", c, 7,
+        []{ RType r { new MGraph(), new vector<GNode>()}; return r; },
+        [&edges,numNodes](RType r)
+        {
+          r.nodes->resize(numNodes);
+          for(uint64_t i = 0; i < numNodes; i++)
+          {
+            GNode a = r.g->createNode();
+            r.g->addNode(a);
+            r.nodes->at(i) = a;
+          }
+          for(const auto& [s,d] : edges)
+          {
+            r.g->addEdge(r.nodes->at(s), r.nodes->at(d));
+          }
+        },
+        [&s_edges, s_num_nodes](RType r)
+        {
+
+          REQUIRE( r.g->size() == s_num_nodes );
+
+          // Does not check sorting
+          for(const auto& [s,d] : s_edges)
+          {
+            const GNode& src = r.nodes->at(s);
+            const GNode& dst = r.nodes->at(d);
+            bool edge_found = r.g->findEdge(src, dst) != r.g->edge_end(src);
+            REQUIRE( edge_found == true );
+          }
+        },
+        [](RType r) { delete r.g; delete r.nodes; });
+    };
+
+    g();
     runner("Sequentially Ingest Graph from " + ELFile, f);
 
 }

@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include "graph-mutable-va.hpp"
-#include <test_bench.hpp>
+#include <benchmark.hpp>
 
 #include <queue>
 #include <unordered_set>

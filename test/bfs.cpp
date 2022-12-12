@@ -27,7 +27,7 @@ void sssp_bfs(uint64_t src, T* g)
 
   uint64_t level = 0U;
 
-  auto& src_node = *g->get_node(src);
+  auto& src_node = *g->get_node_unsafe(src);
   src_node.lock();
   src_node.val  = 0U;
 
@@ -42,18 +42,18 @@ void sssp_bfs(uint64_t src, T* g)
     loop(galois::iterate(*currSt),
       [&](const uint64_t& curr)
       {
-        auto& curr_node = *g->get_node(curr);
+        auto& curr_node = *g->get_node_unsafe(curr);
         auto start = curr_node.start.get_value();
         auto stop  = curr_node.stop;
         for(uint64_t e = start; e < stop; e++)
         {
-          auto edge         = g->get_edge(e);
+          auto edge         = g->get_edge_unsafe(e);
           edge->lock();
           auto edge_t       = edge->is_tomb();
           if(!edge_t)
           {
             auto next         = edge->get_dest();
-            auto& next_n      = *g->get_node(next);
+            auto& next_n      = *g->get_node_unsafe(next);
             if(next_n.val == UINT64_MAX)
             {
               next_n.lock();
