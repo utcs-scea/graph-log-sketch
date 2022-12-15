@@ -9,9 +9,18 @@
 #include <system_error>
 #include <iostream>
 
-constexpr uint64_t BENCH_NUM = 30;
-constexpr uint64_t WARM_UP_COOL_DOWN = 5;
+#include <random>
+#include <algorithm>
+
+constexpr uint64_t rseed = 48048593;
+
+constexpr uint64_t BENCH_NUM = 5;
+constexpr uint64_t WARM_UP_COOL_DOWN = 1;
 constexpr const char* statsFileName = "stats.txt";
+
+struct RNG {
+  uint64_t operator() (uint64_t n){ return std::rand() % n; }
+};
 
 template<typename R>
 void runner(std::string s, R r)
@@ -90,6 +99,40 @@ void run_test_and_benchmark(std::string bench_name, pa count, int cpu, S setup, 
     cleanup(t);
   };
   benchmark(count, bench_name.c_str(), cpu, b);
+}
+
+std::vector<std::pair<uint64_t,uint64_t>> el_file_to_rand_vec_edge(const std::string& ELFile, uint64_t& num_nodes, uint64_t& num_edges)
+{
+  std::ifstream graphFile(ELFile.c_str());
+  if (!graphFile.is_open())
+  {
+    std::cerr << "UNABLE TO open graphFile: " << ELFile
+              << "\terrno: " << errno
+              << "\terrstr: " << strerror(errno)
+              << std::endl;
+
+    exit(-2);
+  }
+
+  uint64_t src;
+  uint64_t dest;
+
+  graphFile >> num_nodes;
+  graphFile >> src;
+
+  std::vector<std::pair<uint64_t,uint64_t>> ret;
+
+  while(graphFile >> src && graphFile >> dest)
+  {
+    ret.emplace_back(src,dest);
+  }
+  std::random_shuffle(ret.begin(), ret.end(), RNG());
+
+  num_edges = ret.size();
+
+  graphFile.close();
+
+  return ret;
 }
 
 std::vector<uint64_t>* el_file_to_edge_list(const std::string& ELFile, uint64_t& num_nodes, uint64_t& num_edges)
