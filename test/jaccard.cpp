@@ -13,6 +13,7 @@
 #include <iostream>
 #include <deque>
 #include <type_traits>
+#include <queue>
 
 #include <benchmark.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -135,7 +136,6 @@ struct Jaccard_Algo
     Graph graph = Graph((uint32_t) num_nodes, num_edges, [ret](uint32_t n){return ret[n].size();},
         [ret](uint32_t n, uint64_t e) {return (uint32_t) ret[n][e];}, [](uint32_t n, uint64_t e){ return 0; });
     delete[] ret;
-    //graph.sortAllEdgesByDst();
     run_test_and_benchmark<uint64_t>(msg, c, 8,
       [&graph]{return 0;},
       [&graph,this](uint64_t v)
@@ -145,8 +145,61 @@ struct Jaccard_Algo
       [&graph](uint64_t v) {},[](uint64_t v){});
   }
 
+  template<typename T>
+  void run_jaccard_all_nodes_inc(uint64_t num_nodes, uint64_t num_edges, const std::vector<std::pair<uint64_t,uint64_t>>& ret, pa c, const std::string& msg, T add)
+  {
+    auto g = [num_nodes]() {
+      return new Graph(num_nodes, 0, [](uint64_t n) {return 0;},
+          [](uint64_t n, uint64_t e) {return 0;}, [](uint64_t n, uint64_t e){ return 0;});
+    };
+
+    auto f = [ret,g,num_edges,msg,this,c,add](uint8_t i)
+    {
+      run_test_and_benchmark<Graph*>(msg + " Edit " + std::to_string(i), c, 8,
+        [g,add,num_edges,i,ret]{ Graph* graph = g();
+          add(graph, 0, num_edges/8 * (i -1), num_edges/8, ret);
+          return graph;
+        },
+        [ret,num_edges,i,add](Graph* graph){
+          add(graph, num_edges/8 *(i -1), num_edges/8, num_edges/8, ret);
+        }, [](Graph* graph){}, [](Graph* graph){ delete graph; });
+
+      Graph* graph = g();
+      add(graph, 0, num_edges/8 * i, num_edges/8, ret);
+
+      run_test_and_benchmark<uint64_t>(msg + " Algo " + std::to_string(i), c, 8,
+        []{ return 0; },
+        [num_edges,this,graph](uint64_t v){
+            for(uint64_t i = 0; i < graph->size(); i++)
+              this->JaccardImpl<IntersectWithSortedEdgeList>(*graph, i);
+        }, [](uint64_t v){}, [](uint64_t v){});
+
+      delete graph;
+    };
+    for(int i = 1; i <= 8; i ++)
+    {
+      f(i);
+    }
+  }
+
 };
 
+template<typename Graph>
+void regen_graph(Graph* graph, uint64_t lower, uint64_t upper, uint64_t batch_size, const std::vector<std::pair<uint64_t, uint64_t>>& edges)
+{
+  auto edge_list = new std::priority_queue<uint64_t, std::vector<uint64_t>, std::greater<uint64_t>>[graph->size()];
+  for(uint64_t i = 0; i < upper && i < edges.size(); i++)
+  {
+    edge_list[edges[i].first].push(edges[i].second);
+  }
+  Graph* graph2 = new Graph(graph->size(), upper, [edge_list](uint64_t n){return edge_list[n].size();},
+      [edge_list](uint64_t n, uint64_t e) {auto elem = edge_list[n].top(); edge_list[n].pop(); return elem;}, [](uint32_t n, uint64_t e){ return 0; });
+  swap(*graph, *graph2);
+  delete graph2;
+  delete[] edge_list;
+}
+
+/*
 TEST_CASE( "Running Galois Jaccard", "[jaccard]" )
 {
   galois::SharedMemSys G;
@@ -178,7 +231,14 @@ TEST_CASE( "Running Galois Jaccard", "[jaccard]" )
     morg.run_jaccard_all_nodes("../graphs/cora.el", c, "Cora MORPH_GRAPH");
   }
 
-  /**
+  SECTION( "All Nodes Flickr Galois" )
+  {
+    lclo.run_jaccard_all_nodes("../graphs/flickr.el", c, "Flickr LS_CSR_LOCK_OUT");
+    lc6g.run_jaccard_all_nodes("../graphs/flickr.el", c, "Flickr LC_CSR_64_GRAPH");
+    lc3g.run_jaccard_all_nodes("../graphs/flickr.el", c, "Flickr LC_CSR_32_GRAPH");
+    morg.run_jaccard_all_nodes("../graphs/flickr.el", c, "Flickr MORPH_GRAPH");
+  }
+
   SECTION( "All Nodes Yelp Galois" )
   {
     lclo.run_jaccard_all_nodes("../graphs/yelp.el", c, "Yelp LS_CSR_LOCK_OUT");
@@ -186,5 +246,99 @@ TEST_CASE( "Running Galois Jaccard", "[jaccard]" )
     lc3g.run_jaccard_all_nodes("../graphs/yelp.el", c, "Yelp LC_CSR_32_GRAPH");
     morg.run_jaccard_all_nodes("../graphs/yelp.el", c, "Yelp MORPH_GRAPH");
   }
-  */
+}
+*/
+
+TEST_CASE( "Galois Edits Jaccard", "[jaccard]")
+{
+  galois::SharedMemSys G;
+  galois::setActiveThreads(1);
+  pa c = create_counters();
+
+  using LS_CSR_LOCK_OUT = galois::graphs::LS_LC_CSR_64_Graph<unsigned, void>::with_no_lockable<true>::type;
+  using LC_CSR_64_GRAPH = galois::graphs::LC_CSR_64_Graph<unsigned, void>::with_no_lockable<true>::type;
+  using LC_CSR_32_GRAPH = galois::graphs::LC_CSR_Graph<unsigned, void>::with_no_lockable<true>::type;
+  using MORPH_GRAPH     = galois::graphs::MorphGraph<unsigned, void, true>::with_no_lockable<true>::type;
+  Jaccard_Algo<LS_CSR_LOCK_OUT> lclo;
+  Jaccard_Algo<LC_CSR_64_GRAPH> lc6g;
+  Jaccard_Algo<LC_CSR_32_GRAPH> lc3g;
+  Jaccard_Algo<MORPH_GRAPH>     morg;
+
+  auto morg_add = [](MORPH_GRAPH* graph, uint64_t lower, uint64_t upper, uint64_t batch_size, const std::vector<std::pair<uint64_t, uint64_t>>& edges)
+  {
+    for(uint64_t j = lower; j < upper && j < edges.size(); j++)
+      graph->addEdge(edges[j].first, edges[j].second);
+    graph->sortAllEdgesByDst();
+  };
+  auto lc6g_add = regen_graph<LC_CSR_64_GRAPH>;
+  auto lc3g_add = regen_graph<LC_CSR_32_GRAPH>;
+  auto lclo_add = [](LS_CSR_LOCK_OUT* graph, uint64_t lower, uint64_t upper, uint64_t batch_size, const std::vector<std::pair<uint64_t, uint64_t>>& edges)
+  {
+    for(uint64_t start = lower; start < upper; start += batch_size)
+    {
+      std::priority_queue<uint64_t, std::vector<uint64_t>, std::greater<uint64_t>>* edge_list
+        = new std::priority_queue<uint64_t, std::vector<uint64_t>, std::greater<uint64_t>>[graph->size()];
+      for(uint64_t i = start; i < start + batch_size && i < edges.size(); i++)
+      {
+        edge_list[edges[i].first].push(edges[i].second);
+      }
+      graph->addEdges(edge_list);
+      delete[] edge_list;
+
+    }
+  };
+
+  SECTION( "All Nodes Citeseer Galois" )
+  {
+    std::string bench = "Citeseer";
+    uint64_t num_nodes;
+    uint64_t num_edges;
+    auto ret = el_file_to_rand_vec_edge("../graphs/citeseer.el", num_nodes, num_edges);
+
+
+    lclo.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " LC_CSR_LOCK_OUT", lclo_add);
+    lc6g.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " LC_CSR_64_GRAPH", lc6g_add);
+    lc3g.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " LC_CSR_32_GRAPH", lc3g_add);
+    morg.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " MORPH_GRAPH", morg_add);
+  }
+
+  SECTION( "All Nodes Cora Galois" )
+  {
+    std::string bench = "Cora";
+    uint64_t num_nodes;
+    uint64_t num_edges;
+    auto ret = el_file_to_rand_vec_edge("../graphs/cora.el", num_nodes, num_edges);
+
+    lclo.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " LC_CSR_LOCK_OUT", lclo_add);
+    lc6g.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " LC_CSR_64_GRAPH", lc6g_add);
+    lc3g.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " LC_CSR_32_GRAPH", lc3g_add);
+    morg.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " MORPH_GRAPH", morg_add);
+  }
+
+  SECTION( "All Nodes Flickr Galois" )
+  {
+    std::string bench = "Flickr";
+    uint64_t num_nodes;
+    uint64_t num_edges;
+    auto ret = el_file_to_rand_vec_edge("../graphs/flickr.el", num_nodes, num_edges);
+
+    lclo.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " LC_CSR_LOCK_OUT", lclo_add);
+    lc6g.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " LC_CSR_64_GRAPH", lc6g_add);
+    lc3g.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " LC_CSR_32_GRAPH", lc3g_add);
+    morg.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " MORPH_GRAPH", morg_add);
+  }
+
+  SECTION( "All Nodes Yelp Galois" )
+  {
+    std::string bench = "Yelp";
+    uint64_t num_nodes;
+    uint64_t num_edges;
+    auto ret = el_file_to_rand_vec_edge("../graphs/yelp.el", num_nodes, num_edges);
+
+    lclo.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " LC_CSR_LOCK_OUT", lclo_add);
+    lc6g.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " LC_CSR_64_GRAPH", lc6g_add);
+    lc3g.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " LC_CSR_32_GRAPH", lc3g_add);
+    morg.run_jaccard_all_nodes_inc(num_nodes, num_edges, ret, c, bench + " MORPH_GRAPH", morg_add);
+  }
+
 }
