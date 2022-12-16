@@ -1,7 +1,6 @@
 #ifndef _BENCHMARK_HPP_
 #define _BENCHMARK_HPP_
 #include <counters.hpp>
-#include <catch2/catch_test_macros.hpp>
 #include <sched.h>
 #include <fstream>
 #include <cerrno>
@@ -16,9 +15,9 @@ constexpr uint64_t rseed = 48048593;
 
 constexpr uint64_t BENCH_NUM = 5;
 constexpr uint64_t WARM_UP_COOL_DOWN = 1;
-constexpr const char* statsFileName = "stats.txt";
 
-struct RNG {
+struct RNG
+{
   uint64_t operator() (uint64_t n){ return std::rand() % n; }
 };
 
@@ -33,7 +32,7 @@ void runner(std::string s, R r)
 
 #ifdef BENCH
 template<typename B>
-void benchmark(pa count, const char* str, int cpu, B bench)
+void benchmark(pa count, const char* str, int cpu, B bench, std::string& statsFileName = "stats.txt")
 {
   std::ofstream stats(statsFileName, std::ofstream::app);
   if (!stats.is_open())
@@ -57,7 +56,6 @@ void benchmark(pa count, const char* str, int cpu, B bench)
     exit(-10);
   }
 
- // fprintf(stderr, "%s\t%" PRIu32 "\t%" PRIu64 "\n", str, num_counters(), BENCH_NUM);
   stats << str << "\t" << num_counters() << "\t" << BENCH_NUM << std::endl;
   for(uint64_t i = 0; i < WARM_UP_COOL_DOWN *2 + BENCH_NUM; i++)
   {
@@ -77,10 +75,26 @@ void benchmark(pa count, const char* str, int cpu, B bench)
   }
 
 }
+
 #else
 template<typename B>
 void benchmark(pa count, const char* str, int cpu, B bench) {}
 #endif
+
+template<typename T, typename S, typename C, typename B>
+void run_benchmark(std::string& statsfn, std::string bench_name, pa count, int cpu, S setup, B bench, C cleanup)
+{
+  auto b = [&setup, &bench, &cleanup](pa c)
+  {
+    T t = setup();
+    reset_counters(c);
+    start_counters(c);
+    bench(t);
+    stop_counters(c);
+    cleanup(t);
+  };
+  benchmark(count, bench_name.c_str(), cpu, b, statsfn);
+}
 
 template<typename T, typename S, typename C, typename A, typename B>
 void run_test_and_benchmark(std::string bench_name, pa count, int cpu, S setup, B bench, A asserts, C cleanup)
