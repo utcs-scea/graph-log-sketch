@@ -59,13 +59,20 @@ int main(int argc, char** argv)
   galois::SharedMemSys G;
   galois::setActiveThreads(1);
   pa c = create_counters();
+  std::chrono::high_resolution_clock::time_point t0;
+  std::chrono::high_resolution_clock::time_point t1;
 
   uint64_t num_nodes;
   uint64_t num_edges;
 
   if(style == EVOLVE)
   {
+    t0 = std::chrono::high_resolution_clock::now();
     auto edge_list = el_file_to_rand_vec_edge(inputFile, num_nodes, num_edges);
+    t1 = std::chrono::high_resolution_clock::now();
+    auto diff = std::chrono::duration<uint64_t, std::nano>(t1-t0).count();
+    std::cout << "File Read Time (ns):\t" << diff << std::endl;
+
     JaccardRet jutr = JaccardRet(num_nodes);
     switch(gtype)
     {
@@ -94,7 +101,12 @@ int main(int argc, char** argv)
   }
   else if(style == STATIC)
   {
+    t0 = std::chrono::high_resolution_clock::now();
     auto edge_list = el_file_to_edge_list(inputFile, num_nodes, num_edges);
+    t1 = std::chrono::high_resolution_clock::now();
+    auto diff = std::chrono::duration<uint64_t, std::nano>(t1-t0).count();
+    std::cout << "File Read Time (ns):\t" << diff << std::endl;
+
     JaccardRet jutr = JaccardRet(num_nodes);
     switch(gtype)
     {
