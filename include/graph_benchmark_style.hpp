@@ -1,25 +1,25 @@
 #include <benchmark.hpp>
 
-template<typename Graph, typename Algo>
-void run_algo_static(std::string& statsfn, const std::string& msg, pa c, int cpu,
+template<typename Graph, typename Setup, typename Algo>
+void run_algo_static(std::string& statsfn, std::string msg, pa c, int cpu,
     uint64_t num_nodes, uint64_t num_edges,
     std::vector<uint64_t>* edge_list,
-    Algo algo)
+    Setup setup, Algo algo)
 {
   Graph graph = Graph(num_nodes, num_edges, [edge_list](uint32_t n){return edge_list[n].size();},
     [edge_list](uint64_t n, uint64_t e) {return edge_list[n][e];}, [](uint64_t n, uint64_t e){ return 0; });
 
   run_benchmark<uint64_t>(statsfn, msg, c, cpu,
-    [&graph]{return 0;},
+    [&graph,setup]{setup(graph); return 0;},
     [&graph,algo](uint64_t v){algo(graph);},
     [](uint64_t v){});
 }
 
-template<typename Graph, typename Evo, typename Algo>
-void run_algo_evolve(std::string& statsfn, const std::string& msg, pa c, int cpu,
+template<typename Graph, typename Evo, typename Setup, typename Algo>
+void run_algo_evolve(std::string& statsfn, std::string msg, pa c, int cpu,
     uint8_t chunk_num, uint64_t num_nodes, uint64_t num_edges,
     const std::vector<std::pair<uint64_t,uint64_t>>& edge_list,
-    Evo evo, Algo algo)
+    Evo evo, Setup setup, Algo algo)
 {
   auto g = [num_nodes]() {
     auto graph = new Graph(num_nodes, 0, [](uint64_t n) {return 0;},
@@ -27,7 +27,7 @@ void run_algo_evolve(std::string& statsfn, const std::string& msg, pa c, int cpu
     return graph;
   };
 
-  auto f = [edge_list,g,num_edges,msg,c,algo,evo](uint8_t i)
+  auto f = [edge_list,g,num_edges,msg,c,algo,evo,cpu,chunk_num,setup,statsfn](uint8_t i)
   {
     std::string blah = " " + std::to_string(i) + "/" + std::to_string(chunk_num);
     //Benchmark the Edits
@@ -41,7 +41,7 @@ void run_algo_evolve(std::string& statsfn, const std::string& msg, pa c, int cpu
       },
       [edge_list,num_edges,i,evo,chunk_num](Graph* graph){
         evo(graph, num_edges/chunk_num * (i-1), num_edges/chunk_num, num_edges/chunk_num, edge_list);
-      },[](Graph* graph){delete graph;})
+      },[](Graph* graph){delete graph;});
 
     //Generate the graph fresh for the Algorithm
     Graph* graph = g();
@@ -49,7 +49,7 @@ void run_algo_evolve(std::string& statsfn, const std::string& msg, pa c, int cpu
 
     run_benchmark<uint64_t>(statsfn, msg + " Algo" + blah,
       c, cpu,
-      []{return 0;},
+      [graph,setup]{setup(*graph); return 0;},
       [graph,algo](uint64_t v){
         algo(*graph);
       }, [](uint64_t v){});
@@ -96,7 +96,7 @@ void regen_graph_asis(Graph* graph, uint64_t lower, uint64_t upper, uint64_t bat
 }
 
 template<typename Graph>
-void add_edges_per_node(Graph* graph, uint64_t lower, uint64_t upper, uint64_t batch_size, const std::vector<std::pair<uint64_t, uint64_t>& edges)
+void add_edges_per_node(Graph* graph, uint64_t lower, uint64_t upper, uint64_t batch_size, const std::vector<std::pair<uint64_t, uint64_t>>& edges)
 {
   for(uint64_t start = lower; start < upper; start += batch_size)
   {
@@ -112,7 +112,7 @@ void add_edges_per_node(Graph* graph, uint64_t lower, uint64_t upper, uint64_t b
 }
 
 template<bool sort, typename Graph>
-void add_edges_per_edge(Graph* graph, uint64_t lower, uint64_t upper, uint64_t batch_size, const std::vector<std::pair<uint64_t, uint64_t>& edges)
+void add_edges_per_edge(Graph* graph, uint64_t lower, uint64_t upper, uint64_t batch_size, const std::vector<std::pair<uint64_t, uint64_t>>& edges)
 {
   for(uint64_t j = lower; j < upper && j < edges.size(); j++)
     graph->addEdge(edges[j].first, edges[j].second);

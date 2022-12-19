@@ -32,7 +32,7 @@ void runner(std::string s, R r)
 
 #ifdef BENCH
 template<typename B>
-void benchmark(pa count, const char* str, int cpu, B bench, std::string& statsFileName = "stats.txt")
+void benchmark(pa count, const char* str, int cpu, B bench, const char* statsFileName = "stats.txt")
 {
   std::ofstream stats(statsFileName, std::ofstream::app);
   if (!stats.is_open())
@@ -78,11 +78,14 @@ void benchmark(pa count, const char* str, int cpu, B bench, std::string& statsFi
 
 #else
 template<typename B>
-void benchmark(pa count, const char* str, int cpu, B bench) {}
+void benchmark(pa count, const char* str, int cpu, B bench, const char* statsFileName = "stats.txt")
+{
+  bench(count);
+}
 #endif
 
 template<typename T, typename S, typename C, typename B>
-void run_benchmark(std::string& statsfn, std::string bench_name, pa count, int cpu, S setup, B bench, C cleanup)
+void run_benchmark(const std::string& statsfn, std::string bench_name, pa count, int cpu, S setup, B bench, C cleanup)
 {
   auto b = [&setup, &bench, &cleanup](pa c)
   {
@@ -93,7 +96,7 @@ void run_benchmark(std::string& statsfn, std::string bench_name, pa count, int c
     stop_counters(c);
     cleanup(t);
   };
-  benchmark(count, bench_name.c_str(), cpu, b, statsfn);
+  benchmark(count, bench_name.c_str(), cpu, b, statsfn.c_str());
 }
 
 template<typename T, typename S, typename C, typename A, typename B>

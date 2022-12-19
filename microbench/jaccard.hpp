@@ -8,7 +8,8 @@
 #include "galois/graphs/MorphGraph.h"
 #include "galois/graphs/TypeTraits.h"
 #include "Lonestar/BoilerPlate.h"
-#include "Lonestar/BFS_SSSP.h"
+#include <graph_benchmark_style.hpp>
+//#include "Lonestar/BFS_SSSP.h"
 
 #include <iostream>
 #include <deque>
@@ -37,10 +38,65 @@ struct JaccardStatistics
   }
 };
 
+//basically behaves like a flat symmetric matrix
+class JaccardRet
+{
+  const uint64_t num_nodes;
+  uint64_t* curr_sz;
+  double* upper_triangle;
+
+  inline uint64_t flatten_index(uint64_t node) const
+  {
+    return (node) * (num_nodes - 1 + num_nodes - node) / 2;
+  }
+
+public:
+  JaccardRet(uint64_t n) :
+    num_nodes(n),
+    curr_sz((uint64_t*) calloc(sizeof(uint64_t*), n)),
+    upper_triangle((double*) malloc(sizeof(double) * n  * (n - 1) / 2)) {}
+  ~JaccardRet() {free(curr_sz); free(upper_triangle);}
+
+  void reset() {std::fill(curr_sz, curr_sz + num_nodes - 1, 0);}
+
+  void add_next_unsafe(uint64_t node, double val)
+  {
+    uint64_t& size = curr_sz[node];
+    uint64_t index = flatten_index(node);
+    upper_triangle[index + size] = val;
+    size++;
+  }
+
+  int add_next(uint64_t node, double val)
+  {
+    if(curr_sz[node] < num_nodes - node - 1)
+    {
+      add_next_unsafe(node, val);
+      return 0;
+    }
+    return -1;
+  }
+
+  double get_val_unsafe(uint64_t n1, uint64_t n2)
+  {
+    return  (n1 > n2) ? upper_triangle[flatten_index(n2) + (n1 - n2)]:
+            (n2 > n1) ? upper_triangle[flatten_index(n1) + (n2 - n1)]:
+            1;
+  }
+
+  template<typename O>
+  void print(O& stream)
+  {
+    for(uint64_t i = 0; i < num_nodes - 1; i++)
+      for(uint64_t j = i; j < num_nodes; j++)
+        stream << this->get_val_unsafe(i,j) << std::endl;
+  }
+
+};
+
 template<typename Graph>
 struct Jaccard_Algo
 {
-
   using GNode = typename Graph::GraphNode;
 
   JaccardStatistics compute(Graph& graph, GNode compare_node)
@@ -56,8 +112,7 @@ struct Jaccard_Algo
           if (n != compare_node)
           {
             max_similarity.update(similarity);
-            min_similarity.update(similarity);
-            total_similarity += similarity;
+            min_similarity.update(similarity); total_similarity += similarity;
           }
         }, galois::loopname("Jaccard Stats"));
     return JaccardStatistics {
@@ -101,7 +156,7 @@ struct Jaccard_Algo
   };
 
   template <typename IntersectAlgorithm>
-  void JaccardImplSingle(Graph& graph, uint64_t node_num, double** ret)
+  void JaccardImplSingle(Graph& graph, uint64_t node_num, JaccardRet& ret)
   {
     uint64_t sz = graph.size();
 
@@ -112,9 +167,13 @@ struct Jaccard_Algo
     uint64_t base_size = graph.getDegree(base);
 
     IntersectAlgorithm intersect_with_base{graph, base};
+    it++;
 
     // Compute the similarity for each node
-    galois::do_all(galois::iterate(std::advance(it, 1), graph.end()), [&](const GNode& n2) {
+    for(; it != graph.end(); it++)
+    {
+      const GNode& n2 = *it;
+
       uint64_t n2_size = graph.getDegree(n2);
       // Count the number of neighbors of n2 and the number that are shared
       // with base
@@ -124,14 +183,20 @@ struct Jaccard_Algo
       double similarity =
           union_size > 0 ? (double)intersection_size / union_size : 1;
       // Store the similarity back into the graph.
-      ret[n2][node_num] = similarity;
-    });
+      ret.add_next_unsafe(node_num ,similarity);
+    }
   }
 
   template <typename IntersectAlgorithm>
-  void JaccardImpl(Graph& graph, double** ret)
+  void JaccardImpl(Graph& graph, JaccardRet& ret)
   {
-    for(uint64_t i = 0; i < graph->size(); i++) JaccardImplSingle(graph, i, ret);
+    const uint64_t size = graph.size();
+    galois::do_all(galois::iterate((uint64_t)0, size),
+      [&](uint64_t start_node)
+      {
+        this->JaccardImplSingle<IntersectAlgorithm>(graph, start_node, ret);
+      }
+    );
   }
 
 };
