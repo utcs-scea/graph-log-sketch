@@ -1,4 +1,5 @@
-FROM ubuntu:22.04
+#FROM ubuntu:22.04
+FROM nvidia/cuda:12.0.0-devel-ubuntu22.04
 #RUN apt update -y && apt-get -y install add-apt-key ca-certificates
 #RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 15CF4D18AF4F7421
 #COPY ./ubuntu-toolchain-llvm-jammy.list /etc/apt/sources.list.d/ubuntu-toolchain-llvm-jammy.list
