@@ -51,11 +51,15 @@ class JaccardRet
   }
 
 public:
+
   JaccardRet(uint64_t n) :
     num_nodes(n),
     curr_sz((uint64_t*) calloc(sizeof(uint64_t*), n)),
-    upper_triangle((double*) malloc(sizeof(double) * n  * (n - 1) / 2)) {}
-  ~JaccardRet() {free(curr_sz); free(upper_triangle);}
+    upper_triangle((double*) mmap(NULL, sizeof(double) * n  * (n - 1) / 2, PROT_READ | PROT_WRITE,
+          MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0))
+    { assert(upper_triangle != MAP_FAILED);}
+
+  ~JaccardRet() {free(curr_sz); munmap(upper_triangle, sizeof(double) * num_nodes  * (num_nodes - 1) / 2);}
 
   void reset() {std::fill(curr_sz, curr_sz + num_nodes - 1, 0);}
 
@@ -93,6 +97,37 @@ public:
   }
 
 };
+
+class JaccardNoRet
+{
+  double blah;
+
+public:
+
+  JaccardNoRet(uint64_t n) : blah(0) {}
+
+  ~JaccardNoRet() {}
+
+  void reset() {blah = 0;}
+
+  void add_next_unsafe(uint64_t node, double val) {blah = val;}
+
+  int add_next(uint64_t node, double val)
+  {
+    add_next_unsafe(node, val);
+    return -1;
+  }
+
+  double get_val_unsafe(uint64_t n1, uint64_t n2)
+  {
+    return blah;
+  }
+
+  template<typename O>
+  void print(O& stream) {}
+
+};
+
 
 template<typename Graph>
 struct Jaccard_Algo
@@ -155,8 +190,8 @@ struct Jaccard_Algo
     }
   };
 
-  template <typename IntersectAlgorithm>
-  void JaccardImplSingle(Graph& graph, uint64_t node_num, JaccardRet& ret)
+  template <typename IntersectAlgorithm, typename JRet>
+  void JaccardImplSingle(Graph& graph, uint64_t node_num, JRet& ret)
   {
     uint64_t sz = graph.size();
 
@@ -187,8 +222,8 @@ struct Jaccard_Algo
     }
   }
 
-  template <typename IntersectAlgorithm>
-  void JaccardImpl(Graph& graph, JaccardRet& ret)
+  template <typename IntersectAlgorithm, typename JRet>
+  void JaccardImpl(Graph& graph, JRet& ret)
   {
     const uint64_t size = graph.size();
     galois::do_all(galois::iterate((uint64_t)0, size),
