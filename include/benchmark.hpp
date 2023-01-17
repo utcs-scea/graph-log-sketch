@@ -118,6 +118,15 @@ void run_test_and_benchmark(std::string bench_name, pa count, int cpu, S setup, 
   benchmark(count, bench_name.c_str(), cpu, b);
 }
 
+std::vector<uint64_t> rand_nodes(uint64_t sz, uint64_t num_nodes)
+{
+  std::vector<uint64_t> samps;
+  for(uint64_t i = 0; i < num_nodes; i++) samps.push_back(i);
+  std::random_shuffle(samps.begin(), samps.end(), RNG());
+  samps.resize(sz);
+  return samps;
+}
+
 std::vector<std::pair<uint64_t,uint64_t>> el_file_to_rand_vec_edge(const std::string& ELFile, uint64_t& num_nodes, uint64_t& num_edges)
 {
   std::ifstream graphFile(ELFile.c_str());

@@ -234,4 +234,16 @@ struct Jaccard_Algo
     );
   }
 
+  template <typename IntersectAlgorithm, typename JRet>
+  void JaccardImplRand(Graph& graph, JRet& ret, std::vector<uint64_t> samps)
+  {
+    galois::do_all(galois::iterate(samps.begin(), samps.end()),
+      [&](uint64_t start_node)
+      {
+        this->JaccardImplSingle<IntersectAlgorithm>(graph, start_node, ret);
+      }
+    );
+
+  }
+
 };
