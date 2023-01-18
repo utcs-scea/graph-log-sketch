@@ -128,7 +128,6 @@ public:
 
 };
 
-
 template<typename Graph>
 struct Jaccard_Algo
 {
@@ -222,6 +221,38 @@ struct Jaccard_Algo
     }
   }
 
+  template<typename IntersectAlgorithm, typename JRet>
+  void JaccardImplPair(Graph& graph, size_t node_samp, JRet& ret, std::vector<uint64_t>& samps)
+  {
+    auto it = graph.begin();
+    uint64_t prev = samps[node_samp];
+    std::advance(it, prev);
+    GNode base = *it;
+
+    uint64_t base_size = graph.getDegree(base);
+
+    IntersectAlgorithm intersect_with_base{graph, base};
+
+    for(; node_samp < samps.size(); node_samp++)
+    {
+      const uint64_t nprev = samps[node_samp];
+      std::advance(it, nprev - prev);
+      const GNode& n2 = *it;
+
+      uint64_t n2_size = graph.getDegree(n2);
+      // Count the number of neighbors of n2 and the number that are shared
+      // with base
+      uint64_t intersection_size = intersect_with_base(n2);
+      // Compute the similarity
+      uint64_t union_size = base_size + n2_size - intersection_size;
+      double similarity =
+          union_size > 0 ? (double)intersection_size / union_size : 1;
+      // Store the similarity back into the graph.
+      ret.add_next_unsafe(node_samp, similarity);
+      prev = nprev;
+    }
+  }
+
   template <typename IntersectAlgorithm, typename JRet>
   void JaccardImpl(Graph& graph, JRet& ret)
   {
@@ -235,12 +266,12 @@ struct Jaccard_Algo
   }
 
   template <typename IntersectAlgorithm, typename JRet>
-  void JaccardImplRand(Graph& graph, JRet& ret, std::vector<uint64_t> samps)
+  void JaccardImplRand(Graph& graph, JRet& ret, std::vector<uint64_t>& samps)
   {
-    galois::do_all(galois::iterate(samps.begin(), samps.end()),
-      [&](uint64_t start_node)
+    galois::do_all(galois::iterate((size_t)0, samps.size()),
+      [&](size_t start_node)
       {
-        this->JaccardImplSingle<IntersectAlgorithm>(graph, start_node, ret);
+        this->JaccardImplPair<IntersectAlgorithm>(graph, start_node, ret, samps);
       }
     );
 

@@ -238,22 +238,22 @@ int main(int argc, char** argv)
           case LS_CSR:
             run_algo_evolve<LS_CSR_LOCK_OUT>(statsfn, "LS_CSR EVOLVE", c, 2, 8, num_nodes, num_edges, edge_list,
               lclo_evo, [&jutr](LS_CSR_LOCK_OUT& graph){jutr.reset();},
-              [&jutr, &samps](LS_CSR_LOCK_OUT& graph){lclo.JaccardImplRand<LSJA::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
+              [&jutr,&samps](LS_CSR_LOCK_OUT& graph){lclo.JaccardImplRand<LSJA::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
             break;
           case CSR_64:
             run_algo_evolve<LC_CSR_64_GRAPH>(statsfn, "CSR_64 EVOLVE", c, 3, 8, num_nodes, num_edges, edge_list,
               lc6g_evo, [&jutr](LC_CSR_64_GRAPH& graph){jutr.reset();},
-              [&jutr, &samps](LC_CSR_64_GRAPH& graph){lc6g.JaccardImplRand<LC6A::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
+              [&jutr,&samps](LC_CSR_64_GRAPH& graph){lc6g.JaccardImplRand<LC6A::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
             break;
           case CSR_32:
             run_algo_evolve<LC_CSR_32_GRAPH>(statsfn, "CSR_32 EVOLVE", c, 4, 8, num_nodes, num_edges, edge_list,
               lc3g_evo, [&jutr](LC_CSR_32_GRAPH& graph){jutr.reset();},
-              [&jutr, &samps](LC_CSR_32_GRAPH& graph){lc3g.JaccardImplRand<LC3A::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
+              [&jutr,&samps](LC_CSR_32_GRAPH& graph){lc3g.JaccardImplRand<LC3A::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
             break;
           case MOR_GR:
             run_algo_evolve<MORPH_GRAPH>(statsfn, "MOR_GR EVOLVE", c, 5, 8, num_nodes, num_edges, edge_list,
               morg_evo, [&jutr](MORPH_GRAPH& graph){jutr.reset();},
-              [&jutr, &samps](MORPH_GRAPH& graph){morg.JaccardImplRand<MORG::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
+              [&jutr,&samps](MORPH_GRAPH& graph){morg.JaccardImplRand<MORG::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
             break;
         }
         jutr.print(std::cout);
@@ -266,22 +266,22 @@ int main(int argc, char** argv)
           case LS_CSR:
             run_algo_evolve<LS_CSR_LOCK_OUT>(statsfn, "LS_CSR EVOLVE", c, 2, 8, num_nodes, num_edges, edge_list,
               lclo_evo, [&jutr](LS_CSR_LOCK_OUT& graph){jutr.reset();},
-              [&jutr, samps](LS_CSR_LOCK_OUT& graph){lclo.JaccardImplRand<LSJA::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
+              [&jutr,&samps](LS_CSR_LOCK_OUT& graph){lclo.JaccardImplRand<LSJA::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
             break;
           case CSR_64:
             run_algo_evolve<LC_CSR_64_GRAPH>(statsfn, "CSR_64 EVOLVE", c, 3, 8, num_nodes, num_edges, edge_list,
               lc6g_evo, [&jutr](LC_CSR_64_GRAPH& graph){jutr.reset();},
-              [&jutr, samps](LC_CSR_64_GRAPH& graph){lc6g.JaccardImplRand<LC6A::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
+              [&jutr,&samps](LC_CSR_64_GRAPH& graph){lc6g.JaccardImplRand<LC6A::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
             break;
           case CSR_32:
             run_algo_evolve<LC_CSR_32_GRAPH>(statsfn, "CSR_32 EVOLVE", c, 4, 8, num_nodes, num_edges, edge_list,
               lc3g_evo, [&jutr](LC_CSR_32_GRAPH& graph){jutr.reset();},
-              [&jutr, samps](LC_CSR_32_GRAPH& graph){lc3g.JaccardImplRand<LC3A::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
+              [&jutr,&samps](LC_CSR_32_GRAPH& graph){lc3g.JaccardImplRand<LC3A::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
             break;
           case MOR_GR:
             run_algo_evolve<MORPH_GRAPH>(statsfn, "MOR_GR EVOLVE", c, 5, 8, num_nodes, num_edges, edge_list,
               morg_evo, [&jutr](MORPH_GRAPH& graph){jutr.reset();},
-              [&jutr, samps](MORPH_GRAPH& graph){morg.JaccardImplRand<MORG::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
+              [&jutr,&samps](MORPH_GRAPH& graph){morg.JaccardImplRand<MORG::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
             break;
         }
         jutr.print(std::cout);
@@ -307,22 +307,22 @@ int main(int argc, char** argv)
           case LS_CSR:
             run_algo_static<LS_CSR_LOCK_OUT>(statsfn, "LS_CSR STATIC", c, 3, num_nodes, num_edges, edge_list,
               [&jutr](LS_CSR_LOCK_OUT& graph){jutr.reset();},
-              [&jutr, &samps](LS_CSR_LOCK_OUT& graph){lclo.JaccardImplRand<LSJA::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
+              [&jutr,&samps](LS_CSR_LOCK_OUT& graph){lclo.JaccardImplRand<LSJA::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
             break;
           case CSR_64:
             run_algo_static<LC_CSR_64_GRAPH>(statsfn, "CSR_64 STATIC", c, 4, num_nodes, num_edges, edge_list,
               [&jutr](LC_CSR_64_GRAPH& graph){jutr.reset();},
-              [&jutr, &samps](LC_CSR_64_GRAPH& graph){lc6g.JaccardImplRand<LC6A::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
+              [&jutr,&samps](LC_CSR_64_GRAPH& graph){lc6g.JaccardImplRand<LC6A::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
             break;
           case CSR_32:
             run_algo_static<LC_CSR_32_GRAPH>(statsfn, "CSR_32 STATIC", c, 5, num_nodes, num_edges, edge_list,
               [&jutr](LC_CSR_32_GRAPH& graph){jutr.reset();},
-              [&jutr, &samps](LC_CSR_32_GRAPH& graph){lc3g.JaccardImplRand<LC3A::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
+              [&jutr,&samps](LC_CSR_32_GRAPH& graph){lc3g.JaccardImplRand<LC3A::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
             break;
           case MOR_GR:
             run_algo_static<MORPH_GRAPH>(statsfn, "MOR_GR STATIC", c, 6, num_nodes, num_edges, edge_list,
               [&jutr](MORPH_GRAPH& graph){jutr.reset();},
-              [&jutr, &samps](MORPH_GRAPH& graph){morg.JaccardImplRand<MORG::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
+              [&jutr,&samps](MORPH_GRAPH& graph){morg.JaccardImplRand<MORG::IntersectWithSortedEdgeList, JaccardRet>(graph, jutr, samps);});
             break;
         }
         jutr.print(std::cout);
@@ -335,22 +335,22 @@ int main(int argc, char** argv)
           case LS_CSR:
             run_algo_static<LS_CSR_LOCK_OUT>(statsfn, "LS_CSR STATIC", c, 3, num_nodes, num_edges, edge_list,
               [&jutr](LS_CSR_LOCK_OUT& graph){jutr.reset();},
-              [&jutr, &samps](LS_CSR_LOCK_OUT& graph){lclo.JaccardImplRand<LSJA::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
+              [&jutr,&samps](LS_CSR_LOCK_OUT& graph){lclo.JaccardImplRand<LSJA::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
             break;
           case CSR_64:
             run_algo_static<LC_CSR_64_GRAPH>(statsfn, "CSR_64 STATIC", c, 4, num_nodes, num_edges, edge_list,
               [&jutr](LC_CSR_64_GRAPH& graph){jutr.reset();},
-              [&jutr, &samps](LC_CSR_64_GRAPH& graph){lc6g.JaccardImplRand<LC6A::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
+              [&jutr,&samps](LC_CSR_64_GRAPH& graph){lc6g.JaccardImplRand<LC6A::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
             break;
           case CSR_32:
             run_algo_static<LC_CSR_32_GRAPH>(statsfn, "CSR_32 STATIC", c, 5, num_nodes, num_edges, edge_list,
               [&jutr](LC_CSR_32_GRAPH& graph){jutr.reset();},
-              [&jutr, &samps](LC_CSR_32_GRAPH& graph){lc3g.JaccardImplRand<LC3A::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
+              [&jutr,&samps](LC_CSR_32_GRAPH& graph){lc3g.JaccardImplRand<LC3A::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
             break;
           case MOR_GR:
             run_algo_static<MORPH_GRAPH>(statsfn, "MOR_GR STATIC", c, 6, num_nodes, num_edges, edge_list,
               [&jutr](MORPH_GRAPH& graph){jutr.reset();},
-              [&jutr, &samps](MORPH_GRAPH& graph){morg.JaccardImplRand<MORG::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
+              [&jutr,&samps](MORPH_GRAPH& graph){morg.JaccardImplRand<MORG::IntersectWithSortedEdgeList, JaccardNoRet>(graph, jutr, samps);});
             break;
         }
         jutr.print(std::cout);

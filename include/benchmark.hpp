@@ -124,6 +124,7 @@ std::vector<uint64_t> rand_nodes(uint64_t sz, uint64_t num_nodes)
   for(uint64_t i = 0; i < num_nodes; i++) samps.push_back(i);
   std::random_shuffle(samps.begin(), samps.end(), RNG());
   samps.resize(sz);
+  std::sort(samps.begin(), samps.end());
   return samps;
 }
 
