@@ -72,7 +72,6 @@ static constexpr counter counts[] =
 #else
 { { .type = PERF_TYPE_HARDWARE, .config = PERF_COUNT_HW_CPU_CYCLES    , .raw_string = "cycles"},
   { .type = PERF_TYPE_HARDWARE, .config = PERF_COUNT_HW_INSTRUCTIONS  , .raw_string = "instru"},
-  { .type = PERF_TYPE_HARDWARE, .config = PERF_COUNT_HW_REF_CPU_CYCLES, .raw_string = "ref_cy"},
   { .type = PERF_TYPE_HW_CACHE, .config = PCHCRM<<16|PCHCOR<<8|PCHW1D , .raw_string = "l1_dlm"},
   { .type = PERF_TYPE_HW_CACHE, .config = PCHCRA<<16|PCHCOR<<8|PCHW1D , .raw_string = "l1_dla"},
 };

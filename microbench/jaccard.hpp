@@ -226,6 +226,7 @@ struct Jaccard_Algo
   {
     auto it = graph.begin();
     uint64_t prev = samps[node_samp];
+    node_samp++;
     std::advance(it, prev);
     GNode base = *it;
 
