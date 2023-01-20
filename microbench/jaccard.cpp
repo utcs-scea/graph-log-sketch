@@ -1,6 +1,4 @@
 #include "jaccard.hpp"
-#include <counters.hpp>
-
 #include "llvm/Support/CommandLine.h"
 
 namespace cll = llvm::cl;
@@ -42,6 +40,11 @@ static const cll::opt<uint32_t> sample_sz(
     "sz",
     cll::desc("Choose a sample size (default value 0 meaning sampling off)"),
     cll::init(0));
+
+static const cll::opt<uint64_t> rseed_vec(
+    "seed",
+    cll::desc("Choose a random seed for the random vector"),
+    cll::init(rseed));
 
 using LS_CSR_LOCK_OUT = galois::graphs::LS_LC_CSR_64_Graph<void, void>::with_no_lockable<true>::type;
 using LC_CSR_64_GRAPH = galois::graphs::LC_CSR_64_Graph<void, void>::with_no_lockable<true>::type;
@@ -228,7 +231,7 @@ int main(int argc, char** argv)
       auto diff = std::chrono::duration<uint64_t, std::nano>(t1-t0).count();
       std::cout << "File Read Time (ns):\t" << diff << std::endl;
 
-      std::vector<uint64_t> samps = rand_nodes(sample_sz, num_nodes);
+      std::vector<uint64_t> samps = rand_nodes(sample_sz, num_nodes, rseed_vec);
 
       if(out == OUT)
       {
@@ -296,7 +299,7 @@ int main(int argc, char** argv)
       auto diff = std::chrono::duration<uint64_t, std::nano>(t1-t0).count();
       std::cout << "File Read Time (ns):\t" << diff << std::endl;
 
-      std::vector<uint64_t> samps = rand_nodes(sample_sz, num_nodes);
+      std::vector<uint64_t> samps = rand_nodes(sample_sz, num_nodes, rseed_vec);
 
 
       if(out == OUT)

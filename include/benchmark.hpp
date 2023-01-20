@@ -13,8 +13,8 @@
 
 constexpr uint64_t rseed = 48048593;
 
-constexpr uint64_t BENCH_NUM = 5;
-constexpr uint64_t WARM_UP_COOL_DOWN = 1;
+constexpr uint64_t BENCH_NUM = 1;
+constexpr uint64_t WARM_UP_COOL_DOWN = 0;
 
 struct RNG
 {
@@ -118,10 +118,11 @@ void run_test_and_benchmark(std::string bench_name, pa count, int cpu, S setup, 
   benchmark(count, bench_name.c_str(), cpu, b);
 }
 
-std::vector<uint64_t> rand_nodes(uint64_t sz, uint64_t num_nodes)
+std::vector<uint64_t> rand_nodes(uint64_t sz, uint64_t num_nodes, uint64_t rseed_vec)
 {
   std::vector<uint64_t> samps;
   for(uint64_t i = 0; i < num_nodes; i++) samps.push_back(i);
+  srand(rseed_vec);
   std::random_shuffle(samps.begin(), samps.end(), RNG());
   samps.resize(sz);
   std::sort(samps.begin(), samps.end());
@@ -153,6 +154,8 @@ std::vector<std::pair<uint64_t,uint64_t>> el_file_to_rand_vec_edge(const std::st
   {
     ret.emplace_back(src,dest);
   }
+
+  std::srand(rseed);
   std::random_shuffle(ret.begin(), ret.end(), RNG());
 
   num_edges = ret.size();
