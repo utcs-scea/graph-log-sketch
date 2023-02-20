@@ -76,9 +76,36 @@ void benchmark(pa count, const char* str, int cpu, B bench, const char* statsFil
 
 }
 
+template<typename B>
+void benchmark(pa count, const char* str, B bench, const char* statsFileName = "stats.txt")
+{
+  std::ofstream stats(statsFileName, std::ofstream::app);
+  if (!stats.is_open())
+  {
+    std::cerr << "FAILURE TO OPEN FILE " << statsFileName << std::endl;
+    exit(-5);
+  }
+
+  stats << str << "\t" << num_counters() << "\t" << BENCH_NUM << std::endl;
+  for(uint64_t i = 0; i < WARM_UP_COOL_DOWN *2 + BENCH_NUM; i++)
+  {
+    bench(count);
+
+    if(WARM_UP_COOL_DOWN <= i && WARM_UP_COOL_DOWN + BENCH_NUM > i)
+      print_counters(count, stats);
+  }
+
+}
+
 #else
 template<typename B>
 void benchmark(pa count, const char* str, int cpu, B bench, const char* statsFileName = "stats.txt")
+{
+  bench(count);
+}
+
+template<typename B>
+void benchmark(pa count, const char* str, B bench, const char* statsFileName = "stats.txt")
 {
   bench(count);
 }
@@ -97,6 +124,21 @@ void run_benchmark(const std::string& statsfn, std::string bench_name, pa count,
     cleanup(t);
   };
   benchmark(count, bench_name.c_str(), cpu, b, statsfn.c_str());
+}
+
+template<typename T, typename S, typename C, typename B>
+void run_benchmark(const std::string& statsfn, std::string bench_name, pa count, S setup, B bench, C cleanup)
+{
+  auto b = [&setup, &bench, &cleanup](pa c)
+  {
+    T t = setup();
+    reset_counters(c);
+    start_counters(c);
+    bench(t);
+    stop_counters(c);
+    cleanup(t);
+  };
+  benchmark(count, bench_name.c_str(), b, statsfn.c_str());
 }
 
 template<typename T, typename S, typename C, typename A, typename B>
