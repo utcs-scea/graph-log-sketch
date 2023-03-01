@@ -17,11 +17,13 @@ static const cll::opt<std::string> statsFile(cll::Positional, cll::desc("<stat f
 
 static const cll::opt<std::uint64_t> numGThreads(cll::Positional, cll::desc("<num threads>"), cll::Required);
 
-enum GraphType : uint8_t {LS_CSR,LS_CPR,CSR_64,CSR_32,MOR_GR};
+enum GraphType : uint8_t {LS_CSR,LS_CPR,LS_COO,LS_CIS,CSR_64,CSR_32,MOR_GR};
 cll::opt<GraphType> gtype(
     "g",
-    cll::desc("Choose LS_CSR, LS_CPR, CSR_64, CSR_32, or MOR_GR as the target (default value LS_CSR)"),
-    cll::values(clEnumVal(LS_CSR, "LS_CSR"),clEnumVal(LS_CPR, "LS_CPR"),clEnumVal(CSR_64, "CSR_64"),clEnumVal(CSR_32, "CSR_32"),clEnumVal(MOR_GR, "MOR_GR")),
+    cll::desc("Choose LS_CSR, LS_CPR, LS_COO, CSR_64, CSR_32, or MOR_GR as the target (default value LS_CSR)"),
+    cll::values(clEnumVal(LS_CSR, "LS_CSR"),clEnumVal(LS_CPR, "LS_CPR"),clEnumVal(LS_COO, "LS_COO"),
+                clEnumVal(LS_CIS, "LS_CIS"),clEnumVal(CSR_64, "CSR_64"),clEnumVal(CSR_32, "CSR_32"),
+                clEnumVal(MOR_GR, "MOR_GR")),
     cll::init(LS_CSR));
 
 static const cll::opt<uint64_t> rseed_vec(
@@ -36,6 +38,8 @@ using MORPH_GRAPH     = galois::graphs::MorphGraph<void, void, true>::with_no_lo
 
 auto lclo_evo = add_edges_per_node<LS_CSR_LOCK_OUT>;
 auto lcpo_evo = add_edges_group_insert_sort<LS_CSR_LOCK_OUT>;
+auto lcoo_evo = add_edges_one_by_one<LS_CSR_LOCK_OUT>;
+auto lcis_evo = add_edges_count_insert_sort<LS_CSR_LOCK_OUT>;
 auto lc6g_evo = regen_graph_sorted<LC_CSR_64_GRAPH>;
 auto lc3g_evo = regen_graph_sorted<LC_CSR_32_GRAPH>;
 auto morg_evo = add_edges_per_edge<false,MORPH_GRAPH>;
@@ -62,25 +66,34 @@ int main(int argc, char** argv)
   t0 = std::chrono::high_resolution_clock::now();
   switch(gtype)
   {
-      case LS_CPR:
-        run_p_evolve<LS_CSR_LOCK_OUT>(statsfn, "LS_CPR " + std::to_string(numGThreads), c, 8, num_nodes, num_edges, edge_list,
-          lcpo_evo);
-      case LS_CSR:
-        run_p_evolve<LS_CSR_LOCK_OUT>(statsfn, "LS_CSR " + std::to_string(numGThreads), c, 8, num_nodes, num_edges, edge_list,
-          lclo_evo);
-        break;
-      case CSR_64:
-        run_p_evolve<LC_CSR_64_GRAPH>(statsfn, "CSR_64 " + std::to_string(numGThreads), c, 8, num_nodes, num_edges, edge_list,
-          lc6g_evo);
-        break;
-      case CSR_32:
-        run_p_evolve<LC_CSR_32_GRAPH>(statsfn, "CSR_32 " + std::to_string(numGThreads), c, 8, num_nodes, num_edges, edge_list,
-          lc3g_evo);
-        break;
-      case MOR_GR:
-        run_p_evolve<MORPH_GRAPH>(statsfn, "MOR_GR " + std::to_string(numGThreads), c, 8, num_nodes, num_edges, edge_list,
-          morg_evo);
-        break;
+    case LS_CIS:
+      run_p_evolve<LS_CSR_LOCK_OUT>(statsfn, "LS_CIS " + std::to_string(numGThreads), c, 8, num_nodes, num_edges, edge_list,
+        lcis_evo);
+      break;
+    case LS_COO:
+      run_p_evolve<LS_CSR_LOCK_OUT>(statsfn, "LS_COO " + std::to_string(numGThreads), c, 8, num_nodes, num_edges, edge_list,
+        lcoo_evo);
+      break;
+    case LS_CPR:
+      run_p_evolve<LS_CSR_LOCK_OUT>(statsfn, "LS_CPR " + std::to_string(numGThreads), c, 8, num_nodes, num_edges, edge_list,
+        lcpo_evo);
+      break;
+    case LS_CSR:
+      run_p_evolve<LS_CSR_LOCK_OUT>(statsfn, "LS_CSR " + std::to_string(numGThreads), c, 8, num_nodes, num_edges, edge_list,
+        lclo_evo);
+      break;
+    case CSR_64:
+      run_p_evolve<LC_CSR_64_GRAPH>(statsfn, "CSR_64 " + std::to_string(numGThreads), c, 8, num_nodes, num_edges, edge_list,
+        lc6g_evo);
+      break;
+    case CSR_32:
+      run_p_evolve<LC_CSR_32_GRAPH>(statsfn, "CSR_32 " + std::to_string(numGThreads), c, 8, num_nodes, num_edges, edge_list,
+        lc3g_evo);
+      break;
+    case MOR_GR:
+      run_p_evolve<MORPH_GRAPH>(statsfn, "MOR_GR " + std::to_string(numGThreads), c, 8, num_nodes, num_edges, edge_list,
+        morg_evo);
+      break;
   }
   t1 = std::chrono::high_resolution_clock::now();
   diff = std::chrono::duration<uint64_t, std::nano>(t1-t0).count();

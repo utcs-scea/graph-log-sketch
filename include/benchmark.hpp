@@ -240,4 +240,5 @@ std::vector<uint64_t>* el_file_to_edge_list(const std::string& ELFile, uint64_t&
   return ret;
 }
 
+
 #endif

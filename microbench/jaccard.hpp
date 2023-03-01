@@ -54,38 +54,31 @@ public:
 
   JaccardRet(uint64_t n) :
     num_nodes(n),
-    curr_sz((uint64_t*) calloc(sizeof(uint64_t*), n)),
     upper_triangle((double*) mmap(NULL, sizeof(double) * n  * (n - 1) / 2, PROT_READ | PROT_WRITE,
           MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0))
     { assert(upper_triangle != MAP_FAILED);}
 
-  ~JaccardRet() {free(curr_sz); munmap(upper_triangle, sizeof(double) * num_nodes  * (num_nodes - 1) / 2);}
+  ~JaccardRet() {munmap(upper_triangle, sizeof(double) * num_nodes  * (num_nodes - 1) / 2);}
 
-  void reset() {std::fill(curr_sz, curr_sz + num_nodes - 1, 0);}
-
-  void add_next_unsafe(uint64_t node, double val)
-  {
-    uint64_t& size = curr_sz[node];
-    uint64_t index = flatten_index(node);
-    upper_triangle[index + size] = val;
-    size++;
-  }
-
-  int add_next(uint64_t node, double val)
-  {
-    if(curr_sz[node] < num_nodes - node - 1)
-    {
-      add_next_unsafe(node, val);
-      return 0;
-    }
-    return -1;
-  }
+  void reset() {std::fill(upper_triangle, upper_triangle + num_nodes*(num_nodes -1)/2, 0);}
 
   double get_val_unsafe(uint64_t n1, uint64_t n2)
   {
     return  (n1 > n2) ? upper_triangle[flatten_index(n2) + (n1 - n2)]:
             (n2 > n1) ? upper_triangle[flatten_index(n1) + (n2 - n1)]:
             1;
+  }
+
+  void insert(uint64_t n1, uint64_t n2, double val)
+  {
+    double* location =
+            (n1 > n2) ? &upper_triangle[flatten_index(n2) + (n1 - n2)]:
+            (n2 > n1) ? &upper_triangle[flatten_index(n1) + (n2 - n1)]:
+            nullptr;
+
+    assert(location != nullptr);
+
+    *location = val;
   }
 
   template<typename O>
@@ -123,9 +116,10 @@ public:
     return blah;
   }
 
+  void insert(uint64_t node0, uint64_t node1, double val) {blah = val;}
+
   template<typename O>
   void print(O& stream) {}
-
 };
 
 template<typename Graph>
@@ -204,7 +198,8 @@ struct Jaccard_Algo
     it++;
 
     // Compute the similarity for each node
-    for(; it != graph.end(); it++)
+    uint64_t count = 1;
+    for(; it != graph.end(); it++, count++)
     {
       const GNode& n2 = *it;
 
@@ -217,8 +212,36 @@ struct Jaccard_Algo
       double similarity =
           union_size > 0 ? (double)intersection_size / union_size : 1;
       // Store the similarity back into the graph.
-      ret.add_next_unsafe(node_num ,similarity);
+      ret.insert(node_num, node_num + count, similarity);
     }
+  }
+
+  template <typename IntersectAlgorithm, typename JRet>
+  void JaccardImplSinglePair(Graph& graph, uint64_t node0, uint64_t node1, JRet& ret)
+  {
+    uint64_t sz = graph.size();
+
+    auto it = graph.begin();
+    std::advance(it, node0);
+    GNode base0 = *it;
+
+    uint64_t base_size = graph.getDegree(base0);
+
+    IntersectAlgorithm intersect_with_base{graph, base0};
+
+    it = graph.begin();
+    std::advance(it, node1);
+    const GNode& n1 = *it;
+    uint64_t n1_size = graph.getDegree(n1);
+    // Count the number of neighbors of n2 and the number that are shared
+    // with base
+    uint64_t intersection_size = intersect_with_base(n1);
+    // Compute the similarity
+    uint64_t union_size = base_size + n1_size - intersection_size;
+    double similarity =
+      union_size > 0 ? (double)intersection_size / union_size : 1;
+    // Store the similarity back into the graph.
+    ret.insert(node0, node1, similarity);
   }
 
   template<typename IntersectAlgorithm, typename JRet>
@@ -255,15 +278,14 @@ struct Jaccard_Algo
   }
 
   template <typename IntersectAlgorithm, typename JRet>
-  void JaccardImpl(Graph& graph, JRet& ret)
+  void JaccardImpl(Graph& graph, JRet& ret, const std::vector<std::pair<uint64_t, uint64_t>>& iterators)
   {
     const uint64_t size = graph.size();
-    galois::do_all(galois::iterate((uint64_t)0, size),
-      [&](uint64_t start_node)
+    galois::do_all(galois::iterate(iterators.begin(), iterators.end()),
+      [&](const std::pair<uint64_t, uint64_t> p)
       {
-        this->JaccardImplSingle<IntersectAlgorithm>(graph, start_node, ret);
-      }
-    );
+        this->JaccardImplSinglePair<IntersectAlgorithm>(graph, p.first, p.second, ret);
+      }, galois::steal());
   }
 
   template <typename IntersectAlgorithm, typename JRet>
