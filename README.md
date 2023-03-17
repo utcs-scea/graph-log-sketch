@@ -27,9 +27,15 @@ This will build `RelWithDebugInfo` into the `docker-build` folder to be run with
 If you wish to run benchmarking then add `-DBENCH` to the GCC compiler flags in your `CMakeCache.txt` to
 `CMAKE_CXX_FLAGS_RELEASE`.
 
+## Distributed
+If you wish to run things in a distributed fasion then add `-DGALOIS_ENABLE_DIST=1` to your cmake flags.
+
 ## Microbenchmarks (ISBs)
 ### Jaccard
 The build target for jaccard is `jaccard` so you can create this inside your build folder by runing ``make -j`nproc` jaccard``
 ### BFS
-The build target for this is `galois-gen-bfs-tests`, it is currently *NOT* set up properly for command line use.
-I am still cleaning it up.
+Note that you *must* [enable distributed programs](#distributed) in galois for this to work and compile.
+The build target for this has changed to a more distributed version.
+First ensure that your submodules is using the `dgraph` branch of the galois repository.
+The build command for this is now ``make -j `nproc` -C galois/lonestar/analytics/distributed/bfs``.
+The binary is `galois/lonestar/analytics/distributed/bfs/bfs-push-dist`.
