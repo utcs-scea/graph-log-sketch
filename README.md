@@ -65,3 +65,23 @@ To use mpirun simply replace the first part of the command with:
 ```
 mpirun -n <#processes> <BFS_BINARY>
 ```
+
+#### BFS Randomization
+Generating a random file is done *exactly* the same way as in the combBLAS DirOpt benchmark.
+The benchmark would be `bfs-rand-gen` with the scale parameter used for DirOpt.
+The graph in the edge-list format is output to `stdout`.
+This can then be put through `dist-graph-convert` converted to a `gr -> cgr -> tgr`, so that the BFS can be run on the *exact* same kind of graph as the
+combBLAS one.
+
+Sample command
+```
+mpirun -N <#processes> ./bfs-rand-gen <scale> | sed '1d' > temp.el
+mpirun -N <#processes> ./dist-graph-convert --edgelist2gr  temp.el  temp.gr
+mpirun -N <#processes> ./dist-graph-convert --gr2cgr       temp.gr  temp.cgr
+mpirun -N <#processes> ./dist-graph-convert --gr2tgr       temp.cgr temp.tgr
+mpirun -n <#processes> <BFS_BINARY> temp.cgr -graphTranspose=temp.tgr <other-args>
+```
+## Tools
+### Graph Conversion
+This can be build ``make -C ./galois/tools/dist-graph-convert/ -j `nproc```.
+
