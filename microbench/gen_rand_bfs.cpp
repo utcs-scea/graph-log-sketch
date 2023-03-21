@@ -2,6 +2,7 @@
 #define DETERMINISTIC
 #define BOTTOMUPTIME
 #include <iostream>
+#include <sstream>
 #include <mpi.h>
 #include <omp.h>
 #ifndef __STDC_CONSTANT_MACROS
@@ -80,9 +81,13 @@ int main(int argc, char** argv)
   }
 
   combblas::packed_edge* pedges = DEL->getPackedEdges();
+
   for(int64_t i = 0; i < DEL->getNumLocalEdges(); i++)
   {
-    std::cout << get_v0_from_edge(&pedges[i]) << "\t" << get_v1_from_edge(&pedges[i]) << std::endl;
+    std::stringstream sout;
+    sout << get_v0_from_edge(&pedges[i]) << "\t" << get_v1_from_edge(&pedges[i]) << std::endl;
+    std::cout << sout.str();
   }
+
   MPI_Finalize();
 }
