@@ -83,5 +83,5 @@ mpirun -n <#processes> <BFS_BINARY> temp.cgr -graphTranspose=temp.tgr <other-arg
 ```
 ## Tools
 ### Graph Conversion
-This can be build ``make -C ./galois/tools/dist-graph-convert/ -j `nproc```.
+This can be build ``make -C ./galois/tools/dist-graph-convert/ -j `nproc` ``.
 
