@@ -3,7 +3,6 @@
 #include <mpi.h>
 #include "galois/Galois.h"
 
-
 struct RMAT_args_t
 {
   uint64_t seed;
@@ -14,7 +13,7 @@ struct RMAT_args_t
   double D;
 };
 
-void RMAT(const RMAT_args_t & args, uint64_t ndx, galois::PerThreadVector<std::pair<uint64_t, uint64_t>>& edges)
+void RMAT(const RMAT_args_t & args, uint64_t ndx, galois::InsertBag<std::pair<uint64_t, uint64_t>>& edges)
 {
   std::mt19937_64 gen64(args.seed + ndx);
   uint64_t max_rand = gen64.max();
@@ -27,11 +26,10 @@ void RMAT(const RMAT_args_t & args, uint64_t ndx, galois::PerThreadVector<std::p
     else if (rand <= args.A + args.B + args.C)          { src = (src << 1) + 1; dst = (dst << 1) + 0; }
     else if (rand <= args.A + args.B + args.C + args.D) { src = (src << 1) + 1; dst = (dst << 1) + 1; }
   }
-  auto vec = edges.get();
 
   if (src != dst) {                          // do not include self edges
     if (src > dst) std::swap(src, dst);     // make src less than dst
-    vec.emplace_back(src, dst);
+    edges.emplace_back(src, dst);
   }
 }
 
@@ -46,20 +44,23 @@ int main(int argc, char** argv)
   MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
   MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
 
-  if (argc != 7)
+  galois::SharedMemSys G;
+
+  if (argc != 8)
   {
-    printf("Usage: <seed> <scale> <edge ratio> <A> <B> <C>\n");
+    if(myrank == 0) printf("Usage: <nthreads> <seed> <scale> <edge ratio> <A> <B> <C>\n");
     MPI_Finalize();
     return 1;
   }
 
-  uint64_t seed = std::stoll(argv[1]);
-  uint64_t scale = std::stoll(argv[2]);
-  uint64_t num_vertices = 1 << std::stoll(argv[2]);
-  uint64_t num_edges = num_vertices * std::stoll(argv[3]);
+  galois::setActiveThreads(std::stoll(argv[1]));
+  uint64_t seed = std::stoll(argv[2]);
+  uint64_t scale = std::stoll(argv[3]);
+  uint64_t num_vertices = 1 << std::stoll(argv[3]);
+  uint64_t num_edges = num_vertices * std::stoll(argv[4]);
   if(myrank == 0)
   {
-    num_edges = num_edges + (num_edges % nprocs);
+    num_edges = num_edges/nprocs + (num_edges % nprocs);
   }
   else
   {
@@ -78,7 +79,7 @@ int main(int argc, char** argv)
 
   RMAT_args_t rmat_args = {seed + myrank, scale, A, B, C, D};
 
-  PerThreadVector<std::pair<uint64_t, uint64_t>> edges;
+  InsertBag<std::pair<uint64_t, uint64_t>> edges;
 
   //generate the random edges
   double t02;
@@ -92,6 +93,8 @@ int main(int argc, char** argv)
       }, galois::steal());
   MPI_Barrier(MPI_COMM_WORLD);
   t02 = MPI_Wtime();
+
+  if(myrank == 0) std::cerr << "Graph creation time:" << "\t" << t02 - t01 << std::endl;
 
   galois::do_all(galois::iterate(edges.begin(),edges.end()),
       [&](std::pair<uint64_t, uint64_t>& p)
