@@ -18,6 +18,9 @@ execute_process(COMMAND mkdir -p pytorch/libtorch_build/
 execute_process(COMMAND python ../tools/build_libtorch.py
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pytorch/libtorch_build)
 
+execute_process(COMMAND python ../tools/build_libtorch.py
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pytorch/libtorch_build)
+
 set(CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/pytorch/torch")
 find_package(Torch REQUIRED)
 message(TORCH_LIBRARIES="${TORCH_LIBRARIES}")
@@ -27,6 +30,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 
 add_subdirectory(galois EXCLUDE_FROM_ALL)
+add_subdirectory(CombBLAS EXCLUDE_FROM_ALL)
 
 add_subdirectory(wf1)
 
@@ -43,6 +47,8 @@ add_executable(edit_scalability microbench/edit_scalability.cpp)
 add_executable(parallel-small-tests test/p_small_tests.cpp)
 add_executable(ego-tests test/ego_graph.cpp)
 add_executable(do-workflow1 wf1/main.cpp)
+add_executable(gen-rand-bfs microbench/gen_rand_bfs.cpp)
+
 target_link_libraries(do-workflow1 workflow1 Galois::shmem)
 target_link_libraries(small-tests PRIVATE Catch2::Catch2WithMain Galois::shmem)
 target_link_libraries(file-tests PRIVATE Catch2::Catch2WithMain Galois::shmem)
@@ -56,6 +62,7 @@ target_link_libraries(parallel-small-tests PRIVATE Catch2::Catch2WithMain Galois
 target_link_libraries(ego-tests PRIVATE "${TORCH_LIBRARIES}" Catch2::Catch2WithMain Galois::shmem)
 target_link_libraries(jaccard PRIVATE Galois::shmem lonestar)
 target_link_libraries(edit_scalability PRIVATE Galois::shmem lonestar)
+target_link_libraries(gen-rand-bfs PRIVATE CombBLAS Galois::shmem lonestar)
 
 include(CTest)
 include(Catch)
