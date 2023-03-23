@@ -2,7 +2,14 @@
 This repository has sketches for graphs to be designed to ingest updates
 
 ## Build Instructions
-Currently everything is linked to small-tests which can be run as a ctest or a binary itself.
+Make sure that you have run the following
+```
+git submodule init
+git submodule update --recursive --force
+cd pytorch
+git submodule update --recursive --force
+cd ../
+```
 
 ```bash
 mkdir -p build
