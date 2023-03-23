@@ -49,6 +49,7 @@
 #include <tuple>
 #include <math.h>
 #include <limits.h>
+#include <string>
 
 #define TINY   5000
 #define SMALL  500000
