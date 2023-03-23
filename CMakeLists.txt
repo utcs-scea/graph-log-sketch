@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.11)
 project(graph-log-sketch)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
 include_directories(include)
 include_directories(wf1/include)
 Include(FetchContent)
@@ -9,10 +7,24 @@ Include(FetchContent)
 FetchContent_Declare(
   Catch2
   GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.1.0 # or a later release
+  GIT_TAG        v3.3.2 # or a later release
 )
 
 FetchContent_MakeAvailable(Catch2)
+
+execute_process(COMMAND mkdir -p pytorch/libtorch_build/
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+execute_process(COMMAND python ../tools/build_libtorch.py
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pytorch/libtorch_build)
+
+set(CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/pytorch/torch")
+find_package(Torch REQUIRED)
+message(TORCH_LIBRARIES="${TORCH_LIBRARIES}")
+#message(TORCH_CXX_FLAGS="${TORCH_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17)
 
 add_subdirectory(galois EXCLUDE_FROM_ALL)
 
@@ -41,7 +53,7 @@ target_link_libraries(galois-bfs-tests PRIVATE Catch2::Catch2WithMain Galois::sh
 target_link_libraries(galois-gen-bfs-tests PRIVATE Catch2::Catch2WithMain Galois::shmem lonestar)
 target_link_libraries(galois-jaccard-tests PRIVATE Catch2::Catch2WithMain Galois::shmem lonestar)
 target_link_libraries(parallel-small-tests PRIVATE Catch2::Catch2WithMain Galois::shmem)
-target_link_libraries(ego-tests PRIVATE Catch2::Catch2WithMain Galois::shmem)
+target_link_libraries(ego-tests PRIVATE "${TORCH_LIBRARIES}" Catch2::Catch2WithMain Galois::shmem)
 target_link_libraries(jaccard PRIVATE Galois::shmem lonestar)
 target_link_libraries(edit_scalability PRIVATE Galois::shmem lonestar)
 
