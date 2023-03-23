@@ -3,7 +3,7 @@ project(graph-log-sketch)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 include_directories(include)
-include_directories(wf1)
+include_directories(wf1/include)
 Include(FetchContent)
 
 FetchContent_Declare(
@@ -15,6 +15,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Catch2)
 
 add_subdirectory(galois EXCLUDE_FROM_ALL)
+
+add_subdirectory(wf1)
 
 add_executable(small-tests test/small_tests.cpp)
 add_executable(file-tests test/file_tests.cpp)
@@ -28,6 +30,8 @@ add_executable(jaccard microbench/jaccard.cpp)
 add_executable(edit_scalability microbench/edit_scalability.cpp)
 add_executable(parallel-small-tests test/p_small_tests.cpp)
 add_executable(ego-tests test/ego_graph.cpp)
+add_executable(do-workflow1 wf1/main.cpp)
+target_link_libraries(do-workflow1 workflow1 Galois::shmem)
 target_link_libraries(small-tests PRIVATE Catch2::Catch2WithMain Galois::shmem)
 target_link_libraries(file-tests PRIVATE Catch2::Catch2WithMain Galois::shmem)
 target_link_libraries(dijkstra-tests PRIVATE Catch2::Catch2WithMain)
