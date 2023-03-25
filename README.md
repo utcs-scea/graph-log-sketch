@@ -7,6 +7,7 @@ Make sure that you have run the following
 git submodule init
 git submodule update --recursive --force
 cd pytorch
+git submodule init
 git submodule update --recursive --force
 cd ../
 ```
