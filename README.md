@@ -3,13 +3,8 @@ This repository has sketches for graphs to be designed to ingest updates
 
 ## Build Instructions
 Make sure that you have run the following
-```
-git submodule init
-git submodule update --recursive --force
-cd pytorch
-git submodule init
-git submodule update --recursive --force
-cd ../
+```bash
+git submodule update --init --recursive --force
 ```
 
 ```bash
