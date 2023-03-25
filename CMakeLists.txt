@@ -14,7 +14,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Catch2)
 
-if(EXISTS NO_TORCH)
+if(NOT NO_TORCH)
   execute_process(COMMAND mkdir -p pytorch/libtorch_build/
                   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -25,6 +25,9 @@ if(EXISTS NO_TORCH)
   find_package(Torch REQUIRED)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 endif()
+
+set(GALOIS_ENABLE_DIST ON FORCE BOOL)
+set(GALOIS_USE_BARE_MPI ON BOOL)
 
 find_package(MPI REQUIRED)
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
@@ -61,8 +64,8 @@ target_link_libraries(galois-jaccard-tests PRIVATE Catch2::Catch2WithMain Galois
 target_link_libraries(parallel-small-tests PRIVATE Catch2::Catch2WithMain Galois::shmem)
 target_link_libraries(jaccard PRIVATE Galois::shmem lonestar)
 target_link_libraries(edit_scalability PRIVATE Galois::shmem lonestar)
-target_link_libraries(gen-rand-bfs PRIVATE CombBLAS Galois::shmem lonestar)
-target_link_libraries(gen-rand-tricount PRIVATE "${MPI_CXX_LIBRARIES}" Galois::shmem lonestar)
+target_link_libraries(gen-rand-bfs PRIVATE CombBLAS lonestar)
+target_link_libraries(gen-rand-tricount PRIVATE "${MPI_CXX_LIBRARIES}" Galois::shmem lonestar Galois::dist_async)
 
 
 include(CTest)
@@ -77,7 +80,7 @@ catch_discover_tests(galois-jaccard-tests)
 catch_discover_tests(galois-gen-bfs-tests)
 catch_discover_tests(parallel-small-tests)
 
-if(EXISTS NO_TORCH)
+if(NOT NO_TORCH)
   add_executable(ego-tests test/ego_graph.cpp)
   target_link_libraries(ego-tests PRIVATE "${TORCH_LIBRARIES}" Catch2::Catch2WithMain Galois::shmem)
   catch_discover_tests(ego-tests)
