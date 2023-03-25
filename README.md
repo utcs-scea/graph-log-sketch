@@ -14,7 +14,7 @@ cd ../
 ```bash
 mkdir -p build
 cd build
-cmake ../
+cmake ../ -DCMAKE_BUILD_TYPE=Release -DNO_TORCH=1
 make -j4
 ```
 The small-test binary has an extensive help menu to aid identifying failing cases.
