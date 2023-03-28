@@ -86,6 +86,14 @@ mpirun -N <#processes> <BFS_BINARY> temp.cgr -graphTranspose=temp.tgr <other-arg
 ```
 
 ### Triangle Counting
+There are two versions of triangle counting in Galois.
+- Pangolin
+- DistGraph
+#### Pangolin
+To build this run 
+``make -j `nproc` -C galois/lonestar/mining/cpu/traingle-counting ``
+#### DistGraph
+``make -j `nproc` -C galois/lonestar/analytics/distributed/triangle-counting ``
 
 #### Triangle Counting Randomization
 The binary would be `bfs-rand-triangle` with the following inputs:
