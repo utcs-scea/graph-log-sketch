@@ -14,7 +14,7 @@ struct RMAT_args_t
   double D;
 };
 
-void RMAT(const RMAT_args_t & args, uint64_t ndx, galois::InsertBag<std::pair<uint64_t, uint64_t>>& edges)
+void RMAT(const RMAT_args_t & args, uint64_t ndx, std::pair<uint64_t, uint64_t>* edges)
 {
   std::mt19937_64 gen64(args.seed + ndx);
   uint64_t max_rand = gen64.max();
@@ -29,10 +29,10 @@ void RMAT(const RMAT_args_t & args, uint64_t ndx, galois::InsertBag<std::pair<ui
   }
 
   uint64_t num_v = 1 << args.scale;
-  if (src != dst) {                          // do not include self edges
+  //if (src != dst) {                          // do not include self edges
     if (src > dst) std::swap(src, dst);     // make src less than dst
-    edges.emplace_back(src % num_v, dst % num_v);
-  }
+    edges[ndx] = std::pair<uint64_t, uint64_t>(src % num_v, dst % num_v);
+  //}
 }
 
 int main(int argc, char** argv)
@@ -46,7 +46,6 @@ int main(int argc, char** argv)
   if (argc != 8)
   {
     if(myrank == 0) printf("Usage: <nthreads> <seed> <scale> <edge ratio> <A> <B> <C>\n");
-    MPI_Finalize();
     return 1;
   }
 
@@ -70,7 +69,7 @@ int main(int argc, char** argv)
 
   RMAT_args_t rmat_args = {seed + myrank, scale, A, B, C, D};
 
-  InsertBag<std::pair<uint64_t, uint64_t>> edges;
+  std::pair<uint64_t, uint64_t>* edges = new std::pair<uint64_t, uint64_t>[num_edges];
 
   //generate the random edges
   double t02;
@@ -89,14 +88,13 @@ int main(int argc, char** argv)
 
   for(uint64_t i = 0; i < nprocs; i++)
   {
-    galois::do_all(galois::iterate(edges.begin(),edges.end()),
-        [&](std::pair<uint64_t, uint64_t>& p)
-        {
-          std::stringstream sout;
-          sout << p.first << "\t" << p.second << std::endl;
-          std::cout << sout.str();
-        });
+    if(i == myrank)
+      for(uint64_t k = 0; k < num_edges; k++)
+      {
+        const std::pair<uint64_t, uint64_t>& p = edges[k];
+        std::cout << p.first << "\t"<< p.second << std::endl;
+      }
     galois::runtime::getHostBarrier().wait();
   }
-  MPI_Finalize();
+  delete[] edges;
 }
