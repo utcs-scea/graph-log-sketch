@@ -86,15 +86,11 @@ int main(int argc, char** argv)
 
   if(myrank == 0) std::cerr << "Graph creation time:" << "\t" << t02 - t01 << std::endl;
 
-  for(uint64_t i = 0; i < nprocs; i++)
+  for(uint64_t k = 0; k < num_edges; k++)
   {
-    if(i == myrank)
-      for(uint64_t k = 0; k < num_edges; k++)
-      {
-        const std::pair<uint64_t, uint64_t>& p = edges[k];
-        std::cout << p.first << "\t"<< p.second << std::endl;
-      }
-    galois::runtime::getHostBarrier().wait();
+      const std::pair<uint64_t, uint64_t>& p = edges[k];
+      std::cout << p.first << "\t"<< p.second << std::endl;
   }
+
   delete[] edges;
 }
