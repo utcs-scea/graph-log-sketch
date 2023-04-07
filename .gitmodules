@@ -1,7 +1,7 @@
 [submodule "galois"]
 	path = galois
 	url = https://github.com/utcs-scea/Galois.git
-  branch = dev
+  branch = dgraph
 [submodule "CombBLAS"]
 	path = CombBLAS
 	url = https://github.com/PASSIONLab/CombBLAS.git
