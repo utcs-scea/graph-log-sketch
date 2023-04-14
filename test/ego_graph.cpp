@@ -32,7 +32,7 @@ void edge_list_to_graph(Graph** g, size_t num_nodes, std::vector<TYPES> nodesTyp
 
 }
 
-TEST_CASE( "Simple EgoGraph", "[wf1]")
+TEST_CASE( "Simple Feature_Vector", "[wf1]")
 {
   galois::SharedMemSys SMS;
   galois::setActiveThreads(1);
