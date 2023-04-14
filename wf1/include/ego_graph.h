@@ -175,7 +175,7 @@ _build_ego_graph_serial(const Graph& g, uint64_t start, uint64_t end, std::vecto
     edge_list.second.push_back((int64_t) edge.second);
   }
 
-  return export_edge_list_to_torch(edge_list);
+  return std::tuple(export_edge_list_to_torch(edge_list), vertex_set);
 
 }
 
@@ -222,7 +222,7 @@ struct bucketed_unordered_map
 };
 
 template<typename Graph, typename VertexType, typename EdgeType>
-std::tuple<torch::Tensor, std::unordered_map<uint64_t, VertexType>>
+std::tuple<torch::Tensor, bucketed_unordered_map<256, uint64_t, u64_u8_hash, VertexType>>
 _build_ego_graph_parallel(const Graph& g, uint64_t start, uint64_t end, std::vector<uint64_t> levels = {5,3,2,1,0})
 {
   std::atomic<uint64_t> localID = 0;
