@@ -51,10 +51,10 @@
 #include <limits.h>
 #include <string>
 
-#define TINY   5000
-#define SMALL  500000
-#define MEDIUM 5000000
-#define LARGE  50000000
+constexpr long TINY = 5000;
+constexpr long SMALL = 500000;
+constexpr long MEDIUM = 5000000;
+constexpr long LARGE = 50000000;
 
 namespace agile::workflow1 {
 using Graph_t = std::map<std::string, uint64_t>;

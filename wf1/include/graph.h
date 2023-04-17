@@ -99,6 +99,8 @@ class Vertex {          // used by both GlobalIDS and Vertices
     uint64_t edges;     // number of edges
     uint64_t start;     // start index in compressed edge list
     TYPES    type;
+    std::array<uint64_t, 15> arr_1_hop{0};
+    std::array<uint64_t, 15> arr_2_hop{0};
 
     Vertex () {
       id    = shad::data_types::kNullValue<uint64_t>;

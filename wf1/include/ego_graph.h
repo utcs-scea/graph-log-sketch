@@ -1,42 +1,45 @@
+#ifndef EGO_GRAPH_H_
+#define EGO_GRAPH_H_
+
 #include "galois/Galois.h"
 
 #include <array>
 #include "torch/torch.h"
 
-enum class TYPES
-{
-  PERSON,
-  FORUMEVENT,
-  FORUM,
-  PUBLICATION,
-  TOPIC,
-  PURCHASE,
-  SALE,
-  AUTHOR,
-  WRITTENBY,
-  INCLUDES,
-  INCLUDEDIN,
-  HASTOPIC,
-  TOPICIN,
-  HASORG,
-  ORGIN,
-  NONE
-};
+// enum class TYPES
+// {
+//   PERSON,
+//   FORUMEVENT,
+//   FORUM,
+//   PUBLICATION,
+//   TOPIC,
+//   PURCHASE,
+//   SALE,
+//   AUTHOR,
+//   WRITTENBY,
+//   INCLUDES,
+//   INCLUDEDIN,
+//   HASTOPIC,
+//   TOPICIN,
+//   HASORG,
+//   ORGIN,
+//   NONE
+// };
 
-template<size_t N>
-struct VertexType
-{
-  TYPES type;
-  std::array<uint64_t, N> arr_1_hop{0};
-  std::array<uint64_t, N> arr_2_hop{0};
-};
+// template<size_t N>
+// struct VertexType
+// {
+//   TYPES type;
+//   std::array<uint64_t, N> arr_1_hop{0};
+//   std::array<uint64_t, N> arr_2_hop{0};
+// };
 
-struct EdgeType
-{
-  TYPES type;
+// struct EdgeType
+// {
+//   TYPES type;
 
-  EdgeType (TYPES _type) :type(_type){}
-};
+//   EdgeType (TYPES _type) :type(_type){}
+// };
 
 template<typename Graph, typename GNode>
 void gen_1_hop_features(Graph* graph, GNode vertex)
@@ -95,7 +98,7 @@ export_edge_list_to_torch(std::pair<std::vector<int64_t>,std::vector<int64_t>> e
 //Note this is a bad implementation do not use it unless you explicitly have to.
 template<typename Graph, typename VertexType, typename EdgeType>
 std::tuple<std::pair<std::vector<int64_t>,std::vector<int64_t>>, std::unordered_map<uint64_t, VertexType>>
-_build_ego_graph_serial(const Graph& g, uint64_t start, uint64_t end, std::vector<uint64_t> levels = {5,3,2,1,0})
+_build_ego_graph_serial(const Graph* g, uint64_t start, uint64_t end, std::vector<uint64_t> levels = {5,3,2,1,0})
 {
   uint64_t localID = 0;
   std::vector<uint64_t> frontier;
@@ -224,7 +227,7 @@ struct bucketed_unordered_map
 
 template<typename Graph, typename VertexType, typename EdgeType>
 std::tuple<torch::Tensor, bucketed_unordered_map<256, uint64_t, u64_u8_hash, VertexType>>
-_build_ego_graph_parallel(const Graph& g, uint64_t start, uint64_t end, std::vector<uint64_t> levels = {5,3,2,1,0})
+_build_ego_graph_parallel(const Graph * g, uint64_t start, uint64_t end, std::vector<uint64_t> levels = {5,3,2,1,0})
 {
   std::atomic<uint64_t> localID = 0;
   std::atomic<uint64_t> edgeID  = 0;
@@ -321,8 +324,10 @@ _build_ego_graph_parallel(const Graph& g, uint64_t start, uint64_t end, std::vec
 
 template<typename Graph, typename VertexType, typename EdgeType>
 std::tuple<torch::Tensor, std::unordered_map<uint64_t, VertexType>>
-_build_ego_graph(const Graph& g, uint64_t start, uint64_t end, std::vector<uint64_t> levels = {5,3,2,1,0})
+_build_ego_graph(const Graph* g, uint64_t start, uint64_t end, std::vector<uint64_t> levels = {5,3,2,1,0})
 {
   auto tup = _build_ego_graph_serial<Graph, VertexType, EdgeType>(g, start, end, levels);
   return std::tuple(std::get<0>(tup),std::get<1>(tup));
 }
+
+#endif

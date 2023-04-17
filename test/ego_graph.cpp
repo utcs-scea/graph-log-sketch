@@ -10,6 +10,42 @@
 using LS_CSR = galois::graphs::LS_LC_CSR_64_Graph<VertexType<(size_t)TYPES::NONE>, EdgeType>::with_out_of_line_lockable<true>::type;
 using GNode = LS_CSR::GraphNode;
 
+enum class TYPES
+{
+  PERSON,
+  FORUMEVENT,
+  FORUM,
+  PUBLICATION,
+  TOPIC,
+  PURCHASE,
+  SALE,
+  AUTHOR,
+  WRITTENBY,
+  INCLUDES,
+  INCLUDEDIN,
+  HASTOPIC,
+  TOPICIN,
+  HASORG,
+  ORGIN,
+  NONE
+};
+
+template<size_t N>
+struct VertexType
+{
+  TYPES type;
+  std::array<uint64_t, N> arr_1_hop{0};
+  std::array<uint64_t, N> arr_2_hop{0};
+};
+
+struct EdgeType
+{
+  TYPES type;
+
+  EdgeType (TYPES _type) :type(_type){}
+};
+
+
 template<typename Graph>
 void edge_list_to_graph(Graph** g, size_t num_nodes, std::vector<TYPES> nodesTypes,
     std::vector<std::tuple<uint64_t, uint64_t, TYPES>> vec)
