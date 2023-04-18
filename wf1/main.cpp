@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
   timer.stop();
   printf("Time for graph construction = %lf\n", (double) timer.get_usec() / 1000000);
 
-  const CSR_t * csr = (CSR_t *) graph["CSR"];
+  CSR_t * csr = (CSR_t *) graph["CSR"];
   printf("Total number of vertices = %lu\n", csr->size());
   printf("Total number of edges    = %lu\n", Edges->size());
 

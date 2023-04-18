@@ -1,6 +1,6 @@
 #include "embedding.h"
 
-void GNN(const CSR_t * graph,
+void GNN(CSR_t * graph,
     std::string modelFileName) {
   //Handle handle;
   // auto Vertices = VertexType::GetPtr((VertexOID)graph["Vertices"]);

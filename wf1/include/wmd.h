@@ -106,7 +106,7 @@ namespace agile::workflow1 {
 class WMDDataset {
 
 protected:
-  const CSR_t * _g;
+  CSR_t * _g;
 
 public:
   using Data = WMDData<>;
@@ -114,7 +114,7 @@ public:
   WMDDataset()
        {_g = nullptr;}
 
-  WMDDataset(const CSR_t *g)
+  WMDDataset(CSR_t *g)
      {_g = g;}
 };
 
@@ -125,7 +125,7 @@ class VertexClassificationWMDDataset
 public:
   VertexClassificationWMDDataset() : WMDDataset() {}
 
-  VertexClassificationWMDDataset(const CSR_t *g)
+  VertexClassificationWMDDataset(CSR_t *g)
       : WMDDataset(g) {}
 
 

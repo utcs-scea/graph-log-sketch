@@ -51,14 +51,14 @@ template <typename Dataset, typename Graph> class SetUpTrainingContext {
   const size_t batchSize = 100;
 
   char modelFileName_[256];
-  const Graph* _g;
+  Graph* _g;
   // VertexOID _verticesOID;
   // XEdgeOID _edgesOID;
   // ArrayOID _featuresOID;
   //ArrayOID _reducerArrayOID;
 
 public:
-  SetUpTrainingContext(const Graph* g,
+  SetUpTrainingContext(Graph* g,
                        std::string modelFileName)
    {
     _g = g;
