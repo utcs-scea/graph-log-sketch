@@ -97,13 +97,13 @@ export_edge_list_to_torch(std::pair<std::vector<int64_t>,std::vector<int64_t>> e
 
 //Note this is a bad implementation do not use it unless you explicitly have to.
 template<typename Graph, typename VertexType, typename EdgeType>
-std::tuple<std::pair<std::vector<int64_t>,std::vector<int64_t>>, std::unordered_map<uint64_t, VertexType>>
-_build_ego_graph_serial(Graph* g, uint64_t start, uint64_t end, std::vector<uint64_t> levels = {5,3,2,1,0})
+std::tuple<torch::Tensor, std::unordered_map<uint64_t, VertexType>>
+_build_ego_graph_serial(Graph & g, uint64_t start, uint64_t end, std::vector<uint64_t> levels = {5,3,2,1,0})
 {
   uint64_t localID = 0;
   std::vector<uint64_t> frontier;
   std::unordered_map<uint64_t, VertexType> vertex_set;
-  std::unordered_set<std::pair<uint64_t, uint64_t>> edges;
+  std::set<std::pair<uint64_t, uint64_t>> edges;
 
   for(int64_t root = start; root < end; root++)
   {
@@ -324,10 +324,11 @@ _build_ego_graph_parallel(const Graph * g, uint64_t start, uint64_t end, std::ve
 
 template<typename Graph, typename VertexType, typename EdgeType>
 std::tuple<torch::Tensor, std::unordered_map<uint64_t, VertexType>>
-_build_ego_graph(Graph* g, uint64_t start, uint64_t end, std::vector<uint64_t> levels = {5,3,2,1,0})
+_build_ego_graph(Graph& g, uint64_t start, uint64_t end, std::vector<uint64_t> levels = {5,3,2,1,0})
 {
-  auto tup = _build_ego_graph_serial<Graph, VertexType, EdgeType>(g, start, end, levels);
-  return std::tuple(std::get<0>(tup),std::get<1>(tup));
+  return _build_ego_graph_serial<Graph, VertexType, EdgeType>(g, start, end, levels);
+  //return std::tuple(std::get<0>(tup),std::get<1>(tup));
+  //return std::tuple(tup.first, tup.second);
 }
 
 #endif

@@ -101,6 +101,7 @@ class Vertex {          // used by both GlobalIDS and Vertices
     TYPES    type;
     std::array<uint64_t, 15> arr_1_hop{0};
     std::array<uint64_t, 15> arr_2_hop{0};
+    uint64_t lid;
 
     Vertex () {
       id    = shad::data_types::kNullValue<uint64_t>;

@@ -144,7 +144,7 @@ public:
     auto bool_tensor = torch::TensorOptions().dtype(torch::kBool);
     auto options = torch::TensorOptions().dtype(torch::kLong);
 
-    auto [graph, vertex_set] = _build_ego_graph<CSR_t, Vertex, Edge>(_g, root, *((&root) + 1));
+    auto [graph, vertex_set] = _build_ego_graph<CSR_t, Vertex, Edge>(*_g, root, *((&root) + 1));
     int64_t num_vertices = vertex_set.size();
 
     // create type and feature vector
