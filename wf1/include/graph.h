@@ -50,6 +50,9 @@
 #include <vector>
 #include <unordered_map>
 
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+
 #include "data_types.h"
 #include "main.h"
 #include "graphTypes.h"
@@ -112,6 +115,18 @@ class Vertex {          // used by both GlobalIDS and Vertices
       edges = edges_;
       start = 0;
       type  = type_;
+    }
+  
+  private:
+    friend class boost::serialization::access;
+
+    template<class Archive>
+    void serialize(Archive & ar, const unsigned int version)
+    {
+        ar & id;
+        ar & edges;
+        ar & start;
+        ar & type;
     }
 };
 
@@ -185,6 +200,21 @@ class Edge {
          src_glbid = shad::data_types::kNullValue<uint64_t>;
          dst_glbid = shad::data_types::kNullValue<uint64_t>;
       }
+    }
+  
+  private:
+    friend class boost::serialization::access;
+
+    template<class Archive>
+    void serialize(Archive & ar, const unsigned int version)
+    {
+        ar & src;
+        ar & dst;
+        ar & type;
+        ar & src_type;
+        ar & dst_type;
+        ar & src_glbid;
+        ar & dst_glbid;
     }
 };
 

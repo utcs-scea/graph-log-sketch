@@ -110,9 +110,7 @@ struct Args_t { uint64_t delta; uint64_t oid; };
 
 /********** CREATE COMPRESSED EDGE ARRAY AND VERTEX ARRAY **********/
 void CSR(Graph_t &graph, uint64_t num_vertices, uint64_t num_edges) {
-  printf("Start building CSR\n");
-  galois::Timer timer;
-  timer.start();
+  // printf("Start building CSR\n");
   // ***** convert local ids to global ids *****/
   EdgeType & Edges = *((EdgeType *) graph["Edges"]);
   GlobalIDType & GlobalIDS = *((GlobalIDType *) graph["GlobalIDS"]);
@@ -137,14 +135,14 @@ void CSR(Graph_t &graph, uint64_t num_vertices, uint64_t num_edges) {
   // waitForCompletion(handle);
 
   // ***** copy vertices from GlobalIDS to Vertices *****/
-  printf("copy vertices 1!\n");
+  // printf("copy vertices 1!\n");
   galois::do_all(
     galois::iterate(GlobalIDS),
     [Vertices](const GlobalIDType::value_type& p) {
       (*Vertices)[p.second.id] = Vertex(p.first, p.second.edges, p.second.type);
     }
   );
-  printf("copy vertices 2!\n");
+  // printf("copy vertices 2!\n");
 
   // Note: Since now we construct CSR by galois, vertex.start will not be filled anymore
   // exclusiveScanVertices<Vertex>(graph["Vertices"]);     // convert # edges to start location
@@ -163,7 +161,7 @@ void CSR(Graph_t &graph, uint64_t num_vertices, uint64_t num_edges) {
     }
   );
 
-  printf("Build CSR!\n");
+  // printf("Build CSR!\n");
 
   // ***** Create CSR *****/
   // Edges->AsyncForEachEntry(handle, moveEdges, GlobalIDSOID, graph["Vertices"], graph["XEdges"]);
@@ -191,8 +189,6 @@ void CSR(Graph_t &graph, uint64_t num_vertices, uint64_t num_edges) {
   };
 
   graph["CSR"] = (uint64_t) new CSR_t(true, num_vertices, num_edges, edgeNum_func, edgeDst_func, edgeData_func);
-  timer.stop();
-  printf("Time for CSR = %lf\n", (double) timer.get_usec() / 1000000);
 }
 
 }

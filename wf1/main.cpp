@@ -44,48 +44,77 @@
 
 #include "main.h"
 #include "graph.h"
+#include "galois/DistGalois.h"
 
 using namespace agile::workflow1;
 
 int main(int argc, char *argv[]) {
   printf("Begin Wf1 Galois!\n");
-  galois::Timer timer;
-  timer.start();
 
-  galois::SharedMemSys G;  // init galois memory
+  galois::DistMemSys G;  // init galois memory
+  auto& net = galois::runtime::getSystemNetworkInterface();
 
-  // Handle handle;
-  Graph_t graph;
-  std::string dataFile = argv[1];
-  EdgeType * Edges = new EdgeType(LARGE); 
-  GlobalIDType * GlobalIDS = new GlobalIDType(MEDIUM);
+  int NUM_RUN = 1;
+  int NUM_DISCARD_RUN = 1;
+  unsigned long total_csr = 0;
+  unsigned long total_graph = 0;
+  for (int i = 0; i < NUM_DISCARD_RUN + NUM_RUN; i++) {
+    galois::Timer timer;
+    timer.start();
 
-  graph["Edges"] = (uint64_t) Edges;  // Vertex to Edges mapping, key is vertex encoding
-  graph["GlobalIDS"] = (uint64_t) GlobalIDS;   // Vertices, key is vertex encoding
+    // Handle handle;
+    Graph_t graph;
+    std::string dataFile = argv[1];
+    EdgeType * Edges = new EdgeType(LARGE); 
+    GlobalIDType * GlobalIDS = new GlobalIDType(MEDIUM);
 
-  RF_args_t args;
-  args.Edges_OID     = graph["Edges"];
-  args.GlobalIDS_OID = graph["GlobalIDS"];
-  memcpy(args.filename, dataFile.c_str(), dataFile.size() + 1);
+    graph["Edges"] = (uint64_t) Edges;  // Vertex to Edges mapping, key is vertex encoding
+    graph["GlobalIDS"] = (uint64_t) GlobalIDS;   // Vertices, key is vertex encoding
 
-  readFile(args);
+    RF_args_t args;
+    args.Edges_OID     = graph["Edges"];
+    args.GlobalIDS_OID = graph["GlobalIDS"];
+    memcpy(args.filename, dataFile.c_str(), dataFile.size() + 1);
 
-  /********** CREATE COMPRESSED EDGE ARRAY AND VERTEX ARRAY **********/
-  uint64_t num_vertices = GlobalIDS->size();
-  uint64_t num_edges = Edges->size();
+    readFile(args);
 
-  CSR(graph, num_vertices, num_edges);
-  timer.stop();
-  printf("Time for graph construction = %lf\n", (double) timer.get_usec() / 1000000);
+    /********** CREATE COMPRESSED EDGE ARRAY AND VERTEX ARRAY **********/
+    if (net.ID == 0) {
+      uint64_t num_vertices = GlobalIDS->size();
+      uint64_t num_edges = Edges->size();
 
-  CSR_t * csr = (CSR_t *) graph["CSR"];
-  printf("Total number of vertices = %lu\n", csr->size());
-  printf("Total number of edges    = %lu\n", Edges->size());
+      timer.stop();
+      unsigned long time_graph = timer.get_usec();
 
-  free((EdgeType *) Edges);
-  free((GlobalIDType *) GlobalIDS);
-  free((VertexType *) graph["Vertices"]);
-  free((EdgeType *) graph["VertexEdges"]);
-  free((CSR_t *) graph["CSR"]);
+      timer.start();
+      CSR(graph, num_vertices, num_edges);
+      timer.stop();
+      unsigned long time_csr = timer.get_usec();
+      
+
+      CSR_t * csr = (CSR_t *) graph["CSR"];
+      printf("Total number of vertices = %lu\n", csr->size());
+      printf("Total number of edges    = %lu\n", Edges->size());
+
+      if (i >= NUM_DISCARD_RUN) {
+        total_csr += time_csr;
+        total_graph += time_graph;
+        printf("Time for CSR = %lf\n", (double) time_csr / 1000000);
+        printf("Time for data congestion = %lf\n", (double) time_graph / 1000000);
+      }
+    }
+
+    free((EdgeType *) Edges);
+    free((GlobalIDType *) GlobalIDS);
+    free((VertexType *) graph["Vertices"]);
+    free((EdgeType *) graph["VertexEdges"]);
+    free((CSR_t *) graph["CSR"]);
+  }
+
+  if (net.ID == 0) {
+    printf("Avg Time for CSR = %lf\n", (double) total_csr / (NUM_RUN * 1000000));
+    printf("Avg Time for data congestion = %lf\n", (double) total_graph / (NUM_RUN * 1000000));
+  }
+
   return 0;
 }
