@@ -3,13 +3,12 @@
 
 #include <string>
 #include "gnn.h"
-#include "ego_graph.h"
 // #include "graph.h"
 // #include "main.h"
 // #include "wmd.h"
 
 namespace agile::workflow1 {
-    void GNN( const CSR_t *graph,
+    void GNN( CSR_t *graph,
     std::string modelFileName);
 
 } // namespace agile::workflow1

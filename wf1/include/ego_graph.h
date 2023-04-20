@@ -1,5 +1,5 @@
-#ifndef EGO_GRAPH_H_
-#define EGO_GRAPH_H_
+#ifndef _EGO_GRAPH_H_
+#define _EGO_GRAPH_H_
 
 #include "galois/Galois.h"
 
@@ -79,7 +79,7 @@ void gen_2_hop_features(Graph* graph)
 
 //std::unordered_set<int64_t>
 
-torch::Tensor
+inline torch::Tensor
 export_edge_list_to_torch(std::pair<std::vector<int64_t>,std::vector<int64_t>> edge_list)
 {
   int64_t num_edges = edge_list.first.size();
@@ -183,7 +183,7 @@ _build_ego_graph_serial(Graph & g, uint64_t start, uint64_t end, std::vector<uin
 
 }
 
-size_t u64_u8_hash(uint64_t val)
+inline size_t u64_u8_hash(uint64_t val)
 {
   //create a hash using a random number of uint8_t
   uint8_t ret = 0;

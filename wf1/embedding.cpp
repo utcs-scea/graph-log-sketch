@@ -1,8 +1,9 @@
 #include "embedding.h"
+#include "ego_graph.h"
 
-namespace agile::workflow1 { 
+namespace agile::workflow1 {
   void GNN(CSR_t * graph, std::string modelFileName) {
-  
+
   gen_2_hop_features<CSR_t, (size_t)30>(graph);
   TrainingState<VertexClassificationWMDDataset> initState;
   SetUpTrainingContext<VertexClassificationWMDDataset, CSR_t> setup(

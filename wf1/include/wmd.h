@@ -46,9 +46,8 @@
 #define WMD_H
 
 #include <cstdint>
-
-#include "graph.h"
 #include "ego_graph.h"
+#include "graph.h"
 //#include "shad/data_structures/array.h"
 #include "torch/torch.h"
 
@@ -153,7 +152,7 @@ public:
 
     //shad::rt::Handle handle;
     //auto Features = _featuresOID;
-    
+
     for (auto itr = vertex_set.begin(); itr != vertex_set.end(); ++itr) {
       int64_t glbID = (*itr).first;
       std::array<uint64_t, 30> Features{};
