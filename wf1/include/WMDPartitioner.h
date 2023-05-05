@@ -284,7 +284,7 @@ public:
       uint64_t glid = n + offset;
       auto edgeDst = bufGraph.edgeLocalDst(glid, base_DistGraph::globalToLocalMap);
       auto edgeData = bufGraph.edgeData(glid, base_DistGraph::globalToLocalMap);
-      base_DistGraph::graph.addEdgesUnSort(true, n, edgeDst.data(), edgeData.data(), bufGraph.edgeNum(glid));
+      base_DistGraph::graph.addEdgesUnSort(true, n, edgeDst.data(), edgeData.data(), bufGraph.edgeNum(glid), true);
     }, galois::steal());
 
     assert(base_DistGraph::graph.size() == base_DistGraph::numNodes);
