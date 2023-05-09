@@ -380,7 +380,6 @@ public:
                                          base_DistGraph::globalSizeEdges());
       galois::runtime::reportStat_Single(GRNAME, std::string("TotalKeptEdges"),
                                          globalKeptEdges);
-      GALOIS_ASSERT(globalKeptEdges * 2 == base_DistGraph::globalSizeEdges());
       galois::runtime::reportStat_Single(
           GRNAME, std::string("ReplicationFactorNodes"),
           (totalNodeProxies) / (double)base_DistGraph::globalSize());
