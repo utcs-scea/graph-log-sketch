@@ -17,6 +17,8 @@
 #include "graph.h"
 #include "data_types.h"
 
+#include <atomic>
+
 namespace galois {
 namespace graphs {
 /**
@@ -28,6 +30,19 @@ namespace graphs {
  */
 template <typename NodeTy, typename EdgeTy, typename Partitioner>
 class WMDGraph : public DistGraph<NodeTy, EdgeTy> {
+  #ifdef GRAPH_PROFILE
+  std::atomic<std::uint64_t> remote_file_access=0;
+  std::atomic<std::uint64_t> local_file_access=0;
+  std::atomic<std::uint64_t> local_seq_write=0;
+  std::atomic<std::uint64_t> local_rand_write=0;
+  std::atomic<std::uint64_t> local_seq_read=0;
+  std::atomic<std::uint64_t> local_rand_read=0;
+  std::atomic<std::uint64_t> remote_seq_read=0;
+  std::atomic<std::uint64_t> remote_seq_write=0;
+  std::atomic<std::uint64_t> remote_rand_read=0;
+  std::atomic<std::uint64_t> remote_rand_write=0;
+  #endif
+
   //! size used to buffer edge sends during partitioning
   constexpr static unsigned edgePartitionSendBufSize = 8388608;
   constexpr static const char* const GRNAME          = "dGraph_WMD";
@@ -191,6 +206,7 @@ public:
     // not actually getting masters, but getting assigned readers for nodes
     galois::gPrint("[", base_DistGraph::id, "] numGlobalNodes ", bufGraph.offlineGraph.size(), ".\n");
     galois::gPrint("[", base_DistGraph::id, "] numGlobalEdges ", bufGraph.offlineGraph.sizeEdges(), ".\n");
+    // TODO: profile it
     base_DistGraph::computeMasters(md, bufGraph.offlineGraph, dummy, nodeWeight, edgeWeight);
 
 
@@ -208,6 +224,7 @@ public:
     graphPartitioner = std::make_unique<Partitioner>(
         host, _numHosts, base_DistGraph::numGlobalNodes,
         base_DistGraph::numGlobalEdges, ndegrees);
+    // TODO: profile it
     graphPartitioner->saveGIDToHost(base_DistGraph::gid2host);
 
     ////////////////////////////////////////////////////////////////////////////
@@ -236,6 +253,9 @@ public:
     // TODO parallel?
     for (uint64_t i = nodeBegin; i < nodeEnd; i++) {
       presentProxies.set(i);
+      #ifdef GRAPH_PROFILE
+      local_seq_write += 1;
+      #endif
     }
 
     // vector to store bitsets received from other hosts
@@ -387,6 +407,11 @@ public:
           GRNAME, std::string("ReplicatonFactorEdges"),
           (totalEdgeProxies) / (double)globalKeptEdges);
     }
+
+    #ifdef GRAPH_PROFILE
+    bufGraph.print_profile();
+    print_profile();
+    #endif
   }
 
 private:
@@ -396,12 +421,19 @@ private:
     galois::DynamicBitSet incomingMirrors;
     incomingMirrors.resize(base_DistGraph::numGlobalNodes);
     incomingMirrors.reset();
+    #ifdef GRAPH_PROFILE
+    local_seq_write += incomingMirrors.size() / 8;
+    #endif
 
     uint32_t myID         = base_DistGraph::id;
     uint64_t globalOffset = base_DistGraph::gid2host[base_DistGraph::id].first;
 
     // already set before this is called
     base_DistGraph::localToGlobalVector.resize(base_DistGraph::numOwned);
+
+    #ifdef GRAPH_PROFILE
+    local_seq_write += base_DistGraph::numOwned;
+    #endif
 
     galois::DGAccumulator<uint64_t> keptEdges;
     keptEdges.reset();
@@ -420,19 +452,31 @@ private:
           auto itr = bufGraph.edgeRange(n);
           for (auto cur=itr.first; cur != itr.second; ++cur) {
             uint64_t dst = cur->second.dst_glbid;
+            #ifdef GRAPH_PROFILE
+            local_rand_read++;
+            #endif
 
             if (graphPartitioner->keepEdge(n, dst)) {
               edgeCount++;
               keptEdges += 1;
               // which mirrors do I have
+              #ifdef GRAPH_PROFILE
+              local_rand_read += graphPartitioner->retrieveMaster(dst) + 1 + 1;
+              #endif
               if (graphPartitioner->retrieveMaster(dst) != myID) {
                 incomingMirrors.set(dst);
+                #ifdef GRAPH_PROFILE
+                local_rand_write++;
+                #endif
               }
             }
           }
           allEdges += edgeCount;
           prefixSumOfEdges[n - globalOffset] = edgeCount;
           ltgv[n - globalOffset]             = n;
+          #ifdef GRAPH_PROFILE
+          local_rand_write += 3;
+          #endif
         },
 #if MORE_DIST_STATS
         galois::loopname("EdgeInspectionLoop"),
@@ -442,18 +486,31 @@ private:
     myKeptEdges     = keptEdges.read_local();
     myReadEdges     = allEdges.reduce();
     globalKeptEdges = keptEdges.reduce();
+    #ifdef GRAPH_PROFILE
+    remote_rand_read += base_DistGraph::numHosts;
+    remote_rand_write += 1;
+    #endif
 
     // get incoming mirrors ready for creation
     uint32_t additionalMirrorCount = incomingMirrors.count();
     base_DistGraph::localToGlobalVector.resize(
         base_DistGraph::localToGlobalVector.size() + additionalMirrorCount);
+    #ifdef GRAPH_PROFILE
+    local_seq_write += base_DistGraph::localToGlobalVector.size() + additionalMirrorCount;
+    #endif
 
     // note prefix sum will get finalized in a later step
     if (base_DistGraph::numOwned > 0) {
       prefixSumOfEdges.resize(prefixSumOfEdges.size() + additionalMirrorCount,
                               0);
+      #ifdef GRAPH_PROFILE
+      local_seq_write += prefixSumOfEdges.size() + additionalMirrorCount;
+      #endif
     } else {
       prefixSumOfEdges.resize(additionalMirrorCount, 0);
+      #ifdef GRAPH_PROFILE
+      local_seq_write += additionalMirrorCount;
+      #endif
     }
 
     // map creation: lid to gid
@@ -472,11 +529,19 @@ private:
             ++count;
         }
         threadPrefixSums[tid] = count;
+        #ifdef GRAPH_PROFILE
+        local_seq_read += 1;
+        local_rand_read += 1;
+        local_rand_write += 1;
+        #endif
       });
       // get prefix sums
       for (unsigned int i = 1; i < threadPrefixSums.size(); i++) {
         threadPrefixSums[i] += threadPrefixSums[i - 1];
       }
+      #ifdef GRAPH_PROFILE
+      local_seq_write += 1;
+      #endif
 
       assert(threadPrefixSums.back() == additionalMirrorCount);
       uint32_t startingNodeIndex = base_DistGraph::numOwned;
@@ -491,6 +556,9 @@ private:
         uint32_t threadStartLocation = 0;
         if (tid != 0) {
           threadStartLocation = threadPrefixSums[tid - 1];
+          #ifdef GRAPH_PROFILE
+          local_rand_read += 1;
+          #endif
         }
         uint32_t handledNodes = 0;
         for (size_t i = beginNode; i < endNode; i++) {
@@ -499,6 +567,10 @@ private:
                                                 threadStartLocation +
                                                 handledNodes] = i;
             handledNodes++;
+            #ifdef GRAPH_PROFILE
+            local_seq_read += 1;
+            local_rand_write += 1;
+            #endif
           }
         }
       });
@@ -517,6 +589,11 @@ private:
       base_DistGraph::globalToLocalMap[base_DistGraph::localToGlobalVector[i]] =
           i;
     }
+    #ifdef GRAPH_PROFILE
+    local_seq_read += 1;
+    local_rand_read += 1;
+    local_rand_write += 1;
+    #endif
     assert(base_DistGraph::globalToLocalMap.size() == base_DistGraph::numNodes);
 
     return incomingMirrors;
@@ -537,6 +614,9 @@ private:
       if (h != base_DistGraph::id) {
         galois::runtime::SendBuffer bitsetBuffer;
         galois::runtime::gSerialize(bitsetBuffer, presentProxies);
+        #ifdef GRAPH_PROFILE
+        remote_seq_write += bitsetBuffer.size();
+        #endif
         net.sendTagged(h, galois::runtime::evilPhase, bitsetBuffer);
       }
     }
@@ -549,6 +629,9 @@ private:
       } while (!p);
       uint32_t sendingHost = p->first;
       // deserialize proxiesOnOtherHosts
+      #ifdef GRAPH_PROFILE
+      remote_seq_read += p->second.size();
+      #endif
       galois::runtime::gDeserialize(p->second,
                                     proxiesOnOtherHosts[sendingHost]);
     }
@@ -778,6 +861,21 @@ private:
       base_DistGraph::numEdges = 0;
     }
   }
+
+  #ifdef GRAPH_PROFILE
+  void print_profile() {
+    std::cout << "WMDPartitioner:remote_file_access=" << remote_file_access << std::endl;
+    std::cout << "WMDPartitioner:local_file_access=" << local_file_access << std::endl;
+    std::cout << "WMDPartitioner:local_seq_write=" << local_seq_write << std::endl;
+    std::cout << "WMDPartitioner:local_rand_write=" << local_rand_write << std::endl;
+    std::cout << "WMDPartitioner:local_seq_read=" << local_seq_read << std::endl;
+    std::cout << "WMDPartitioner:local_rand_read=" << local_rand_read << std::endl;
+    std::cout << "WMDPartitioner:remote_seq_read=" << remote_seq_read << std::endl;
+    std::cout << "WMDPartitioner:remote_seq_write=" << remote_seq_write << std::endl;
+    std::cout << "WMDPartitioner:remote_rand_read=" << remote_seq_read << std::endl;
+    std::cout << "WMDPartitioner:remote_rand_write=" << remote_seq_write << std::endl;
+  }
+  #endif
 
   ////////////////////////////////////////////////////////////////////////////////
 public:
