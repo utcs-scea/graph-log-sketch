@@ -19,6 +19,10 @@
 
 #include <atomic>
 
+#ifdef GRAPH_PROFILE
+#include <filesystem>
+#endif
+
 namespace galois {
 namespace graphs {
 /**
@@ -434,9 +438,19 @@ public:
     }
 
     #ifdef GRAPH_PROFILE
-    bufGraph.print_profile();
-    print_profile();
-    base_DistGraph::graph.print_profile(base_DistGraph::id);
+    // create a folder call "inputfilename.id.profile" in current path
+    std::filesystem::path input_path(filename);
+    std::string profile_dir = input_path.filename().generic_string() + \
+      "." + std::to_string(base_DistGraph::numHosts) + "." + "profile";
+    std::string path{profile_dir};
+    std::filesystem::create_directories(path);
+    std::string profile_file = profile_dir + "/" + std::to_string(base_DistGraph::id) + ".txt";
+    std::ofstream output(profile_file);
+
+    bufGraph.print_profile(output);
+    print_profile(output);
+    base_DistGraph::graph.print_profile(output, base_DistGraph::id);
+    output.close();
     #endif
   }
 
@@ -908,35 +922,35 @@ private:
   }
 
   #ifdef GRAPH_PROFILE
-  void print_profile() {
+  void print_profile(std::ofstream &output) {
     int id = base_DistGraph::id;
 
-    std::cout << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_file_read_size=" << remote_file_read_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_file_read_size=" << local_file_read_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_seq_write_size=" << local_seq_write_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_rand_write_size=" << local_rand_write_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_seq_read_size=" << local_seq_read_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_rand_read_size=" << local_rand_read_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_seq_write_count=" << local_seq_write_count << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_rand_write_count=" << local_rand_write_count << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_seq_read_count=" << local_seq_read_count << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_rand_read_count=" << local_rand_read_count << std::endl;
+    output << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_file_read_size=" << remote_file_read_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_file_read_size=" << local_file_read_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_seq_write_size=" << local_seq_write_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_rand_write_size=" << local_rand_write_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_seq_read_size=" << local_seq_read_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_rand_read_size=" << local_rand_read_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_seq_write_count=" << local_seq_write_count << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_rand_write_count=" << local_rand_write_count << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_seq_read_count=" << local_seq_read_count << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:local_rand_read_count=" << local_rand_read_count << std::endl;
 
     for (int i = 0; i < base_DistGraph::numHosts; i++) {
       if (*remote_seq_read_count[i] != 0) {
-        std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_seq_read_size[" << i << "]=" << *remote_seq_read_size[i] << std::endl;
-        std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_seq_read_count[" << i << "]=" << *remote_seq_read_count[i] << std::endl;
+        output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_seq_read_size[" << i << "]=" << *remote_seq_read_size[i] << std::endl;
+        output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_seq_read_count[" << i << "]=" << *remote_seq_read_count[i] << std::endl;
       }
 
       if (*remote_rand_read_count[i] != 0) {
-        std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_rand_read_size[" << i << "]=" << *remote_rand_read_size[i] << std::endl;
-        std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_rand_read_count[" << i << "]=" << *remote_rand_read_count[i] << std::endl;
+        output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_rand_read_size[" << i << "]=" << *remote_rand_read_size[i] << std::endl;
+        output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_rand_read_count[" << i << "]=" << *remote_rand_read_count[i] << std::endl;
       }
 
       if (*remote_rand_rmw_count[i] !=0) {
-        std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_rand_rmw_size[" << i << "]=" << *remote_rand_rmw_size[i] << std::endl;
-        std::cout << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_rand_rmw_count[" << i << "]=" << *remote_rand_rmw_count[i] << std::endl;
+        output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_rand_rmw_size[" << i << "]=" << *remote_rand_rmw_size[i] << std::endl;
+        output << "PROFILE: " << "[" << id << "] " << "WMDPartitioner:remote_rand_rmw_count[" << i << "]=" << *remote_rand_rmw_count[i] << std::endl;
       }
     }
   }

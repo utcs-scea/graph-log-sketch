@@ -137,20 +137,20 @@ public:
   }
 
   #ifdef GRAPH_PROFILE
-  void print_profile() {
+  void print_profile(std::ofstream &output) {
     int id = galois::runtime::getSystemNetworkInterface().ID;
 
-    std::cout << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:remote_file_read_size=" << remote_file_read_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_file_read_size=" << local_file_read_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_seq_write_size=" << local_seq_write_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_rand_write_size=" << local_rand_write_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_seq_read_size=" << local_seq_read_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_rand_read_size=" << local_rand_read_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_seq_write_count=" << local_seq_write_count << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_rand_write_count=" << local_rand_write_count << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_seq_read_count=" << local_seq_read_count << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_rand_read_count=" << local_rand_read_count << std::endl;
+    output << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:remote_file_read_size=" << remote_file_read_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_file_read_size=" << local_file_read_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_seq_write_size=" << local_seq_write_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_rand_write_size=" << local_rand_write_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_seq_read_size=" << local_seq_read_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_rand_read_size=" << local_rand_read_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_seq_write_count=" << local_seq_write_count << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_rand_write_count=" << local_rand_write_count << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_seq_read_count=" << local_seq_read_count << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_rand_read_count=" << local_rand_read_count << std::endl;
   }
   #endif
 };
@@ -514,22 +514,22 @@ public:
   uint64_t operator[](uint64_t n) { GALOIS_DIE("not allowed to call a deleted API"); }
 
   #ifdef GRAPH_PROFILE
-  void print_profile() {
-    offlineGraph.print_profile();
+  void print_profile(std::ofstream &output) {
+    offlineGraph.print_profile(output);
 
     int id = galois::runtime::getSystemNetworkInterface().ID;
 
-    std::cout << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:remote_file_read_size=" << remote_file_read_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_file_read_size=" << local_file_read_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_seq_write_size=" << local_seq_write_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_rand_write_size=" << local_rand_write_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_seq_read_size=" << local_seq_read_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_rand_read_size=" << local_rand_read_size << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_seq_write_count=" << local_seq_write_count << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_rand_write_count=" << local_rand_write_count << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_seq_read_count=" << local_seq_read_count << std::endl;
-    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_rand_read_count=" << local_rand_read_count << std::endl;
+    output << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:remote_file_read_size=" << remote_file_read_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_file_read_size=" << local_file_read_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_seq_write_size=" << local_seq_write_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_rand_write_size=" << local_rand_write_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_seq_read_size=" << local_seq_read_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_rand_read_size=" << local_rand_read_size << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_seq_write_count=" << local_seq_write_count << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_rand_write_count=" << local_rand_write_count << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_seq_read_count=" << local_seq_read_count << std::endl;
+    output << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_rand_read_count=" << local_rand_read_count << std::endl;
   }
   #endif
 };
