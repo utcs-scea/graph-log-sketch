@@ -33,6 +33,10 @@ find_package(Boost REQUIRED COMPONENTS system serialization)
 find_package(MPI REQUIRED)
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 
+if(GRAPH_PROFILE)
+set_directory_properties(PROPERTIES COMPILE_DEFINITIONS GRAPH_PROFILE=1)
+endif()
+
 add_subdirectory(galois EXCLUDE_FROM_ALL)
 add_subdirectory(CombBLAS EXCLUDE_FROM_ALL)
 

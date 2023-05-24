@@ -45,16 +45,17 @@ std::vector<std::string> split(std::string & line, char delim, uint64_t size = 0
 class WMDOfflineGraph : public OfflineGraph {
 public:
   #ifdef GRAPH_PROFILE
-  std::atomic<std::uint64_t> remote_file_access=0;
-  std::atomic<std::uint64_t> local_file_access=0;
-  std::atomic<std::uint64_t> local_seq_write=0;
-  std::atomic<std::uint64_t> local_rand_write=0;
-  std::atomic<std::uint64_t> local_seq_read=0;
-  std::atomic<std::uint64_t> local_rand_read=0;
-  std::atomic<std::uint64_t> remote_seq_read=0;
-  std::atomic<std::uint64_t> remote_seq_write=0;
-  std::atomic<std::uint64_t> remote_rand_read=0;
-  std::atomic<std::uint64_t> remote_rand_write=0;
+  std::atomic<std::uint64_t> remote_file_read_size=0;
+  std::atomic<std::uint64_t> local_file_read_size=0;
+  std::atomic<std::uint64_t> local_seq_write_size=0;
+  std::atomic<std::uint64_t> local_rand_write_size=0;
+  std::atomic<std::uint64_t> local_seq_read_size=0;
+  std::atomic<std::uint64_t> local_rand_read_size=0;
+  std::atomic<std::uint64_t> local_seq_write_count=0;
+  std::atomic<std::uint64_t> local_rand_write_count=0;
+  std::atomic<std::uint64_t> local_seq_read_count=0;
+  std::atomic<std::uint64_t> local_rand_read_count=0;
+  // remote fields are omit since there is no MPI in this file
   #endif
 
   std::unordered_map<uint64_t, uint64_t> tokenToGlobalID;
@@ -77,13 +78,18 @@ public:
 
     // Pass 1: get token to global id mapping
     while(getline(graphFile, line)) {
+      #ifdef GRAPH_PROFILE
+      remote_file_read_size += line.size();
+      #endif
+
       if (line[0] == '#') continue;                                // skip comments
       std::vector<std::string> tokens = split(line, ',', 10);     // delimiter and # tokens set for wmd data file
 
       #ifdef GRAPH_PROFILE
-      local_rand_write += tokens.size();
-      local_rand_read += 3;
-      local_rand_write += 1;
+      local_rand_write_count += tokens.size() + std::ceil(line.size() / 8) + 2;
+      local_rand_write_size += (tokens.size() + std::ceil(line.size() / 8) + 2) * 8;
+      local_rand_read_count += 3 + std::ceil(tokens[0].size() / 8);
+      local_rand_read_size += (3 + std::ceil(tokens[0].size() / 8)) * 8;
       #endif
       if (tokens[0] == "Person") {
         tokenToGlobalID[shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1])] = id_counter++;
@@ -98,8 +104,10 @@ public:
       } else {
         edge_counter += 2;
         #ifdef GRAPH_PROFILE
-        local_rand_read -= 2;
-        local_rand_write -= 1;
+        local_rand_read_count -= 2;
+        local_rand_read_size -= 2*8;
+        local_rand_write_count -= 1;
+        local_rand_write_size -= 8;
         #endif
       }
     }
@@ -108,10 +116,6 @@ public:
 
     graphFile.clear();
     graphFile.seekg(0);
-
-    #ifdef GRAPH_PROFILE
-    remote_file_access++;
-    #endif
   }
 
     /**
@@ -128,7 +132,27 @@ public:
     GALOIS_DIE("not allowed to call a deleted API");
   }
 
-  uint64_t operator[](uint64_t n) { GALOIS_DIE("not allowed to call a deleted API"); }
+  uint64_t operator[](uint64_t n) { 
+    GALOIS_DIE("not allowed to call a deleted API"); 
+  }
+
+  #ifdef GRAPH_PROFILE
+  void print_profile() {
+    int id = galois::runtime::getSystemNetworkInterface().ID;
+
+    std::cout << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:remote_file_read_size=" << remote_file_read_size << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_file_read_size=" << local_file_read_size << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_seq_write_size=" << local_seq_write_size << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_rand_write_size=" << local_rand_write_size << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_seq_read_size=" << local_seq_read_size << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_rand_read_size=" << local_rand_read_size << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_seq_write_count=" << local_seq_write_count << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_rand_write_count=" << local_rand_write_count << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_seq_read_count=" << local_seq_read_count << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDOfflineGraph:local_rand_read_count=" << local_rand_read_count << std::endl;
+  }
+  #endif
 };
 
 /**
@@ -141,16 +165,17 @@ template <typename EdgeDataType>
 class WMDBufferedGraph : public BufferedGraph<EdgeDataType> {
 private:
   #ifdef GRAPH_PROFILE
-  std::atomic<std::uint64_t> remote_file_access=0;
-  std::atomic<std::uint64_t> local_file_access=0;
-  std::atomic<std::uint64_t> local_seq_write=0;
-  std::atomic<std::uint64_t> local_rand_write=0;
-  std::atomic<std::uint64_t> local_seq_read=0;
-  std::atomic<std::uint64_t> local_rand_read=0;
-  std::atomic<std::uint64_t> remote_seq_read=0;
-  std::atomic<std::uint64_t> remote_seq_write=0;
-  std::atomic<std::uint64_t> remote_rand_read=0;
-  std::atomic<std::uint64_t> remote_rand_write=0;
+  std::atomic<std::uint64_t> remote_file_read_size=0;
+  std::atomic<std::uint64_t> local_file_read_size=0;
+  std::atomic<std::uint64_t> local_seq_write_size=0;
+  std::atomic<std::uint64_t> local_rand_write_size=0;
+  std::atomic<std::uint64_t> local_seq_read_size=0;
+  std::atomic<std::uint64_t> local_rand_read_size=0;
+  std::atomic<std::uint64_t> local_seq_write_count=0;
+  std::atomic<std::uint64_t> local_rand_write_count=0;
+  std::atomic<std::uint64_t> local_seq_read_count=0;
+  std::atomic<std::uint64_t> local_rand_read_count=0;
+  // remote fields are omit since there is no MPI in this file
   #endif
 
   std::ifstream graphFile;
@@ -256,12 +281,17 @@ public:
     numLocalNodes = nodeEnd - nodeStart;
 
     while(getline(graphFile, line)) {
+      #ifdef GRAPH_PROFILE
+      local_file_read_size += line.size();
+      #endif
       if (line[0] == '#') continue;                                // skip comments
       std::vector<std::string> tokens = split(line, ',', 10);     // delimiter and # tokens set for wmd data file
 
       #ifdef GRAPH_PROFILE
-      local_rand_write += tokens.size();
-      local_rand_read += 1;
+      local_rand_write_count += tokens.size() + std::ceil(line.size() / 8);
+      local_rand_write_size += (tokens.size() + std::ceil(line.size() / 8)) * 8;
+      local_rand_read_count += std::ceil(tokens[0].size() / 8);
+      local_rand_read_size += std::ceil(tokens[0].size() / 8) * 8;
       #endif
       // prepare the inverse edge type based on its types
       agile::workflow1::TYPES inverseEdgeType;
@@ -286,15 +316,19 @@ public:
       edge.src_glbid = src_gid;
       edge.dst_glbid = dst_gid;
       #ifdef GRAPH_PROFILE
-      local_rand_read += 3*2;
-      local_rand_write += 2 + sizeof(EdgeDataType)/8;
+      local_rand_read_count += 3*2;
+      local_rand_read_size += 3*2*8;
+      local_rand_write_count += 2 + std::ceil(sizeof(EdgeDataType)/8);
+      local_rand_write_size += (2 + std::ceil(sizeof(EdgeDataType)/8)) * 8;
       #endif
 
       if (src_gid >= nodeStart && src_gid < nodeEnd) {
         GlobalIDToEdges.insert({edge.src_glbid, edge});
         #ifdef GRAPH_PROFILE
-        local_rand_read += 2;
-        local_seq_write += sizeof(EdgeDataType)/8;
+        local_rand_read_count += 2;
+        local_rand_write_count += std::ceil(sizeof(EdgeDataType)/8);
+        local_rand_read_size += 2*8;
+        local_rand_write_size += std::ceil(sizeof(EdgeDataType)/8) * 8;
         #endif
       }
 
@@ -307,17 +341,15 @@ public:
         std::swap(inverseEdge.src_type, inverseEdge.dst_type);
         GlobalIDToEdges.insert({inverseEdge.src_glbid, inverseEdge});
         #ifdef GRAPH_PROFILE
-        local_rand_write += 2*3 + 1 + 2*(sizeof(EdgeDataType)/8);
-        local_rand_read += 1;
+        local_rand_write_count += 2*3 + 1 + 2*(std::ceil(sizeof(EdgeDataType)/8));
+        local_rand_write_size += (2*3 + 1 + 2*(std::ceil(sizeof(EdgeDataType)/8))) * 8;
+        local_rand_read_count += 1;
+        local_rand_read_size += 8;
         #endif
       }
     }
 
     numLocalEdges = GlobalIDToEdges.size();
-
-    #ifdef GRAPH_PROFILE
-    local_file_access++;
-    #endif
   }
 
   using EdgeIterator = typename std::unordered_multimap<uint64_t, EdgeDataType>::iterator;
@@ -331,7 +363,8 @@ public:
    */
   EdgeIterator edgeBegin(uint64_t globalNodeID) {
     #ifdef GRAPH_PROFILE
-    local_rand_read += GlobalIDToEdges.count(globalNodeID);
+    local_rand_read_count += GlobalIDToEdges.count(globalNodeID);
+    local_rand_read_size += GlobalIDToEdges.count(globalNodeID)*8;
     #endif
     return GlobalIDToEdges.equal_range(globalNodeID).first;
   }
@@ -345,7 +378,8 @@ public:
    */
   EdgeIterator edgeEnd(uint64_t globalNodeID) {
     #ifdef GRAPH_PROFILE
-    local_rand_read += GlobalIDToEdges.count(globalNodeID);
+    local_rand_read_count += GlobalIDToEdges.count(globalNodeID);
+    local_rand_read_size += GlobalIDToEdges.count(globalNodeID)*8;
     #endif
     return GlobalIDToEdges.equal_range(globalNodeID).second;
   }
@@ -359,7 +393,8 @@ public:
    */
   std::pair<EdgeIterator, EdgeIterator> edgeRange(uint64_t globalNodeID) {
     #ifdef GRAPH_PROFILE
-    local_rand_read += GlobalIDToEdges.count(globalNodeID);
+    local_rand_read_count += GlobalIDToEdges.count(globalNodeID);
+    local_rand_read_size += GlobalIDToEdges.count(globalNodeID)*8;
     #endif
     return GlobalIDToEdges.equal_range(globalNodeID);
   }
@@ -373,7 +408,8 @@ public:
    */
   uint64_t edgeNum(uint64_t globalNodeID) {
     #ifdef GRAPH_PROFILE
-    local_rand_read += GlobalIDToEdges.count(globalNodeID);
+    local_rand_read_count += GlobalIDToEdges.count(globalNodeID);
+    local_rand_read_size += GlobalIDToEdges.count(globalNodeID)*8;
     #endif
     return GlobalIDToEdges.count(globalNodeID);
   }
@@ -479,27 +515,21 @@ public:
 
   #ifdef GRAPH_PROFILE
   void print_profile() {
-    remote_file_access += offlineGraph.remote_file_access;
-    local_file_access += offlineGraph.local_file_access;
-    local_seq_write += offlineGraph.local_seq_write;
-    local_rand_write += offlineGraph.local_rand_write;
-    local_seq_read += offlineGraph.local_seq_read;
-    local_rand_read += offlineGraph.local_rand_read;
-    remote_seq_read += offlineGraph.remote_seq_read;
-    remote_seq_write += offlineGraph.remote_seq_write;
-    remote_rand_read += offlineGraph.remote_rand_read;
-    remote_rand_write += offlineGraph.remote_rand_write;
+    offlineGraph.print_profile();
 
-    std::cout << "WMDBufferedGraph:remote_file_access=" << remote_file_access << std::endl;
-    std::cout << "WMDBufferedGraph:local_file_access=" << local_file_access << std::endl;
-    std::cout << "WMDBufferedGraph:local_seq_write=" << local_seq_write << std::endl;
-    std::cout << "WMDBufferedGraph:local_rand_write=" << local_rand_write << std::endl;
-    std::cout << "WMDBufferedGraph:local_seq_read=" << local_seq_read << std::endl;
-    std::cout << "WMDBufferedGraph:local_rand_read=" << local_rand_read << std::endl;
-    std::cout << "WMDBufferedGraph:remote_seq_read=" << remote_seq_read << std::endl;
-    std::cout << "WMDBufferedGraph:remote_seq_write=" << remote_seq_write << std::endl;
-    std::cout << "WMDBufferedGraph:remote_rand_read=" << remote_seq_read << std::endl;
-    std::cout << "WMDBufferedGraph:remote_rand_write=" << remote_seq_write << std::endl;
+    int id = galois::runtime::getSystemNetworkInterface().ID;
+
+    std::cout << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:remote_file_read_size=" << remote_file_read_size << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_file_read_size=" << local_file_read_size << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_seq_write_size=" << local_seq_write_size << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_rand_write_size=" << local_rand_write_size << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_seq_read_size=" << local_seq_read_size << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_rand_read_size=" << local_rand_read_size << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_seq_write_count=" << local_seq_write_count << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_rand_write_count=" << local_rand_write_count << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_seq_read_count=" << local_seq_read_count << std::endl;
+    std::cout << "PROFILE: " << "[" << id << "] " << "WMDBufferedGraph:local_rand_read_count=" << local_rand_read_count << std::endl;
   }
   #endif
 };
