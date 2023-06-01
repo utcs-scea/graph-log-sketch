@@ -28,11 +28,11 @@ void RMAT(const RMAT_args_t & args, uint64_t ndx, std::pair<uint64_t, uint64_t>*
     else if (rand <= args.A + args.B + args.C + args.D) { src = (src << 1) + 1; dst = (dst << 1) + 1; }
   }
 
-  uint64_t num_v = 1 << args.scale;
-  //if (src != dst) {                          // do not include self edges
+  uint64_t num_v = ((uint64_t)1) << args.scale;
+  if (src != dst) {                          // do not include self edges
     if (src > dst) std::swap(src, dst);     // make src less than dst
     edges[ndx] = std::pair<uint64_t, uint64_t>(src % num_v, dst % num_v);
-  //}
+  }
 }
 
 int main(int argc, char** argv)
@@ -53,9 +53,12 @@ int main(int argc, char** argv)
   uint64_t seed = std::stoll(argv[2]);
   uint64_t scale = std::stoll(argv[3]);
   uint64_t num_vertices = (uint64_t) 1 << scale;
-  uint64_t num_edges = num_vertices * std::stoll(argv[4]);
+  uint64_t tot_edges = num_vertices * std::stoll(argv[4]);
 
-  num_edges = (myrank < (num_edges % nprocs)) ? num_edges/nprocs + 1 : num_edges/nprocs;
+  uint64_t num_big_ranks = tot_edges % nprocs;
+  uint64_t num_edges = (myrank < num_big_ranks) ? tot_edges/nprocs + 1 : tot_edges/nprocs;
+  uint64_t num_bumps = num_big_ranks * (tot_edges/nprocs + 1) + (myrank - num_big_ranks) *(tot_edges/nprocs);
+
 
   using namespace galois;
 
@@ -79,7 +82,7 @@ int main(int argc, char** argv)
   galois::do_all(galois::iterate((uint64_t)0, num_edges),
       [&](uint64_t i)
       {
-        RMAT(rmat_args, i, edges);
+        RMAT(rmat_args, i + num_bumps, edges);
       }, galois::steal());
   galois::runtime::getHostBarrier().wait();
   t02 = MPI_Wtime();
