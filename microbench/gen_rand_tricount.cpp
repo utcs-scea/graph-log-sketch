@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <mpi.h>
 #include "galois/Galois.h"
 #include "galois/DistGalois.h"
@@ -29,6 +30,7 @@ void RMAT(const RMAT_args_t & args, uint64_t ndx, std::pair<uint64_t, uint64_t>*
   }
 
   uint64_t num_v = ((uint64_t)1) << args.scale;
+
   if (src != dst) {                          // do not include self edges
     if (src > dst) std::swap(src, dst);     // make src less than dst
     edges[ndx] = std::pair<uint64_t, uint64_t>(src % num_v, dst % num_v);
@@ -43,11 +45,16 @@ int main(int argc, char** argv)
   auto myrank = net.ID;
   auto nprocs = net.Num;
 
-  if (argc != 8)
+  if (argc != 9)
   {
-    if(myrank == 0) printf("Usage: <nthreads> <seed> <scale> <edge ratio> <A> <B> <C>\n");
+    if(myrank == 0) printf("Usage: <nthreads> <seed> <scale> <edge ratio> <A> <B> <C> <outfile-tag>\n");
     return 1;
   }
+
+  std::stringstream ofn;
+  ofn << argv[8] << "-" << myrank << ".el";
+  std::cout << ofn.str() << std::endl;
+  std::ofstream ofs(ofn.str(), std::ofstream::out);
 
   galois::setActiveThreads(std::stoll(argv[1]));
   uint64_t seed = std::stoll(argv[2]);
@@ -92,7 +99,7 @@ int main(int argc, char** argv)
   for(uint64_t k = 0; k < num_edges; k++)
   {
       const std::pair<uint64_t, uint64_t>& p = edges[k];
-      std::cout << p.first << "\t"<< p.second << std::endl;
+      ofs << p.first << "\t" << p.second << std::endl;
   }
 
   delete[] edges;

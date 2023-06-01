@@ -47,16 +47,21 @@ int main(int argc, char** argv)
   MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
   MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
 
-  if(argc < 2)
+  if(argc < 3)
   {
     if(myrank == 0)
     {
-			cout << "Usage:   ./gen-rand-bfs <Scale>" << endl;
+			cout << "Usage:   ./gen-rand-bfs <Scale> <outfile-tag>" << endl;
 			cout << "Example: ./gen-rand-bfs 25" << endl;
     }
     MPI_Finalize();
     return -1;
   }
+
+  std::stringstream ofn;
+  ofn << argv[2] << "-" << myrank << ".el";
+  std::cout << ofn.str() << std::endl;
+  std::ofstream ofs(ofn.str(), std::ofstream::out);
 
   unsigned scale = static_cast<unsigned>(atoi(argv[1]));
   if(myrank == 0)
@@ -84,9 +89,7 @@ int main(int argc, char** argv)
 
   for(int64_t i = 0; i < DEL->getNumLocalEdges(); i++)
   {
-    std::stringstream sout;
-    sout << get_v0_from_edge(&pedges[i]) << "\t" << get_v1_from_edge(&pedges[i]) << std::endl;
-    std::cout << sout.str();
+    ofs << get_v0_from_edge(&pedges[i]) << "\t" << get_v1_from_edge(&pedges[i]) << std::endl;
   }
 
   MPI_Finalize();
