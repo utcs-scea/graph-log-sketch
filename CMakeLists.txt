@@ -37,6 +37,7 @@ add_subdirectory(galois EXCLUDE_FROM_ALL)
 add_subdirectory(CombBLAS EXCLUDE_FROM_ALL)
 
 add_subdirectory(wf1)
+add_subdirectory(wf3)
 
 add_executable(small-tests test/small_tests.cpp)
 add_executable(file-tests test/file_tests.cpp)
