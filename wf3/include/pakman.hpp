@@ -68,6 +68,8 @@ class PakmanEdge;
 typedef galois::graphs::Morph_SepInOut_Graph<MacroNode,PakmanEdge,true,true,true> PakmanGraph;
 typedef PakmanGraph::GraphNode PakmanNode;
 
+void processContigs(PakmanGraph& graph, uint64_t mn_length);
+
 // pred_mask(3, 5)
 // shift_right = (32 - 3) * 2 = 58
 // shift_left  = (5 - 3) * 2 = 4
@@ -100,19 +102,19 @@ class BasePairVector {
 
   uint64_t size() const { return size_; }
   void print(FILE * ff);
-  std::string to_string();
+  std::string to_string() const;
 
   uint64_t operator [] (uint64_t pos) const;
 };
 
 class MacroNode {
 public:
-  MacroNode(BasePairVector kmer, BasePairVector affix, bool suffix, bool terminal, uint32_t visit_count, uint32_t count)
-          : kmer_(kmer), affix_(affix), suffix_(suffix), terminal_(terminal), visit_count_(visit_count), count_(count) {}
+  MacroNode(BasePairVector kmer, BasePairVector affix, bool prefix, bool terminal, uint32_t visit_count, uint32_t count)
+          : kmer_(kmer), affix_(affix), prefix_(prefix), terminal_(terminal), visit_count_(visit_count), count_(count) {}
 
   BasePairVector kmer_;
   BasePairVector affix_;
-  bool suffix_;
+  bool prefix_;
   bool terminal_;
   uint32_t visit_count_;
   uint32_t count_;

@@ -278,7 +278,7 @@ Min Index: 20
 STAT_TYPE, REGION, CATEGORY, TOTAL_TYPE, TOTAL
 */
 
-void
+std::unique_ptr<pakman::PakmanGraph>
 pakman::ingest(std::string filename, uint64_t mn_length, uint64_t coverage, uint64_t min_length_count) {
   std::unordered_map<uint64_t, uint32_t> kmer_map = pakman::read(filename, mn_length);
   // TODO (Patrick) sync map in distributed broadcasting
@@ -294,6 +294,8 @@ pakman::ingest(std::string filename, uint64_t mn_length, uint64_t coverage, uint
   std::cout << "Nodes: " << graph->size() << std::endl;
   uint64_t edges = countEdges(*graph);
   std::cout << "Edges: " << edges << std::endl;
+
+  return graph;
 }
 
 std::unique_ptr<pakman::PakmanGraph>
@@ -344,8 +346,8 @@ pakman::createPakmanNodes(std::unordered_map<uint64_t, uint32_t>&& kmer_map, uin
 
   // add null prefix and suffixes for each k-1 mer
   for (auto k1_mer : macro_nodes) {
-    MacroNode null_suffix_mn = MacroNode(BasePairVector(k1_mer.first, mn_length), BasePairVector(), !is_prefix, is_terminal, -1, -1);
-    MacroNode null_prefix_mn = MacroNode(BasePairVector(k1_mer.first, mn_length), BasePairVector(), is_prefix, is_terminal, -1, -1);
+    MacroNode null_suffix_mn = MacroNode(BasePairVector(k1_mer.first, mn_length), BasePairVector(), !is_prefix, is_terminal, 1, 1);
+    MacroNode null_prefix_mn = MacroNode(BasePairVector(k1_mer.first, mn_length), BasePairVector(), is_prefix, is_terminal, 1, 1);
     PakmanNode suffix_null_node = graph->createNode(null_suffix_mn);
     PakmanNode prefix_null_node = graph->createNode(null_prefix_mn);
     graph->addNode(suffix_null_node);
