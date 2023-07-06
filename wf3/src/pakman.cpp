@@ -46,6 +46,52 @@
 
 #include "util.hpp"
 
+namespace {
+
+void
+walk(pakman::PakmanGraph& graph, const std::string& cstring, int64_t frequency, const pakman::PakmanNode& prefix_node, uint64_t mn_length) {
+  for (auto& wire_edge : graph.out_edges(prefix_node)) {
+    uint32_t wire_count = graph.getEdgeData(wire_edge).count_;
+    int64_t freq_in_wire = std::min(frequency, (int64_t) wire_count);
+    std::string my_cstring = cstring;
+    pakman::PakmanNode suffix_node = graph.getEdgeDst(wire_edge);
+    const pakman::MacroNode& suffix = graph.getData(suffix_node);
+
+    my_cstring.append(suffix.affix_.to_string());
+    //std::cout << ">contig_l_(" + std::to_string(my_cstring.size()) << "): " << my_cstring << std::endl;
+
+    if (my_cstring.size() > 20000) {     // ... ... output partial contig to avoid recursion limit
+      std::string name = ">contig_l_" + std::to_string(my_cstring.size());
+      printf("%s\n%s\n", name.c_str(), my_cstring.c_str());
+    } else if (suffix.terminal_) {                         // ... all done
+      if (my_cstring.size() > CONTIG_LENGTH_THRESHOLD) {     // ... ... output contig if longer than threshold
+        std::string name = ">contig_l_" + std::to_string(my_cstring.size());
+        printf("%s\n%s\n", name.c_str(), my_cstring.c_str());
+      }
+    } else {                                                  // ... continue walk
+      for (auto& relation_edge : graph.out_edges(suffix_node)) {
+        pakman::PakmanNode next_prefix_node = graph.getEdgeDst(relation_edge);
+        walk(graph, my_cstring, freq_in_wire, next_prefix_node, mn_length);
+      }
+    }
+    frequency -= freq_in_wire;
+  }
+}
+
+} // end namespace
+
+void
+pakman::processContigs(pakman::PakmanGraph& graph, uint64_t mn_length) {
+  for (PakmanNode graph_node : graph) {
+    const MacroNode& node = graph.getData(graph_node);
+    if (node.prefix_ && node.terminal_ && node.visit_count_ > 0) {
+      std::string cstring = node.affix_.to_string();
+      cstring.append(node.kmer_.to_string());
+      walk(graph, cstring, node.visit_count_, graph_node, mn_length);
+    }
+  }
+}
+
 pakman::BasePairVector::BasePairVector() {
   size_ = 0;
   vec_[0] = 0;
@@ -139,7 +185,7 @@ pakman::BasePairVector::print(FILE * ff) {
 
 
 std::string
-pakman::BasePairVector::to_string() {
+pakman::BasePairVector::to_string() const {
   std::string str(size_, ' ');
   for (uint64_t i = 0; i < size_; ++ i)
       str[i] = EL_TO_CHAR((* this)[i]);

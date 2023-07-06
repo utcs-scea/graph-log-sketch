@@ -81,7 +81,8 @@ int main(int argc, char *argv[]) {
   galois::setActiveThreads(num_threads);
 
   std::uint64_t mn_length = kmer_length - 1;
-  pakman::ingest(input_file, mn_length, coverage, min_length_count);
+  std::unique_ptr<pakman::PakmanGraph> graph = pakman::ingest(input_file, mn_length, coverage, min_length_count);
+  pakman::processContigs(*graph, mn_length);
 }
 
 /*

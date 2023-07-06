@@ -53,7 +53,7 @@
 
 namespace pakman {
 
-void ingest(std::string filename, uint64_t mn_length, uint64_t coverage, uint64_t min_length_count);
+std::unique_ptr<pakman::PakmanGraph> ingest(std::string filename, uint64_t mn_length, uint64_t coverage, uint64_t min_length_count);
 std::unordered_map<uint64_t, uint32_t> read(std::string filename, uint64_t mn_length);
 std::vector<uint64_t> getBucketCounts(std::unordered_map<uint64_t, uint32_t> kmers, uint64_t min_length_count);
 std::unique_ptr<pakman::PakmanGraph> createPakmanNodes(std::unordered_map<uint64_t, uint32_t>&& kmers, uint64_t mnLength, uint64_t coverage, uint64_t min_index);
