@@ -1,5 +1,6 @@
 set(sources
         src/fasta.cpp
+        src/main.cpp
         src/pakman.cpp
         src/util.cpp
 )
