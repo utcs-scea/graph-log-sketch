@@ -43,6 +43,8 @@
 ////===----------------------------------------------------------------------===//
 
 #include "fasta.hpp"
+
+#include "pakman.hpp"
 #include "util.hpp"
 
 #include "galois/Galois.h"
@@ -52,6 +54,8 @@
 #include <limits>
 #include <mutex>
 #include <sys/stat.h>
+
+typedef std::pair<std::vector<pakman::PakmanNode>, std::vector<pakman::PakmanNode>> MacroNodeAffixes;
 
 namespace {
 
@@ -66,6 +70,124 @@ std::ostream& operator<<(std::ostream& s, const std::vector<T>& v)
         comma[0] = ',';
     }
     return s << ']';
+}
+
+uint64_t
+countEdges(pakman::PakmanGraph& graph) {
+  uint64_t edges = 0;
+
+  for (pakman::PakmanNode src : graph) {
+    edges += std::distance(graph.out_edges(src).begin(), graph.out_edges(src).end());
+  }
+  return edges;
+}
+
+void
+addMacroEdges(pakman::PakmanGraph& graph, const std::unordered_map<uint64_t, MacroNodeAffixes>& macro_nodes, uint64_t mn_length) {
+  uint64_t suffix_mask = ~0UL >> (UINT_BITS - (2 * (mn_length - 1)));
+  bool is_wire = true;
+  for (const auto& macro_node : macro_nodes) {
+    for (const pakman::PakmanNode& suffix_node : macro_node.second.second) {
+      pakman::MacroNode& suffix_macro = graph.getData(suffix_node);
+      if (suffix_macro.affix_.size() > 0) {
+        uint64_t affix_size = suffix_macro.affix_.size();
+        uint64_t dest_kmer = ((macro_node.first & suffix_mask) << (affix_size * 2)) | suffix_macro.affix_.extract_succ(affix_size);
+        const auto& prefix_macro_affix = macro_nodes.find(dest_kmer);
+        if (prefix_macro_affix != macro_nodes.end()) {
+          pakman::BasePairVector prefix = pakman::BasePairVector(suffix_macro.kmer_.extract_pred(affix_size), affix_size);
+          for (const pakman::PakmanNode& prefix_node : prefix_macro_affix->second.first) {
+            pakman::MacroNode& prefix_macro = graph.getData(prefix_node);
+            if (prefix == prefix_macro.affix_) {
+              pakman::PakmanEdge relation = pakman::PakmanEdge(!is_wire, 0);
+              graph.getEdgeData(graph.addEdge(suffix_node, prefix_node)) = relation;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+void
+wireMacroNode(pakman::PakmanGraph& graph, const MacroNodeAffixes& macro_node) {
+  int64_t prefix_count = 0;
+  int64_t suffix_count = 0;
+  uint64_t null_prefix_index = 0;
+  uint64_t null_suffix_index = 0;
+
+  uint64_t index = 0;
+  for (pakman::PakmanNode prefix_node : macro_node.first) {
+    pakman::MacroNode& node = graph.getData(prefix_node);
+    if (node.affix_.size() == 0) {
+      null_prefix_index = index;
+    } else {
+      prefix_count += node.visit_count_;
+    }
+    index++;
+  }
+  index = 0;
+  for (pakman::PakmanNode suffix_node : macro_node.second) {
+    pakman::MacroNode& node = graph.getData(suffix_node);
+    if (node.affix_.size() == 0) {
+      null_suffix_index = index;
+    } else {
+      suffix_count += node.visit_count_;
+    }
+    index++;
+  }
+
+  // count and coverage for null affixes
+  pakman::MacroNode& null_prefix = graph.getData(macro_node.first[null_prefix_index]);
+  pakman::MacroNode& null_suffix = graph.getData(macro_node.second[null_suffix_index]);
+  null_prefix.count_ = 1;
+  null_prefix.visit_count_ = std::max(suffix_count - prefix_count, 0L);
+  null_suffix.count_ = 1;
+  null_suffix.visit_count_ = std::max(prefix_count - suffix_count, 0L);
+
+  std::vector<uint64_t> prefix_indices(macro_node.first.size());
+  std::iota(prefix_indices.begin(), prefix_indices.end(), 0);
+  std::sort(prefix_indices.begin(), prefix_indices.end(), pakman::Comp_rev(graph, macro_node.first));
+
+  std::vector<uint64_t> suffix_indices(macro_node.second.size());
+  std::iota(suffix_indices.begin(), suffix_indices.end(), 0);
+  std::sort(suffix_indices.begin(), suffix_indices.end(), pakman::Comp_rev(graph, macro_node.second));
+
+  uint64_t prefix_index = 0;
+  uint64_t suffix_index = 0;
+
+  int64_t var_prefix = 0;
+  int64_t var_suffix = 0;
+  int64_t leftover = suffix_count + null_suffix.visit_count_;
+
+  bool is_wire = true;
+
+  while (leftover > 0) {
+    pakman::PakmanNode prefix_node = macro_node.first[prefix_indices[prefix_index]];
+    pakman::PakmanNode suffix_node = macro_node.second[suffix_indices[suffix_index]];
+
+    uint32_t prefix_visit_count = graph.getData(prefix_node).visit_count_;
+    uint32_t suffix_visit_count = graph.getData(suffix_node).visit_count_;
+    int64_t prefix_wire_count = prefix_visit_count - var_prefix;
+    int64_t suffix_wire_count = suffix_visit_count - var_suffix;
+    int64_t wire_count = std::min(prefix_wire_count, suffix_wire_count);
+
+    pakman::PakmanEdge wire = pakman::PakmanEdge(is_wire, wire_count);
+    graph.getEdgeData(graph.addEdge(prefix_node, suffix_node)) = wire;
+
+    var_prefix += wire_count;
+    var_suffix += wire_count;
+    leftover -= wire_count;
+
+    if (var_prefix == prefix_visit_count) {
+      var_prefix = 0;
+      prefix_index++;
+    }
+
+    if (var_suffix == suffix_visit_count) {
+      var_suffix = 0;
+      suffix_index++;
+    } 
+  }
 }
 
 uint64_t
@@ -137,6 +259,12 @@ readFasta(std::pair<uint64_t, uint64_t> read_range, std::string filename, uint64
   }
 }
 
+uint64_t
+visitValue (uint64_t count, uint64_t coverage) {
+  double ceil_val = (double) count / (double) coverage;
+  return (uint64_t) ceil(ceil_val);
+}
+
 } // end namespace
 
 /**
@@ -151,20 +279,93 @@ STAT_TYPE, REGION, CATEGORY, TOTAL_TYPE, TOTAL
 */
 
 void
-fasta::ingest(std::string filename, uint64_t mn_length, uint64_t min_length_count) {
-  std::unordered_map<uint64_t, uint32_t> kmer_map = fasta::read(filename, mn_length);
+pakman::ingest(std::string filename, uint64_t mn_length, uint64_t coverage, uint64_t min_length_count) {
+  std::unordered_map<uint64_t, uint32_t> kmer_map = pakman::read(filename, mn_length);
   // TODO (Patrick) sync map in distributed broadcasting
   std::cout << "Map Size: " << kmer_map.size() << std::endl;
 
-  std::vector<uint64_t> bucket_counts = fasta::getBucketCounts(kmer_map, min_length_count);
+  std::vector<uint64_t> bucket_counts = pakman::getBucketCounts(kmer_map, min_length_count);
   std::cout << "Bucket Counts: " << bucket_counts << std::endl;
 
   uint64_t min_index = getMinBucketCount(bucket_counts, min_length_count);
   std::cout << "Min Index: " << min_index << std::endl;
+
+  std::unique_ptr<PakmanGraph> graph = pakman::createPakmanNodes(std::move(kmer_map), mn_length, coverage, min_index);
+  std::cout << "Nodes: " << graph->size() << std::endl;
+  uint64_t edges = countEdges(*graph);
+  std::cout << "Edges: " << edges << std::endl;
+}
+
+std::unique_ptr<pakman::PakmanGraph>
+pakman::createPakmanNodes(std::unordered_map<uint64_t, uint32_t>&& kmer_map, uint64_t mn_length, uint64_t coverage, uint64_t min_index) {
+  std::unique_ptr<pakman::PakmanGraph> graph = std::make_unique<PakmanGraph>();
+  uint64_t suffix_mask = ~0UL >> (UINT_BITS - (2 * (mn_length)));
+  bool is_prefix = true;
+  bool is_terminal = true;
+  std::unordered_map<uint64_t, MacroNodeAffixes> macro_nodes;
+
+  for (auto iter : kmer_map) {
+    uint64_t kmer = iter.first;
+    uint32_t count = iter.second;
+    if (count >= min_index) {
+      uint64_t suffix_k1_mer = kmer >> 2;
+      uint64_t prefix_k1_mer = kmer & suffix_mask;
+
+      BasePairVector suffix_kmer = BasePairVector(suffix_k1_mer, mn_length);
+      BasePairVector prefix_kmer = BasePairVector(prefix_k1_mer, mn_length);
+
+      BasePairVector suffix_affix = BasePairVector(kmer & 3, 1);                    // push back last  protein of kmer
+      BasePairVector prefix_affix = BasePairVector(kmer >> (2 * mn_length), 1);     // push back first protein of kmer
+
+      uint32_t visit_count = visitValue(count, coverage);
+
+      MacroNode suffix_mn = MacroNode(suffix_kmer, suffix_affix, !is_prefix, !is_terminal, visit_count, count);
+      MacroNode prefix_mn = MacroNode(prefix_kmer, prefix_affix, is_prefix, !is_terminal, visit_count, count);
+
+      PakmanNode suffix_node = graph->createNode(suffix_mn);
+      PakmanNode prefix_node = graph->createNode(prefix_mn);
+
+      graph->addNode(suffix_node);
+      graph->addNode(prefix_node);
+
+      if (macro_nodes.find(suffix_k1_mer) == macro_nodes.end()) {
+        macro_nodes[suffix_k1_mer] = MacroNodeAffixes();
+      }
+      macro_nodes[suffix_k1_mer].second.emplace_back(suffix_node);
+
+      if (macro_nodes.find(prefix_k1_mer) == macro_nodes.end()) {
+        macro_nodes[prefix_k1_mer] = MacroNodeAffixes();
+      }
+      macro_nodes[prefix_k1_mer].first.emplace_back(prefix_node);
+    }
+  }
+
+  std::cout << "Number of (k-1)-mers: " << macro_nodes.size() << std::endl;
+
+  // add null prefix and suffixes for each k-1 mer
+  for (auto k1_mer : macro_nodes) {
+    MacroNode null_suffix_mn = MacroNode(BasePairVector(k1_mer.first, mn_length), BasePairVector(), !is_prefix, is_terminal, -1, -1);
+    MacroNode null_prefix_mn = MacroNode(BasePairVector(k1_mer.first, mn_length), BasePairVector(), is_prefix, is_terminal, -1, -1);
+    PakmanNode suffix_null_node = graph->createNode(null_suffix_mn);
+    PakmanNode prefix_null_node = graph->createNode(null_prefix_mn);
+    graph->addNode(suffix_null_node);
+    graph->addNode(prefix_null_node);
+    k1_mer.second.second.emplace_back(suffix_null_node);
+    k1_mer.second.first.emplace_back(prefix_null_node);
+
+    wireMacroNode(*graph, k1_mer.second);
+  }
+
+  std::cout << "Nodes: " << graph->size() << std::endl;
+  uint64_t edges = countEdges(*graph);
+  std::cout << "Edges: " << edges << std::endl;
+
+  addMacroEdges(*graph, macro_nodes, mn_length);
+  return graph;
 }
 
 std::vector<uint64_t>
-fasta::getBucketCounts(std::unordered_map<uint64_t, uint32_t> kmer_map, uint64_t min_length_count) {
+pakman::getBucketCounts(std::unordered_map<uint64_t, uint32_t> kmer_map, uint64_t min_length_count) {
   std::vector<uint64_t> bucket_counts(min_length_count, 0);
 
   for (auto iter : kmer_map) {
@@ -177,7 +378,7 @@ fasta::getBucketCounts(std::unordered_map<uint64_t, uint32_t> kmer_map, uint64_t
 }
 
 std::unordered_map<uint64_t, uint32_t>
-fasta::read(std::string filename, uint64_t mn_length) {
+pakman::read(std::string filename, uint64_t mn_length) {
   // TODO (Patrick) finalize map choice
   std::unordered_map<uint64_t, uint32_t> kmer_map;
   std::mutex lock;
