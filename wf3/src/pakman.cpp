@@ -58,8 +58,8 @@ walk(pakman::PakmanGraph& graph, const std::string& cstring, int64_t frequency, 
     const pakman::MacroNode& suffix = graph.getData(suffix_node);
 
     my_cstring.append(suffix.affix_.to_string());
-    //std::cout << ">contig_l_(" + std::to_string(my_cstring.size()) << "): " << my_cstring << std::endl;
 
+    // recursion limit check from PNNL repo
     if (my_cstring.size() > 20000) {     // ... ... output partial contig to avoid recursion limit
       std::string name = ">contig_l_" + std::to_string(my_cstring.size());
       printf("%s\n%s\n", name.c_str(), my_cstring.c_str());

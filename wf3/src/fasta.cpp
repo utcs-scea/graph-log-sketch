@@ -59,19 +59,6 @@ typedef std::pair<std::vector<pakman::PakmanNode>, std::vector<pakman::PakmanNod
 
 namespace {
 
-template<typename T>
-std::ostream& operator<<(std::ostream& s, const std::vector<T>& v)
-{
-    s.put('[');
-    char comma[3] = {'\0', ' ', '\0'};
-    for (const auto& e : v)
-    {
-        s << comma << e;
-        comma[0] = ',';
-    }
-    return s << ']';
-}
-
 uint64_t
 countEdges(pakman::PakmanGraph& graph) {
   uint64_t edges = 0;
@@ -267,26 +254,12 @@ visitValue (uint64_t count, uint64_t coverage) {
 
 } // end namespace
 
-/**
-SAVE
-
-root@845966d6ea34:/LS_CSR/docker-build/wf3# ./pakman --fasta-file /LS_CSR/data/ecoli_10x.fasta
-WARNING: Numa support configured but not present at runtime.  Assuming numa topology matches socket topology.
-Map Size: 33655008
-Bucket Counts: [0, 24669987, 736175, 454243, 503200, 542963, 569788, 581557, 583048, 566681, 543824, 508861, 471419, 428282, 384294, 340286, 296892, 255129, 215572, 181448, 151386]
-Min Index: 20
-STAT_TYPE, REGION, CATEGORY, TOTAL_TYPE, TOTAL
-*/
-
 std::unique_ptr<pakman::PakmanGraph>
 pakman::ingest(std::string filename, uint64_t mn_length, uint64_t coverage, uint64_t min_length_count) {
   std::unordered_map<uint64_t, uint32_t> kmer_map = pakman::read(filename, mn_length);
-  // TODO (Patrick) sync map in distributed broadcasting
   std::cout << "Map Size: " << kmer_map.size() << std::endl;
 
   std::vector<uint64_t> bucket_counts = pakman::getBucketCounts(kmer_map, min_length_count);
-  std::cout << "Bucket Counts: " << bucket_counts << std::endl;
-
   uint64_t min_index = getMinBucketCount(bucket_counts, min_length_count);
   std::cout << "Min Index: " << min_index << std::endl;
 
@@ -342,6 +315,8 @@ pakman::createPakmanNodes(std::unordered_map<uint64_t, uint32_t>&& kmer_map, uin
     }
   }
 
+  // TODO (Patrick) return graph and macro nodes then split the following off into a different function
+
   std::cout << "Number of (k-1)-mers: " << macro_nodes.size() << std::endl;
 
   // add null prefix and suffixes for each k-1 mer
@@ -381,7 +356,7 @@ pakman::getBucketCounts(std::unordered_map<uint64_t, uint32_t> kmer_map, uint64_
 
 std::unordered_map<uint64_t, uint32_t>
 pakman::read(std::string filename, uint64_t mn_length) {
-  // TODO (Patrick) finalize map choice
+  // TODO (Patrick) use parallel or distributed hashmap
   std::unordered_map<uint64_t, uint32_t> kmer_map;
   std::mutex lock;
 
