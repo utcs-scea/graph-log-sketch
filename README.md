@@ -33,6 +33,19 @@ If you wish to run benchmarking then add `-DBENCH` to the GCC compiler flags in 
 ## Distributed
 If you wish to run things in a distributed fasion then add `-DGALOIS_ENABLE_DIST=1` to your cmake flags.
 
+## Random Graph Generation
+In order to generate a random graph that is particularly large you should use the `gen-rand-large` script.
+To run this binary the following command should be used in conjunction with `mpi`/`srun`.
+```
+srun -N <#hosts> -n <#processes> ./gen-rand-large <seed> <scale> <edge ratio> <A> <B> <C> <outfile-tag>
+```
+This will generate files with the name `<outfile-tag>-<mpirank>.el`.
+To generate a single file you can simply run `cat <outfile-tag>-*.el > <outfile-tag>.el`
+You can then use the following to generate the `gr` file:
+```
+srun -N <#hosts> -n <#processes> ./dist-graph-convert --edgelist2gr  <outfile-tag>.el  <outfile-tag>.gr
+```
+
 ## Microbenchmarks (ISBs)
 ### Jaccard
 The build target for jaccard is `jaccard` so you can create this inside your build folder by runing ``make -j`nproc` jaccard``
