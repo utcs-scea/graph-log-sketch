@@ -51,6 +51,7 @@ add_executable(edit_scalability microbench/edit_scalability.cpp)
 add_executable(parallel-small-tests test/p_small_tests.cpp)
 add_executable(gen-rand-bfs microbench/gen_rand_bfs.cpp)
 add_executable(gen-rand-tricount microbench/gen_rand_tricount.cpp)
+add_executable(gen-rand-large microbench/gen_rand_large.cpp)
 
 target_link_libraries(small-tests PRIVATE Catch2::Catch2WithMain Galois::shmem)
 target_link_libraries(file-tests PRIVATE Catch2::Catch2WithMain Galois::shmem)
@@ -65,6 +66,7 @@ target_link_libraries(jaccard PRIVATE Galois::shmem lonestar)
 target_link_libraries(edit_scalability PRIVATE Galois::shmem lonestar)
 target_link_libraries(gen-rand-bfs PRIVATE CombBLAS lonestar)
 target_link_libraries(gen-rand-tricount PRIVATE "${MPI_CXX_LIBRARIES}" Galois::shmem lonestar Galois::dist_async)
+target_link_libraries(gen-rand-large PRIVATE "${MPI_CXX_LIBRARIES}")
 
 
 include(CTest)
