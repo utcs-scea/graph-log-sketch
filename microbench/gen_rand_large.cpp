@@ -63,23 +63,23 @@ int main(int argc, char** argv)
   }
 
   std::stringstream ofn;
-  ofn << argv[8] << "-" << myrank << ".el" << std::endl;
-  std::cout << ofn.str();
+  ofn << argv[7] << "-" << myrank << ".el";
+  std::cout << ofn.str() << std::endl;
   std::ofstream ofs(ofn.str(), std::ofstream::out);
 
-  uint64_t seed = std::stoll(argv[2]);
-  uint64_t scale = std::stoll(argv[3]);
+  uint64_t seed = std::stoll(argv[1]);
+  uint64_t scale = std::stoll(argv[2]);
   uint64_t num_vertices = (uint64_t) 1 << scale;
-  uint64_t tot_edges = num_vertices * std::stoll(argv[4]);
+  uint64_t tot_edges = num_vertices * std::stoll(argv[3]);
 
   uint64_t num_big_ranks = tot_edges % nprocs;
   uint64_t num_edges = (myrank < num_big_ranks) ? tot_edges/nprocs + 1 : tot_edges/nprocs;
   uint64_t num_bumps = num_big_ranks * (tot_edges/nprocs + 1) + (myrank - num_big_ranks) *(tot_edges/nprocs);
 
 
-  double A = std::stod(argv[5]) / 100.0;
-  double B = std::stod(argv[6]) / 100.0;
-  double C = std::stod(argv[7]) / 100.0;
+  double A = std::stod(argv[4]) / 100.0;
+  double B = std::stod(argv[5]) / 100.0;
+  double C = std::stod(argv[6]) / 100.0;
   double D = 1.0 - A - B - C;
 
   if ( (A <= 0.0) || (B <= 0.0) || (C <= 0.0) || (A + B + C >= 1.0) )
