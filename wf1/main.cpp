@@ -65,66 +65,28 @@ int main(int argc, char *argv[]) {
   unsigned long total_csr = 0;
   unsigned long total_graph = 0;
   for (int i = 0; i < NUM_DISCARD_RUN + NUM_RUN; i++) {
-    // galois::Timer timer;
-    // timer.start();
+    galois::Timer timer;
+    timer.start();
 
-    // Handle handle;
-    // Graph_t graph;
     std::string dataFile = argv[1];
-
 
     Graph * graph = new Graph(dataFile, net.ID, net.Num, false);
     assert(graph != nullptr);
-    // EdgeType * Edges = new EdgeType(LARGE); 
-    // GlobalIDType * GlobalIDS = new GlobalIDType(MEDIUM);
 
-    // graph["Edges"] = (uint64_t) Edges;  // Vertex to Edges mapping, key is vertex encoding
-    // graph["GlobalIDS"] = (uint64_t) GlobalIDS;   // Vertices, key is vertex encoding
+    timer.stop();
+    unsigned long time_graph = timer.get_usec();
 
-    // RF_args_t args;
-    // args.Edges_OID     = graph["Edges"];
-    // args.GlobalIDS_OID = graph["GlobalIDS"];
-    // memcpy(args.filename, dataFile.c_str(), dataFile.size() + 1);
-
-    // readFile(args);
-
-    // /********** CREATE COMPRESSED EDGE ARRAY AND VERTEX ARRAY **********/
-    // if (net.ID == 0) {
-    //   uint64_t num_vertices = GlobalIDS->size();
-    //   uint64_t num_edges = Edges->size();
-
-    //   timer.stop();
-    //   unsigned long time_graph = timer.get_usec();
-
-    //   timer.start();
-    //   CSR(graph, num_vertices, num_edges);
-    //   timer.stop();
-    //   unsigned long time_csr = timer.get_usec();
-      
-
-    //   CSR_t * csr = (CSR_t *) graph["CSR"];
-    //   printf("Total number of vertices = %lu\n", csr->size());
-    //   printf("Total number of edges    = %lu\n", Edges->size());
-
-    //   if (i >= NUM_DISCARD_RUN) {
-    //     total_csr += time_csr;
-    //     total_graph += time_graph;
-    //     printf("Time for CSR = %lf\n", (double) time_csr / 1000000);
-    //     printf("Time for data congestion = %lf\n", (double) time_graph / 1000000);
-    //   }
-    // }
-
-    // free((EdgeType *) Edges);
-    // free((GlobalIDType *) GlobalIDS);
-    // free((VertexType *) graph["Vertices"]);
-    // free((EdgeType *) graph["VertexEdges"]);
-    // free((CSR_t *) graph["CSR"]);
+    if (i >= NUM_DISCARD_RUN) {
+      total_graph += time_graph;
+      printf("Time for build graph = %lf\n", (double) time_graph / 1000000);
+    }
+    
+    free(graph);
   }
 
-  // if (net.ID == 0) {
-  //   printf("Avg Time for CSR = %lf\n", (double) total_csr / (NUM_RUN * 1000000));
-  //   printf("Avg Time for data congestion = %lf\n", (double) total_graph / (NUM_RUN * 1000000));
-  // }
+  if (net.ID == 0) {
+    printf("Avg Time for build graph = %lf\n", (double) total_graph / (NUM_RUN * 1000000));
+  }
 
   return 0;
 }
