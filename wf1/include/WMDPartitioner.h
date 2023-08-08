@@ -253,9 +253,11 @@ public:
     }, galois::steal());
 
     galois::gDebug("[", base_DistGraph::id, "] LS_CSR graph local nodes: ", base_DistGraph::numNodes);
+    galois::gDebug("[", base_DistGraph::id, "] LS_CSR graph master nodes: ", base_DistGraph::numOwned);
     galois::gDebug("[", base_DistGraph::id, "] LS_CSR graph local edges: ", base_DistGraph::graph.sizeEdges());
     assert(base_DistGraph::graph.sizeEdges() == base_DistGraph::numEdges);
     assert(base_DistGraph::graph.size() == base_DistGraph::numNodes);
+    
 
     bufGraph.resetAndFree();
 
@@ -374,14 +376,14 @@ private:
           for (; ii < ee; ++ii) {
             uint32_t dst = bufGraph.edgeDestination(*ii);
 
-            if (graphPartitioner->keepEdge(n, dst)) {
-              edgeCount++;
-              keptEdges += 1;
-              // which mirrors do I have
-              if (graphPartitioner->retrieveMaster(dst) != myID) {
-                incomingMirrors.set(dst);
-              }
-            }
+            // we keep all edges in OEC so no need to do the check
+            // if (graphPartitioner->keepEdge(n, dst))
+            edgeCount++;
+            keptEdges += 1;
+            // which mirrors do I have
+            if (graphPartitioner->retrieveMaster(dst) != myID) {
+              incomingMirrors.set(dst);
+            }       
           }
           // prefixSumOfEdges[n - globalOffset] = edgeCount;
           ltgv[n - globalOffset]             = n;
@@ -485,7 +487,7 @@ private:
     }
 
     // receive loop
-    for (unsigned h = 0; h < net.Num - 1; h++) {
+    for (unsigned h = 0; h < base_DistGraph::numHosts - 1; h++) {
       decltype(net.recieveTagged(galois::runtime::evilPhase, nullptr)) p;
       do {
         p = net.recieveTagged(galois::runtime::evilPhase, nullptr);
