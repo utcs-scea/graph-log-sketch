@@ -1,11 +1,14 @@
 [submodule "galois"]
 	path = galois
 	url = https://github.com/utcs-scea/Galois.git
+	ignore = dirty
   branch = dgraph
 [submodule "CombBLAS"]
 	path = CombBLAS
 	url = https://github.com/PASSIONLab/CombBLAS.git
+	ignore = dirty
 [submodule "pytorch"]
 	path = pytorch
 	url = https://github.com/utcs-scea/pytorch.git
+	ignore = dirty
   brach = small-fix-for-build
