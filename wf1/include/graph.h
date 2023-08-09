@@ -65,38 +65,7 @@
 
 namespace agile::workflow1 {
 
-template <typename T>
-struct globalIdInserter {
-  globalIdInserter() : counter(0lu) { }
-
-  bool operator()(T *const lhs, const T &rhs, bool same_key) {
-    if (same_key) {     // entry in hashmap, increment edges
-       lhs->edges += rhs.edges;
-    } else {            // entry not in hashmap, assign next local id
-       T temp = rhs;
-       temp.id = counter ++;
-       * lhs = std::move(temp);
-    }
-
-    return true;
-  }
-
-  bool Insert(T *const lhs, const T &rhs, bool same_key) {
-    if (same_key) {     // entry in hashmap, increment edges
-       lhs->edges += rhs.edges;
-    } else {            // entry not in hashmap, assign next local id
-       T temp = rhs;
-       temp.id = counter ++;
-       * lhs = std::move(temp);
-    }
-
-    return true;
-  }
-
-  std::atomic<uint64_t> counter;
-};
-
-class Vertex {          // used by both GlobalIDS and Vertices
+class Vertex {
   public:
     uint64_t id;        // GlobalIDS: global id ... Vertices: vertex id
     uint64_t edges;     // number of edges
@@ -115,18 +84,6 @@ class Vertex {          // used by both GlobalIDS and Vertices
       edges = edges_;
       start = 0;
       type  = type_;
-    }
-  
-  private:
-    friend class boost::serialization::access;
-
-    template<class Archive>
-    void serialize(Archive & ar, const unsigned int version)
-    {
-        ar & id;
-        ar & edges;
-        ar & start;
-        ar & type;
     }
 };
 

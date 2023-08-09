@@ -1,7 +1,7 @@
 /**
  * @file WMDGraph.h
  *
- * Contains the implementation of WMDBufferedGraph which is a galois BufferedGraph constructed from WMD dataset
+ * Contains the implementation of WMDBufferedGraph and WMDOfflineGraph which is a galois graph constructed from WMD dataset
  */
 
 #ifndef WMD_BUFFERED_GRAPH_H
@@ -64,7 +64,7 @@ std::vector<std::string> split(std::string & line, char delim, uint64_t size = 0
  * Internal logit are completed different
  * TODO: make this template on EdgeDataType
  */
-template<typename EdgeType>
+template<typename NodeType, typename EdgeType>
 class WMDOfflineGraph : public OfflineGraph {
 protected:
   typedef boost::counting_iterator<uint64_t> iterator;
@@ -83,6 +83,7 @@ protected:
   std::unordered_map<uint64_t, size_t> local_tokenToEdgesIdx;  // map local node token to idx in localEdges 
   std::vector<uint64_t> local_EdgesIdxToID;  // map idx in localEdges to global node ID
   std::vector<std::vector<EdgeType>> localEdges;  // edges list of local nodes, idx is local ID 
+  std::vector<NodeType> localNodes; // nodes in this host, index by local ID
 
   uint32_t hostID;
   uint32_t numHosts;
@@ -151,14 +152,19 @@ protected:
       local_rand_read_size += (3 + std::ceil(tokens[0].size() / 8)) * 8;
       #endif
       if (tokens[0] == "Person") {
+        localNodes.emplace_back(id_counter, 0, agile::workflow1::TYPES::PERSON);
         local_tokenToID[shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1])] = id_counter++;
       } else if (tokens[0] == "ForumEvent") {
+        localNodes.emplace_back(id_counter, 0, agile::workflow1::TYPES::FORUMEVENT);
         local_tokenToID[shad::data_types::encode<uint64_t, std::string, UINT>(tokens[4])] = id_counter++;
       } else if (tokens[0] == "Forum") {
+        localNodes.emplace_back(id_counter, 0, agile::workflow1::TYPES::FORUM);
         local_tokenToID[shad::data_types::encode<uint64_t, std::string, UINT>(tokens[3])] = id_counter++;
       } else if (tokens[0] == "Publication") {
+        localNodes.emplace_back(id_counter, 0, agile::workflow1::TYPES::PUBLICATION);
         local_tokenToID[shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5])] = id_counter++;
       } else if (tokens[0] == "Topic") {
+        localNodes.emplace_back(id_counter, 0, agile::workflow1::TYPES::TOPIC);
         local_tokenToID[shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6])] = id_counter++;
       } else { // edge type
         agile::workflow1::TYPES inverseEdgeType;
@@ -256,6 +262,13 @@ protected:
         galois::iterate(local_tokenToID),
         [this_offset](std::unordered_map<uint64_t, uint64_t>::value_type& p) {
           p.second += this_offset;
+        }
+      );
+
+      galois::do_all(
+        galois::iterate(localNodes),
+        [this_offset](NodeType& node) {
+          node.id += this_offset;
         }
       );
     }
@@ -391,7 +404,7 @@ protected:
   }
 
 public:
-  template<typename WMDBufferedGraph_EdgeType>
+  template<typename WMDBufferedGraph_EdgeType, typename WMDBufferedGraph_NodeType>
   friend class WMDBufferedGraph;
 
   #ifdef GRAPH_PROFILE
@@ -477,7 +490,7 @@ public:
  *
  * @tparam EdgeType type of the edge data
  */
-template <typename EdgeType>
+template <typename NodeType, typename EdgeType>
 class WMDBufferedGraph : public BufferedGraph<EdgeType> {
 private:
   typedef boost::counting_iterator<uint64_t> iterator;
@@ -505,11 +518,6 @@ private:
 
   uint32_t hostID;
   uint32_t numHosts;
-
-  // fields that will be moved from WMDOfflineGraph directly
-  // will be cleared after graph is loaded
-  std::vector<uint64_t> local_EdgesIdxToID;  // map idx in localEdges to global node ID
-  std::vector<std::vector<EdgeType>> localEdges;  // edges list of local nodes, idx is local ID 
 
   // CSR representation of edges
   std::vector<uint64_t> offsets;   // offsets[numLocalNodes] point to end of edges
@@ -551,7 +559,7 @@ private:
    * Gather local edges from other hosts to this host
    * Will update numLocalEdges
   */ 
-  void gatherEdges() {
+  void gatherEdges(std::vector<std::vector<EdgeType>> &localEdges, std::vector<uint64_t> &local_EdgesIdxToID) {
     auto& net = galois::runtime::getSystemNetworkInterface();
 
     // prepare data to send for all hosts
@@ -561,14 +569,14 @@ private:
     std::vector<std::vector<uint64_t>> IDofEdgesToSend(numHosts, std::vector<uint64_t>());
 
     galois::do_all(
-      galois::iterate(iterator(0), iterator(numHosts)),
-      [this, &edgesToSend, &IDofEdgesToSend](uint64_t i) {
+      galois::iterate((uint64_t) 0, (uint64_t) numHosts),
+      [this, &edgesToSend, &IDofEdgesToSend, &local_EdgesIdxToID, &localEdges](uint64_t i) {
         uint64_t start = nodeRange[i].first;
         uint64_t end = nodeRange[i].second;
         for (size_t j = 0; j < local_EdgesIdxToID.size(); j++) {
           auto id = local_EdgesIdxToID[j];
           if (id >= start && id < end) {
-            IDofEdgesToSend[i].push_back(id);
+            IDofEdgesToSend[i].emplace_back(id);
             edgesToSend[i].push_back(std::move(localEdges[j]));
           }
         };
@@ -593,8 +601,8 @@ private:
     nodeOffset = nodeRange[hostID].first;
     std::vector<std::vector<EdgeType>> newLocalEdges(numLocalNodes);
     galois::do_all(
-      galois::iterate(iterator(0), iterator(IDofEdgesToSend[hostID].size())),
-      [this, &newLocalEdges, &IDofEdgesToSend, &edgesToSend](uint64_t i) {
+      galois::iterate((size_t) 0, IDofEdgesToSend[hostID].size()),
+      [this, &newLocalEdges, &IDofEdgesToSend, &edgesToSend](size_t i) {
         newLocalEdges[IDofEdgesToSend[hostID][i] - nodeOffset] = std::move(edgesToSend[hostID][i]);
       }
     );
@@ -622,8 +630,8 @@ private:
       // ref: https://stackoverflow.com/questions/9778238/move-two-vectors-togethe
       // TODO: profile this step
       galois::do_all(
-        galois::iterate(iterator(0), iterator(IDofEdges.size())),
-        [this, &edgeList, &IDofEdges](uint64_t i) {
+        galois::iterate((size_t) 0, IDofEdges.size()),
+        [this, &edgeList, &IDofEdges, &localEdges](size_t i) {
           auto& arrToMerge = localEdges[IDofEdges[i] - nodeOffset];
           arrToMerge.reserve(arrToMerge.size() + edgeList[i].size());
           arrToMerge.insert(arrToMerge.end(), std::make_move_iterator(edgeList[i].begin()),
@@ -640,7 +648,7 @@ private:
    * Flatten the 2D vector localEdges into a CSR edge list
    * Will compute edge size and build CSR edge offset mapping
   */
-  void flattenEdges() {
+  void flattenEdges(std::vector<std::vector<EdgeType>> &localEdges) {
       // build CSR edge offset
       offsets.resize(numLocalNodes + 1);
       uint64_t counter = 0;
@@ -652,8 +660,8 @@ private:
       // build flatten edge list
       edges.resize(numLocalEdges);
       galois::do_all(
-        galois::iterate(iterator(0), iterator(localEdges.size())),
-        [this](uint64_t i) {
+        galois::iterate((size_t) 0, localEdges.size()),
+        [this, &localEdges](size_t i) {
           std::move(localEdges[i].begin(), localEdges[i].end(), 
             edges.begin() + offsets[i]);
         }
@@ -707,7 +715,7 @@ public:
    * @param numGlobalNodes Total number of nodes in the graph
    * @param numGlobalEdges Total number of edges in the graph
    */
-  void loadPartialGraph(WMDOfflineGraph<EdgeType>& srcGraph, uint64_t nodeStart,
+  void loadPartialGraph(WMDOfflineGraph<NodeType, EdgeType>& srcGraph, uint64_t nodeStart,
                         uint64_t nodeEnd, uint64_t numGlobalNodes, 
                         uint64_t numGlobalEdges) {
     if (graphLoaded) {
@@ -728,35 +736,141 @@ public:
     globalSize = numGlobalNodes;
     globalEdgeSize = numGlobalEdges;
 
-    // move data from WMDOfflineGraph
-    galois::gDebug("[", hostID, "] ", "move data from WMDOfflineGraph!");
-
-    localEdges = std::move(srcGraph.localEdges);
-    local_EdgesIdxToID = std::move(srcGraph.local_EdgesIdxToID);
-    assert(localEdges.size() == local_EdgesIdxToID.size());
-    galois::gDebug("[", hostID, "] ", "localEdges size: ", localEdges.size());
-    uint64_t counter = 0;
-    for (auto& v: localEdges) {
-      counter += v.size();
-    }
-    galois::gDebug("[", hostID, "] ", "initial local edges size: ", counter);
-
     // build local buffered graph 
     galois::gDebug("[", hostID, "] ", "exchangeNodeRange!");
     exchangeNodeRange();
     galois::gDebug("[", hostID, "] ", "gatherEdges!");
-    gatherEdges();
+    gatherEdges(srcGraph.localEdges, srcGraph.local_EdgesIdxToID);
     galois::gDebug("[", hostID, "] ", "flattenEdges!");
-    flattenEdges();
+    flattenEdges(srcGraph.localEdges);
 
     // clean unused data
-    local_EdgesIdxToID.clear();
-    localEdges.clear();
+    srcGraph.local_EdgesIdxToID.clear();
+    srcGraph.localEdges.clear();
 
     graphLoaded = true;
 
     galois::gDebug("[", hostID, "] ", "exchangeNodeRange!");
     galois::gDebug("[", hostID, "] ", "BufferedGraph built, nodes: ", numLocalNodes, ", edges: ", numLocalEdges);
+  }
+
+  /**
+   * Gather local nodes data (mirror + master nodes) from other hosts to this host
+   * And save data to graph
+   * 
+   * @param srcGraph the OfflineGraph owns node data (will be cleared after this call)
+   * @param proxiesOnHosts a list of bit vector which indicates node on that hosts (include mirror and master nodes)
+   * @param totalLocalNodes the total number of local nodes this host should have (include mirror and master nodes)
+  */ 
+  void gatherNodes(WMDOfflineGraph<NodeType, EdgeType>& srcGraph, 
+                  galois::graphs::LS_LC_CSR_64_Graph<NodeType, EdgeType, true>& dstGraph, 
+                  std::vector<galois::DynamicBitSet>& proxiesOnHosts, uint64_t totalLocalNodes, 
+                  std::unordered_map<uint64_t, uint32_t> globalToLocalMap) {
+    auto& net = galois::runtime::getSystemNetworkInterface();
+    auto& localNodes = srcGraph.localNodes;
+
+    // prepare data to send for all hosts
+    // each host will receive its nodes and corresponding node global ID list
+    galois::gDebug("[", hostID, "] ", "prepare node data!");
+    std::vector<std::vector<NodeType>> nodesToSend(numHosts, std::vector<NodeType>());
+    std::vector<std::vector<uint64_t>> IDofNodesToSend(numHosts, std::vector<uint64_t>());
+
+    uint64_t globalIDOffset = srcGraph.offset[hostID];
+    uint64_t numNodes = srcGraph.localNodeSize[hostID];
+    galois::do_all(
+      galois::iterate((uint64_t) 0, (uint64_t) numHosts),
+      [this, &nodesToSend, &IDofNodesToSend, &localNodes, &proxiesOnHosts, globalIDOffset, numNodes](uint64_t i) {
+        if (i != hostID) {
+          auto& proxiesOnThatHost = proxiesOnHosts[i];
+          for (uint64_t j = 0; j < numNodes; j++) {
+            uint64_t gid = j + globalIDOffset;
+            if (proxiesOnThatHost.test(gid)) {
+              IDofNodesToSend[i].emplace_back(gid);
+              nodesToSend[i].push_back(std::move(localNodes[j]));
+            }
+          };
+        }
+      }
+    );
+
+    // send nodes to other hosts
+    galois::gDebug("[", hostID, "] ", "send nodes!");
+
+    for (uint32_t h = 0; h < numHosts; h++) {
+      if (h == hostID) continue;
+      assert(nodesToSend[h].size() == IDofNodesToSend[h].size());
+      galois::runtime::SendBuffer sendBuffer;
+      galois::runtime::gSerialize(sendBuffer, nodesToSend[h]);
+      galois::runtime::gSerialize(sendBuffer, IDofNodesToSend[h]);
+      galois::gDebug("[", hostID, "] ", "send to ", h, " nodesToSend size: ", nodesToSend[h].size());
+      net.sendTagged(h, galois::runtime::evilPhase, sendBuffer);
+    }      
+
+    // prepare initial local nodes
+    // copy avaliable nodes to there
+    #ifndef NDEBUG
+    uint64_t addedData = 0;
+    #endif
+
+    auto& proxiesOnThisHost = proxiesOnHosts[hostID];
+    galois::do_all(
+      galois::iterate((uint64_t) 0, numNodes),
+      [globalIDOffset, &proxiesOnThisHost, &dstGraph, &globalToLocalMap, &localNodes
+      #ifndef NDEBUG
+      , &addedData
+      #endif
+      ](uint64_t i) {
+        uint64_t gid = i + globalIDOffset;
+        if (proxiesOnThisHost.test(gid)) {
+          dstGraph.getData(globalToLocalMap[gid]) = std::move(localNodes[i]);
+          #ifndef NDEBUG
+          addedData++;
+          #endif
+        } 
+      }
+    );
+  
+    // recive nodes from other hosts
+    for (uint32_t i = 0; i < (numHosts - 1); i++) {
+      decltype(net.recieveTagged(galois::runtime::evilPhase, nullptr)) p;
+      do {
+        p = net.recieveTagged(galois::runtime::evilPhase, nullptr);
+      } while (!p);
+      uint32_t sendingHost = p->first;
+
+      std::vector<NodeType> nodeRecv;
+      std::vector<uint64_t> IDofNodeRecv;
+
+      galois::runtime::gDeserialize(p->second, nodeRecv); 
+      galois::runtime::gDeserialize(p->second, IDofNodeRecv);
+
+      assert(nodeRecv.size() == IDofNodeRecv.size());
+      galois::gDebug("[", hostID, "] recv from ", sendingHost, " nodeRecv size: ", nodeRecv.size());
+
+      galois::do_all(
+        galois::iterate((size_t) 0, IDofNodeRecv.size()),
+        [this, &nodeRecv, &IDofNodeRecv, &dstGraph, &globalToLocalMap
+        #ifndef NDEBUG
+        , &addedData
+        #endif
+        ](size_t i) {
+          dstGraph.getData(globalToLocalMap[IDofNodeRecv[i]]) = std::move(nodeRecv[i]);
+          #ifndef NDEBUG
+          addedData++;
+          #endif
+        }
+      );
+    }
+
+    #ifndef NDEBUG
+    assert(addedData == totalLocalNodes);
+    #endif
+    
+    increment_evilPhase();
+
+    // clean unused memory
+    srcGraph.localNodes.clear();
+    srcGraph.offset.clear();
   }
 
   // NOTE: for below methods, it return local edge id instead of global id

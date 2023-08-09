@@ -14,8 +14,6 @@
 #include "galois/DReducible.h"
 
 #include "WMDGraph.h"
-#include "graph.h"
-#include "data_types.h"
 
 #include <atomic>
 #include <unistd.h>
@@ -150,15 +148,19 @@ public:
       galois::graphs::MASTERS_DISTRIBUTION md = BALANCED_MASTERS,
       uint32_t nodeWeight = 0, uint32_t edgeWeight = 0)
       : base_DistGraph(host, _numHosts) {
+    galois::gInfo("[", base_DistGraph::id, "] Start DistGraph construction.");
     galois::runtime::reportParam(GRNAME, "WMDGraph", "0");
-    galois::CondStatTimer<MORE_DIST_STATS> Tgraph_construct(
+    galois::StatTimer Tgraph_construct(
         "GraphPartitioningTime", GRNAME);
     Tgraph_construct.start();
 
     ////////////////////////////////////////////////////////////////////////////
+    galois::gInfo("[", base_DistGraph::id, "] Start reading graph.");
+    galois::StatTimer graphReadTimer("GraphReading", GRNAME);
+    graphReadTimer.start();
 
-    galois::gDebug("[", base_DistGraph::id, "] WMDOfflineGraph Begin!");
-    galois::graphs::WMDOfflineGraph<agile::workflow1::Edge> g(filename);
+    galois::gDebug("[", base_DistGraph::id, "] WMDOfflineGraph End!");
+    galois::graphs::WMDOfflineGraph<NodeTy, EdgeTy> g(filename);
     galois::gDebug("[", base_DistGraph::id, "] WMDOfflineGraph End!");
     base_DistGraph::numGlobalNodes = g.size();
     base_DistGraph::numGlobalEdges = g.sizeEdges();
@@ -178,36 +180,37 @@ public:
         base_DistGraph::numGlobalEdges, ndegrees);
     graphPartitioner->saveGIDToHost(base_DistGraph::gid2host);
 
+    graphReadTimer.stop();
+    galois::gInfo("[", base_DistGraph::id, "] Reading graph complete in ", graphReadTimer.get_usec() / 1000000.0, " sec.");
     ////////////////////////////////////////////////////////////////////////////
+    galois::gInfo("[", base_DistGraph::id, "] Start exchanging edges.");
+    galois::StatTimer edgesExchangeTimer("EdgesExchange", GRNAME);
+    edgesExchangeTimer.start();
 
     uint64_t nodeBegin = base_DistGraph::gid2host[base_DistGraph::id].first;
     uint64_t nodeEnd = base_DistGraph::gid2host[base_DistGraph::id].second;
 
     galois::gDebug("[", base_DistGraph::id, "] nodeBegin: ", nodeBegin, ", nodeEnd: ", nodeEnd);
 
-
-    galois::gDebug("[", base_DistGraph::id, "] Starting graph reading.");
     // never read edge data from disk
-    galois::graphs::WMDBufferedGraph<agile::workflow1::Edge> bufGraph;
-    galois::StatTimer graphReadTimer("GraphReading", GRNAME);
-    graphReadTimer.start();
+    galois::graphs::WMDBufferedGraph<NodeTy, EdgeTy> bufGraph;
     bufGraph.loadPartialGraph(g, nodeBegin, nodeEnd, 
                               base_DistGraph::numGlobalNodes,
                               base_DistGraph::numGlobalEdges);
-    graphReadTimer.stop();
-    galois::gDebug("[", base_DistGraph::id, "] Reading graph complete.");
 
+    edgesExchangeTimer.stop();
+    galois::gInfo("[", base_DistGraph::id, "] Exchanging edges complete in ", edgesExchangeTimer.get_usec() / 1000000.0, " sec.");
     ////////////////////////////////////////////////////////////////////////////
-    galois::gDebug("[", base_DistGraph::id, "] Starting edge inspection.");
+    galois::gInfo("[", base_DistGraph::id, "] Starting edge inspection.");
     galois::StatTimer inspectionTimer("EdgeInspection", GRNAME);
     inspectionTimer.start();
+  
     // galois::gstl::Vector<uint64_t> prefixSumOfEdges;
     base_DistGraph::numOwned = nodeEnd - nodeBegin;
     // prefixSumOfEdges.resize(base_DistGraph::numOwned);
 
     // initial pass; set up lid-gid mappings, determine which proxies exist on
-    // this host; prefix sum of edges cna be set up up to the last master
-    // node
+    // this host
     galois::DynamicBitSet presentProxies =
         edgeInspectionRound1(bufGraph);
     // set my read nodes on present proxies
@@ -222,17 +225,17 @@ public:
 
     // send off mirror proxies that exist on this host to other hosts
     communicateProxyInfo(presentProxies, proxiesOnOtherHosts);
+    // put them together to save memory
+    proxiesOnOtherHosts[base_DistGraph::id] = std::move(presentProxies);
 
     base_DistGraph::numEdges = bufGraph.sizeLocalEdges();
 
-    // TODO: send mirror node data to other hosts
-
     inspectionTimer.stop();
-
+    galois::gInfo("[", base_DistGraph::id, "] Edge inspection complete in ", inspectionTimer.get_usec() / 1000000.0, " sec.");
     ////////////////////////////////////////////////////////////////////////////
-    galois::gDebug("[", base_DistGraph::id, "] Starting graph allocation.");
-    galois::StatTimer allocationTimer("GraphAllocation", GRNAME);
-    allocationTimer.start();
+    galois::gInfo("[", base_DistGraph::id, "] Starting building LS_CSR.");
+    galois::StatTimer buildingTimer("GraphBuilding", GRNAME);
+    buildingTimer.start();
 
     // Graph construction related calls
     base_DistGraph::beginMaster = 0;
@@ -243,6 +246,7 @@ public:
 
     // construct edges
     // not need to move edges from other host since all edges is already ready when no edge mirror are used.
+    galois::gDebug("[", base_DistGraph::id, "] add edges into graph.");
     uint64_t offset = bufGraph.getNodeOffset();
     galois::do_all(galois::iterate(nodeBegin, nodeEnd),
     [&](uint64_t globalID)
@@ -252,17 +256,21 @@ public:
       base_DistGraph::graph.addEdgesUnSort(true, globalID - offset, edgeDst.data(), edgeData, bufGraph.edgeNum(globalID), false);
     }, galois::steal());
 
+    // move node data (include mirror nodes) from other hosts to graph in this host
+    galois::gDebug("[", base_DistGraph::id, "] add nodes data into graph.");
+    bufGraph.gatherNodes(g, base_DistGraph::graph, proxiesOnOtherHosts, base_DistGraph::numNodes, base_DistGraph::globalToLocalMap);
+
+    galois::gDebug("[", base_DistGraph::id, "] LS_CSR construction done.");
     galois::gDebug("[", base_DistGraph::id, "] LS_CSR graph local nodes: ", base_DistGraph::numNodes);
     galois::gDebug("[", base_DistGraph::id, "] LS_CSR graph master nodes: ", base_DistGraph::numOwned);
     galois::gDebug("[", base_DistGraph::id, "] LS_CSR graph local edges: ", base_DistGraph::graph.sizeEdges());
     assert(base_DistGraph::graph.sizeEdges() == base_DistGraph::numEdges);
     assert(base_DistGraph::graph.size() == base_DistGraph::numNodes);
-    
 
     bufGraph.resetAndFree();
 
-    allocationTimer.stop();
-
+    buildingTimer.stop();
+    galois::gInfo("[", base_DistGraph::id, "] Building LS_CSR complete in ", buildingTimer.get_usec() / 1000000.0, " sec.");
     ////////////////////////////////////////////////////////////////////////////
 
     if (setupGluon) {
@@ -285,25 +293,12 @@ public:
       base_DistGraph::sortEdgesByDestination();
     }
 
-    if (setupGluon) {
-      galois::CondStatTimer<MORE_DIST_STATS> TfillMirrorsEdges(
-          "FillMirrorsEdges", GRNAME);
-      TfillMirrorsEdges.start();
-      // edges
-      mirrorEdges.resize(base_DistGraph::numHosts);
-      galois::gPrint("[", base_DistGraph::id,
-                     "] Filling mirrors and creating "
-                     "mirror map\n");
-      fillMirrorsEdgesAndCreateMirrorMap();
-      TfillMirrorsEdges.stop();
-    }
-
     ////////////////////////////////////////////////////////////////////////////
 
     galois::CondStatTimer<MORE_DIST_STATS> Tthread_ranges("ThreadRangesTime",
                                                           GRNAME);
 
-    galois::gPrint("[", base_DistGraph::id, "] Determining thread ranges\n");
+    galois::gInfo("[", base_DistGraph::id, "] Determining thread ranges");
 
     Tthread_ranges.start();
     base_DistGraph::determineThreadRanges();
@@ -313,7 +308,7 @@ public:
     Tthread_ranges.stop();
 
     Tgraph_construct.stop();
-    galois::gPrint("[", base_DistGraph::id, "] Graph construction complete.\n");
+    galois::gInfo("[", base_DistGraph::id, "] Total time of DistGraph construction is ", Tgraph_construct.get_usec() / 1000000.0, " sec.");
 
     galois::DGAccumulator<uint64_t> accumer;
     accumer.reset();
@@ -347,7 +342,7 @@ public:
 
 private:
   galois::DynamicBitSet
-  edgeInspectionRound1(galois::graphs::WMDBufferedGraph<agile::workflow1::Edge>& bufGraph) {
+  edgeInspectionRound1(galois::graphs::WMDBufferedGraph<NodeTy, EdgeTy>& bufGraph) {
     galois::DynamicBitSet incomingMirrors;
     incomingMirrors.resize(base_DistGraph::numGlobalNodes);
     incomingMirrors.reset();
@@ -487,190 +482,19 @@ private:
     }
 
     // receive loop
-    for (unsigned h = 0; h < base_DistGraph::numHosts - 1; h++) {
+    for (unsigned h = 0; h < net.Num - 1; h++) {
       decltype(net.recieveTagged(galois::runtime::evilPhase, nullptr)) p;
       do {
         p = net.recieveTagged(galois::runtime::evilPhase, nullptr);
       } while (!p);
       uint32_t sendingHost = p->first;
       // deserialize proxiesOnOtherHosts
-      #ifdef GRAPH_PROFILE
-      *remote_seq_read_count[p->first] += std::ceil(p->second.size() / 8);
-      *remote_seq_read_size[p->first] += std::ceil(p->second.size() / 8) * 8;
-      #endif
       galois::runtime::gDeserialize(p->second,
                                     proxiesOnOtherHosts[sendingHost]);
     }
 
     base_DistGraph::increment_evilPhase();
   }
-
-  /**
-   * Send data out from inspection to other hosts.
-   *
-   * @param[in,out] numOutgoingEdges specifies which nodes on a host will have
-   * outgoing edges
-   * @param[in] hostHasOutgoing bitset tracking which hosts have outgoing
-   * edges from this host
-   */
-  void sendInspectionData(std::vector<std::vector<uint64_t>>& numOutgoingEdges,
-                          galois::DynamicBitSet& hostHasOutgoing) {
-    auto& net = galois::runtime::getSystemNetworkInterface();
-
-    galois::GAccumulator<uint64_t> bytesSent;
-    bytesSent.reset();
-
-    for (unsigned h = 0; h < net.Num; h++) {
-      if (h == net.ID) {
-        continue;
-      }
-
-      // send outgoing edges data off to comm partner
-      galois::runtime::SendBuffer b;
-
-      // only send if non-zeros exist
-      if (hostHasOutgoing.test(h)) {
-        galois::runtime::gSerialize(b, 1); // token saying data exists
-        galois::runtime::gSerialize(b, numOutgoingEdges[h]);
-      } else {
-        galois::runtime::gSerialize(b, 0); // token saying no data exists
-      }
-      numOutgoingEdges[h].clear();
-
-      bytesSent.update(b.size());
-
-      // send buffer and free memory
-      net.sendTagged(h, galois::runtime::evilPhase, b);
-      b.getVec().clear();
-    }
-    galois::runtime::reportStat_Tsum(
-        GRNAME, std::string("EdgeInspectionBytesSent"), bytesSent.reduce());
-
-    galois::gPrint("[", base_DistGraph::id, "] Inspection sends complete.\n");
-  }
-
-  /**
-   * Receive data from inspection from other hosts. Processes the incoming
-   * edge bitsets/offsets.
-   *
-   * @param[in,out] numOutgoingEdges specifies which nodes on a host will have
-   * outgoing edges
-   */
-  void
-  recvInspectionData(std::vector<std::vector<uint64_t>>& numOutgoingEdges) {
-    auto& net = galois::runtime::getSystemNetworkInterface();
-
-    for (unsigned h = 0; h < net.Num - 1; h++) {
-      // expect data from comm partner back
-      decltype(net.recieveTagged(galois::runtime::evilPhase, nullptr)) p;
-      do {
-        p = net.recieveTagged(galois::runtime::evilPhase, nullptr);
-      } while (!p);
-
-      uint32_t sendingHost = p->first;
-
-      // get outgoing edges; first get status var
-      uint32_t outgoingExists = 2;
-      galois::runtime::gDeserialize(p->second, outgoingExists);
-
-      if (outgoingExists == 1) {
-        // actual data sent
-        galois::runtime::gDeserialize(p->second, numOutgoingEdges[sendingHost]);
-      } else if (outgoingExists == 0) {
-        // no data sent; just clear again
-        numOutgoingEdges[sendingHost].clear();
-      } else {
-        GALOIS_DIE("unreachable: ", outgoingExists);
-      }
-    }
-
-    galois::gPrint("[", base_DistGraph::id,
-                   "] Inspection receives complete.\n");
-  }
-
-  /**
-   * Take inspection metadata and begin mapping nodes/creating prefix sums,
-   * return the prefix sum.
-   */
-  galois::gstl::Vector<uint64_t>
-  finalizePrefixSum(std::vector<std::vector<uint64_t>>& numOutgoingEdges,
-                    galois::gstl::Vector<uint64_t>& prefixSumOfEdges) {
-    base_DistGraph::numEdges = 0;
-
-    inspectOutgoingNodes(numOutgoingEdges, prefixSumOfEdges);
-    finalizeInspection(prefixSumOfEdges);
-    galois::gDebug("[", base_DistGraph::id,
-                   "] To receive this many nodes: ", nodesToReceive);
-    galois::gPrint("[", base_DistGraph::id,
-                   "] Inspection allocation complete.\n");
-    return prefixSumOfEdges;
-  }
-
-  /**
-   * Outgoing inspection: loop over proxy nodes, determnine if need to receive
-   * edges.
-   */
-  void
-  inspectOutgoingNodes(std::vector<std::vector<uint64_t>>& numOutgoingEdges,
-                       galois::gstl::Vector<uint64_t>& prefixSumOfEdges) {
-    galois::GAccumulator<uint32_t> toReceive;
-    toReceive.reset();
-
-    uint32_t proxyStart = base_DistGraph::numOwned;
-    uint32_t proxyEnd   = base_DistGraph::numNodes;
-    assert(proxyEnd == prefixSumOfEdges.size());
-
-    galois::GAccumulator<uint64_t> edgesToReceive;
-    edgesToReceive.reset();
-
-    // loop over proxy nodes, see if edges need to be sent from another host
-    // by looking at results of edge inspection
-    galois::do_all(
-        galois::iterate(proxyStart, proxyEnd),
-        [&](uint32_t lid) {
-          uint64_t gid = base_DistGraph::localToGlobalVector[lid];
-          assert(gid < base_DistGraph::numGlobalNodes);
-          unsigned hostReader = getHostReader(gid);
-          assert(hostReader < base_DistGraph::numHosts);
-          assert(hostReader != base_DistGraph::id); // self shouldn't be proxy
-
-          uint64_t nodeOffset = base_DistGraph::gid2host[hostReader].first;
-          if (numOutgoingEdges[hostReader].size()) {
-            if (numOutgoingEdges[hostReader][gid - nodeOffset]) {
-              // if this host is going to send me edges, note it for future use
-              prefixSumOfEdges[lid] =
-                  numOutgoingEdges[hostReader][gid - nodeOffset];
-              edgesToReceive += numOutgoingEdges[hostReader][gid - nodeOffset];
-              toReceive += 1;
-            }
-          }
-        },
-        galois::loopname("OutgoingNodeInspection"), galois::steal(),
-        galois::no_stats());
-
-    galois::gPrint("[", base_DistGraph::id, "] Need receive ",
-                   edgesToReceive.reduce(), " edges; self is ", myKeptEdges,
-                   "\n");
-    // get memory back
-    numOutgoingEdges.clear();
-    nodesToReceive = toReceive.reduce();
-  }
-
-  /**
-   * finalize metadata maps
-   */
-  void finalizeInspection(galois::gstl::Vector<uint64_t>& prefixSumOfEdges) {
-    for (unsigned i = 1; i < base_DistGraph::numNodes; i++) {
-      // finalize prefix sum
-      prefixSumOfEdges[i] += prefixSumOfEdges[i - 1];
-    }
-    if (prefixSumOfEdges.size() != 0) {
-      base_DistGraph::numEdges = prefixSumOfEdges.back();
-    } else {
-      base_DistGraph::numEdges = 0;
-    }
-  }
-
   #ifdef GRAPH_PROFILE
   void print_profile(std::ofstream &output) {
     int id = base_DistGraph::id;
@@ -840,24 +664,6 @@ private:
       uint32_t globalID = base_DistGraph::localToGlobalVector[i];
       base_DistGraph::mirrorNodes[graphPartitioner->retrieveMaster(globalID)]
           .push_back(globalID);
-    }
-  }
-
-  void fillMirrorsEdgesAndCreateMirrorMap() {
-    for (uint32_t src = base_DistGraph::numOwned;
-         src < base_DistGraph::numNodes; src++) {
-      auto ee               = base_DistGraph::edge_begin(src);
-      auto ee_end           = base_DistGraph::edge_end(src);
-      uint32_t globalSource = base_DistGraph::getGID(src);
-      unsigned sourceOwner  = graphPartitioner->retrieveMaster(globalSource);
-
-      for (; ee != ee_end; ++ee) {
-        // create mirror array
-        uint64_t edgeGID = getEdgeGIDFromSD(
-            globalSource,
-            base_DistGraph::getGID(base_DistGraph::getEdgeDst(ee)));
-        mirrorEdges[sourceOwner].push_back(edgeGID);
-      }
     }
   }
 
