@@ -59,6 +59,15 @@ std::vector<std::string> split(std::string & line, char delim, uint64_t size = 0
   return tokens;
 }
 
+
+// https://stackoverflow.com/questions/42114044/how-to-release-unordered-map-memory
+template<typename T>
+inline void freeContainer(T& p_container)
+{
+    T empty;
+    std::swap(p_container, empty);
+}
+
 /**
  * Inherit from OffilineGraph only to make it compatible with Partitioner 
  * Internal logit are completed different
@@ -77,13 +86,14 @@ protected:
   std::unordered_map<uint64_t, uint64_t> local_tokenToID;  // map node token to local ID
   std::vector<uint64_t> offset;  // each hosts' local ID offset wrt global ID
   std::vector<uint64_t> localNodeSize;  // number of local node in each hosts
-  std::vector<uint64_t> edgeOffset;
   std::vector<uint64_t> localEdgeSize;
 
   std::unordered_map<uint64_t, size_t> local_tokenToEdgesIdx;  // map local node token to idx in localEdges 
   std::vector<uint64_t> local_EdgesIdxToID;  // map idx in localEdges to global node ID
   std::vector<std::vector<EdgeType>> localEdges;  // edges list of local nodes, idx is local ID 
   std::vector<NodeType> localNodes; // nodes in this host, index by local ID
+
+  std::vector<uint64_t> global_EdgePrefixSum;  // a prefix sum of degree of each global nodes
 
   uint32_t hostID;
   uint32_t numHosts;
@@ -355,50 +365,87 @@ protected:
     );
 
     // release feilds that won't be used anymore to save memory
-    local_tokenToID.clear();
-    local_tokenToEdgesIdx.clear();
+    freeContainer(local_tokenToID);
+    freeContainer(local_tokenToEdgesIdx);
   }
 
   /**
-   * Compute total edge size by exchange local edge size info
+   * Compute prefix sum of the size of edges of nodes in the graph
   */
-  void exchangeLocalEdgeSize() {
+  void computeEdgePrefixSum() {
     auto& net = galois::runtime::getSystemNetworkInterface();
 
-    edgeOffset.resize(numHosts);
+    size_t numLocalNodes = localEdges.size();
+    uint64_t numGlobalNodes = size();
+    std::vector<uint64_t> localNodeDegree(numLocalNodes);
 
-    // send edge size to other hosts
-    uint64_t sizeToSend = localEdgeSize[hostID];
-    for (uint32_t h = 0; h < numHosts; ++h) {
-      if (h == hostID) {
-        continue;
+    galois::do_all(
+      galois::iterate((size_t) 0, numLocalNodes),
+      [this, &localNodeDegree](size_t n) {
+        localNodeDegree[n] = localEdges[n].size();
       }
+    );
 
-      // serialize size_t
+    // broadcast node degrees and its global ID to other hosts
+    {
       galois::runtime::SendBuffer sendBuffer;
-      galois::runtime::gSerialize(sendBuffer, sizeToSend);
-      net.sendTagged(h, galois::runtime::evilPhase, sendBuffer);
+      galois::runtime::gSerialize(sendBuffer, localNodeDegree);
+      galois::runtime::gSerialize(sendBuffer, local_EdgesIdxToID);  // global ID of the localNodeDegree
+
+      for (uint32_t h = 0; h < numHosts; ++h) {
+        if (h == hostID) {
+          continue;
+        }
+
+        galois::runtime::SendBuffer b;
+        galois::runtime::gSerialize(b, sendBuffer);
+        net.sendTagged(h, galois::runtime::evilPhase, b);
+      }
     }
 
-    // recv node size from other hosts
+    // init edge prefix sum
+    global_EdgePrefixSum.resize(numGlobalNodes);
+    galois::do_all(
+        galois::iterate((size_t) 0, local_EdgesIdxToID.size()),
+        [this, &localNodeDegree](size_t n) {
+          global_EdgePrefixSum[local_EdgesIdxToID[n]] += localNodeDegree[n];
+        }
+    );
+    localNodeDegree.clear();
+    localNodeDegree.shrink_to_fit();
+
+    // recv node degrees and its global ID from other hosts
+    // build a list of degree of all global nodes on `global_EdgePrefixSum`
     for (uint32_t h = 0; h < numHosts - 1; h++) {
       decltype(net.recieveTagged(galois::runtime::evilPhase, nullptr)) p;
       do {
         p = net.recieveTagged(galois::runtime::evilPhase, nullptr);
       } while (!p);
       uint32_t sendingHost = p->first;
-      // deserialize local_node_size
-      galois::runtime::gDeserialize(p->second, localEdgeSize[sendingHost]);
+      // deserialize 
+      std::vector<uint64_t> recvNodeDegree;
+      std::vector<uint64_t> recvNodeGlobalID;
+      galois::runtime::gDeserialize(p->second, recvNodeDegree);
+      galois::runtime::gDeserialize(p->second, recvNodeGlobalID);
+
+      galois::do_all(
+        galois::iterate((size_t) 0, recvNodeDegree.size()),
+        [this, &recvNodeDegree, &recvNodeGlobalID](size_t n) {
+          global_EdgePrefixSum[recvNodeGlobalID[n]] += recvNodeDegree[n];
+        }
+      );
     }
 
-    // compute prefix sum to get offset
-    edgeOffset[0] = 0;
-    for (size_t h = 1; h < numHosts; h++) {
-      edgeOffset[h] = localEdgeSize[h-1] + edgeOffset[h-1];
+    // global_EdgePrefixSum has degree info now, so could compute prefixsum in place
+    for (size_t h = 1; h < numGlobalNodes; h++) {
+      global_EdgePrefixSum[h] += global_EdgePrefixSum[h-1];
     }
 
-    // set numNodes (global size)
-    setSizeEdges(edgeOffset[numHosts - 1] + localEdgeSize[numHosts - 1]);
+    // set numEdges (global size)
+    setSizeEdges(global_EdgePrefixSum[numGlobalNodes-1]);
+
+    galois::gDebug("global_EdgePrefixSum size: ", global_EdgePrefixSum.size());
+    galois::gDebug("global_EdgePrefixSum value: ", global_EdgePrefixSum[99218]);
 
     increment_evilPhase();
   }
@@ -436,10 +483,17 @@ public:
     exchangeLocalID();
     galois::gDebug("[", hostID, "] relabelTokenToID!");
     relabelTokenToID();  // local_tokenToID and local_tokenToEdgesIdx is cleared since then
-    galois::gDebug("[", hostID, "] exchangeLocalEdgeSize!");
-    exchangeLocalEdgeSize();
-    // TODO: optional step: compute Edge Degree
+    galois::gDebug("[", hostID, "] computeEdgePrefixSum!");
+    computeEdgePrefixSum();
   }
+
+  /**
+   * Accesses the prefix sum of degree up to node `n`.
+   *
+   * @param N global ID of node
+   * @returns The value located at index n in the edge prefix sum array
+   */
+  uint64_t operator[](uint64_t N) { return global_EdgePrefixSum[N]; }
  
   size_t edgeSize() const { return sizeof(EdgeType); }
 
@@ -448,21 +502,57 @@ public:
   iterator end() { return iterator(size()); }
  
   /**
-   * Deleted API
+   * return the end idx of edges of node N
+   * 
+   * @param N global ID of node
+   * @return edge_iterator
    */
   edge_iterator edge_begin(uint64_t N) {
-    GALOIS_DIE("not allowed to call a deleted API");
+    if (N == 0)
+      return edge_iterator(0);
+    else
+      return edge_iterator(global_EdgePrefixSum[N - 1]);
   }
   
   /**
-   * Deleted API
+   * return the begin idx of edges of node N
+   * 
+   * @param N global ID of node
+   * @return edge_iterator 
    */
   edge_iterator edge_end(uint64_t N) { 
-    GALOIS_DIE("not allowed to call a deleted API");
+    return edge_iterator(global_EdgePrefixSum[N]);
   }
 
-  uint64_t operator[](uint64_t n) { 
-    GALOIS_DIE("not allowed to call a deleted API"); 
+  /**
+   * Returns 2 ranges (one for nodes, one for edges) for a particular division.
+   * The ranges specify the nodes/edges that a division is responsible for. The
+   * function attempts to split them evenly among threads given some kind of
+   * weighting
+   *
+   * @param nodeWeight weight to give to a node in division
+   * @param edgeWeight weight to give to an edge in division
+   * @param id Division number you want the ranges for
+   * @param total Total number of divisions
+   * @param scaleFactor Vector specifying if certain divisions should get more
+   * than other divisions
+   */
+  auto divideByNode(size_t nodeWeight, size_t edgeWeight, size_t id,
+                    size_t total,
+                    std::vector<unsigned> scaleFactor = std::vector<unsigned>())
+      -> GraphRange {
+    return galois::graphs::divideNodesBinarySearch<WMDOfflineGraph>(
+        size(), sizeEdges(), nodeWeight, edgeWeight, id, total, *this,
+        scaleFactor);
+  }
+
+  /**
+   * Release memory used by EdgePrefixSum
+   * After that, calls to `edge_begin` and `edge_end` will be invalid
+   */
+  void clearEdgePrefixSumInfo() {
+    global_EdgePrefixSum.clear();
+    global_EdgePrefixSum.shrink_to_fit();
   }
 
   #ifdef GRAPH_PROFILE
@@ -746,7 +836,9 @@ public:
 
     // clean unused data
     srcGraph.local_EdgesIdxToID.clear();
+    srcGraph.local_EdgesIdxToID.shrink_to_fit();
     srcGraph.localEdges.clear();
+    srcGraph.localEdges.shrink_to_fit();
 
     graphLoaded = true;
 
@@ -870,7 +962,9 @@ public:
 
     // clean unused memory
     srcGraph.localNodes.clear();
+    srcGraph.localNodes.shrink_to_fit();
     srcGraph.offset.clear();
+    srcGraph.offset.shrink_to_fit();
   }
 
   // NOTE: for below methods, it return local edge id instead of global id
@@ -980,7 +1074,9 @@ public:
    */
   void resetAndFree() {
     offsets.clear();
+    offsets.shrink_to_fit();
     edges.clear();
+    edges.shrink_to_fit();
   }
 };
 } // namespace graphs

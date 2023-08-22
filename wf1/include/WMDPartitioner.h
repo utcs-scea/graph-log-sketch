@@ -145,7 +145,7 @@ public:
   WMDGraph(
       const std::string& filename, unsigned host, unsigned _numHosts,
       bool setupGluon = true, bool doSort = false,
-      galois::graphs::MASTERS_DISTRIBUTION md = BALANCED_MASTERS,
+      galois::graphs::MASTERS_DISTRIBUTION md = BALANCED_EDGES_OF_MASTERS,
       uint32_t nodeWeight = 0, uint32_t edgeWeight = 0)
       : base_DistGraph(host, _numHosts) {
     galois::gInfo("[", base_DistGraph::id, "] Start DistGraph construction.");
@@ -172,6 +172,9 @@ public:
     // not actually getting masters, but getting assigned readers for nodes
     base_DistGraph::computeMasters(md, g, dummy, nodeWeight, edgeWeight);
     galois::gDebug("[", base_DistGraph::id, "] computeMasters End!");
+
+    // freeup memory that won't be used in the future
+    g.clearEdgePrefixSumInfo();
 
     std::vector<uint64_t> ndegrees;
 
@@ -286,7 +289,9 @@ public:
 
     // TODO this might be useful to keep around
     proxiesOnOtherHosts.clear();
+    proxiesOnOtherHosts.shrink_to_fit();
     ndegrees.clear();
+    ndegrees.shrink_to_fit();
 
     // SORT EDGES
     if (doSort) {
