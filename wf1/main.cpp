@@ -52,7 +52,7 @@
 
 using namespace agile::workflow1;
 
-typedef galois::graphs::WMDGraph<agile::workflow1::Vertex, agile::workflow1::Edge, MiningPolicyNaive> Graph;
+typedef galois::graphs::WMDGraph<agile::workflow1::Vertex, agile::workflow1::Edge, OECPolicy> Graph;
 
 int main(int argc, char *argv[]) {
   printf("Begin Wf1 Galois!\n");
