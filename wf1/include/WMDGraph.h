@@ -901,7 +901,7 @@ public:
     // prepare initial local nodes
     // copy avaliable nodes to there
     #ifndef NDEBUG
-    uint64_t addedData = 0;
+    std::atomic<uint64_t> addedData{0};
     #endif
 
     auto& proxiesOnThisHost = proxiesOnHosts[hostID];
