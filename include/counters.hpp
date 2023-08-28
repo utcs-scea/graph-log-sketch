@@ -174,7 +174,7 @@ pa create_counters()
 void reset_counters(pa pa0) {}
 void start_counters(pa pa0) {}
 void stop_counters(pa pa0) {}
-void print_counters(pa pa0, std::ofstream& ofs) {}
+void print_counters(pa pa0, std::ofstream& ofs) { (void) buf;}
 uint32_t num_counters() { return 0; }
 #endif
 

@@ -10,6 +10,7 @@
 
 #include <random>
 #include <algorithm>
+#include <sys/mman.h>
 
 constexpr uint64_t rseed = 48048593;
 
@@ -25,8 +26,11 @@ template<typename R>
 void runner(std::string s, R r)
 {
   r.template operator()<false, false>(s);
-  r.template operator()<false, true >(s + " EHP");
   r.template operator()<true , false>(s + " PAR");
+  void *p = mmap(NULL, 1<<31, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT), -1, 0);
+  if(MAP_FAILED == p) return;
+  munmap(p, 1<<31);
+  r.template operator()<false, true >(s + " EHP");
   r.template operator()<true , true >(s + " PAR EHP");
 }
 
