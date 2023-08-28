@@ -28,7 +28,6 @@ if(NOT NO_TORCH)
 endif()
 
 set(GALOIS_ENABLE_DIST ON CACHE BOOL "" FORCE)
-set(GALOIS_USE_BARE_MPI ON BOOL)
 
 find_package(MPI REQUIRED)
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
