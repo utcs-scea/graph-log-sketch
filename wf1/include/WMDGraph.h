@@ -443,9 +443,49 @@ protected:
 
     // set numEdges (global size)
     setSizeEdges(global_EdgePrefixSum[numGlobalNodes-1]);
+    increment_evilPhase();
+  }
 
-    galois::gDebug("global_EdgePrefixSum size: ", global_EdgePrefixSum.size());
-    galois::gDebug("global_EdgePrefixSum value: ", global_EdgePrefixSum[99218]);
+  /**
+   * Compute total edge size by exchange local edge size info
+  */
+  void exchangeLocalEdgeSize() {
+    auto& net = galois::runtime::getSystemNetworkInterface();
+
+    std::vector<uint64_t> edgeOffset(numHosts);
+
+    // send edge size to other hosts
+    uint64_t sizeToSend = localEdgeSize[hostID];
+    for (uint32_t h = 0; h < numHosts; ++h) {
+      if (h == hostID) {
+        continue;
+      }
+
+      // serialize size_t
+      galois::runtime::SendBuffer sendBuffer;
+      galois::runtime::gSerialize(sendBuffer, sizeToSend);
+      net.sendTagged(h, galois::runtime::evilPhase, sendBuffer);
+    }
+
+    // recv node size from other hosts
+    for (uint32_t h = 0; h < numHosts - 1; h++) {
+      decltype(net.recieveTagged(galois::runtime::evilPhase, nullptr)) p;
+      do {
+        p = net.recieveTagged(galois::runtime::evilPhase, nullptr);
+      } while (!p);
+      uint32_t sendingHost = p->first;
+      // deserialize local_node_size
+      galois::runtime::gDeserialize(p->second, localEdgeSize[sendingHost]);
+    }
+
+    // compute prefix sum to get offset
+    edgeOffset[0] = 0;
+    for (size_t h = 1; h < numHosts; h++) {
+      edgeOffset[h] = localEdgeSize[h-1] + edgeOffset[h-1];
+    }
+
+    // set numNodes (global size)
+    setSizeEdges(edgeOffset[numHosts - 1] + localEdgeSize[numHosts - 1]);
 
     increment_evilPhase();
   }
@@ -470,7 +510,7 @@ public:
 
   WMDOfflineGraph() {}
 
-  WMDOfflineGraph(const std::string& name) : OfflineGraph() {
+  WMDOfflineGraph(const std::string& name, galois::graphs::MASTERS_DISTRIBUTION md) : OfflineGraph() {
     auto& net = galois::runtime::getSystemNetworkInterface();
     hostID = net.ID;
     numHosts = net.Num;
@@ -483,8 +523,14 @@ public:
     exchangeLocalID();
     galois::gDebug("[", hostID, "] relabelTokenToID!");
     relabelTokenToID();  // local_tokenToID and local_tokenToEdgesIdx is cleared since then
-    galois::gDebug("[", hostID, "] computeEdgePrefixSum!");
-    computeEdgePrefixSum();
+    if (md == BALANCED_MASTERS) {
+      // this policy doesn't need the prefix sum so skip it
+      galois::gDebug("[", hostID, "] exchangeLocalEdgeSize!");
+      exchangeLocalEdgeSize();
+    } else {
+      galois::gDebug("[", hostID, "] computeEdgePrefixSum!");
+      computeEdgePrefixSum();
+    }
   }
 
   /**

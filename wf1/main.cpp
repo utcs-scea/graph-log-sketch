@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 
     std::string dataFile = argv[1];
 
-    Graph * graph = new Graph(dataFile, net.ID, net.Num, false);
+    Graph * graph = new Graph(dataFile, net.ID, net.Num, false, false, galois::graphs::BALANCED_EDGES_OF_MASTERS);
     assert(graph != nullptr);
 
     timer.stop();
