@@ -529,7 +529,11 @@ public:
       exchangeLocalEdgeSize();
     } else {
       galois::gDebug("[", hostID, "] computeEdgePrefixSum!");
+      galois::StatTimer graphDegreeTimer("GraphDegree", "0");
+      graphDegreeTimer.start();
       computeEdgePrefixSum();
+      graphDegreeTimer.stop();
+      galois::gInfo("[", hostID, "] Computing degree complete in ", graphDegreeTimer.get_usec() / 1000000.0, " sec.");
     }
   }
 
