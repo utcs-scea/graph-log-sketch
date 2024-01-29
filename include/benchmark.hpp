@@ -1,15 +1,13 @@
-#ifndef _BENCHMARK_HPP_
-#define _BENCHMARK_HPP_
-#include <counters.hpp>
-#include <sched.h>
-#include <fstream>
 #include <cerrno>
+#include <counters.hpp>
+#include <fstream>
+#include <iostream>
+#include <sched.h>
 #include <string>
 #include <system_error>
-#include <iostream>
 
-#include <random>
 #include <algorithm>
+#include <random>
 #include <sys/mman.h>
 
 constexpr uint64_t rseed = 48048593;
@@ -59,7 +57,8 @@ void benchmark(pa count, const char* str, int cpu, B bench,
     exit(-10);
   }
 
-  stats << str << "\t" << num_counters() << "\t" << BENCH_NUM << std::endl;
+  stats << '{' << "\"name\": \"" << str << "\""
+        << "\", \"counters\": ";
   for (uint64_t i = 0; i < WARM_UP_COOL_DOWN * 2 + BENCH_NUM; i++) {
     bench(count);
 
@@ -85,13 +84,17 @@ void benchmark(pa count, const char* str, B bench,
     exit(-5);
   }
 
-  stats << str << "\t" << num_counters() << "\t" << BENCH_NUM << std::endl;
+  stats << "{\"name\": \"" << str << "\",\"runs\": [";
   for (uint64_t i = 0; i < WARM_UP_COOL_DOWN * 2 + BENCH_NUM; i++) {
     bench(count);
 
-    if (WARM_UP_COOL_DOWN <= i && WARM_UP_COOL_DOWN + BENCH_NUM > i)
+    if (WARM_UP_COOL_DOWN <= i && WARM_UP_COOL_DOWN + BENCH_NUM > i) {
+      if (WARM_UP_COOL_DOWN < i)
+        stats << ", ";
       print_counters(count, stats);
+    }
   }
+  stats << "]}" << std::endl;
 }
 
 #else
@@ -228,5 +231,3 @@ std::vector<uint64_t>* el_file_to_edge_list(const std::string& ELFile,
   graphFile.close();
   return ret;
 }
-
-#endif
