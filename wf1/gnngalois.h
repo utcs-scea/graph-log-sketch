@@ -60,22 +60,23 @@
 
 namespace agile::workflow1 {
 
-template <typename Dataset> struct TrainingState {
+template <typename Dataset>
+struct TrainingState {
 public:
-  //using ArrayOID = typename shad::Array<uint64_t>::ObjectID;
-  using ArrayOID = typename Galois::LargeArray<uint64_t>;
+  // using ArrayOID = typename shad::Array<uint64_t>::ObjectID;
+  using ArrayOID     = typename Galois::LargeArray<uint64_t>;
   using sampler_type = torch::data::samplers::DistributedRandomSampler;
   using dataset_type = torch::data::datasets::MapDataset<
       Dataset, torch::data::transforms::Stack<typename Dataset::Data>>;
   using data_loader_type =
       torch::data::StatelessDataLoader<dataset_type, sampler_type>;
 
-  TrainingState() = default;
-  TrainingState(const TrainingState &) = default;
-  TrainingState(TrainingState &&) = default;
+  TrainingState()                     = default;
+  TrainingState(const TrainingState&) = default;
+  TrainingState(TrainingState&&)      = default;
 
-  TrainingState &operator=(const TrainingState &) = default;
-  TrainingState &operator=(TrainingState &&) = default;
+  TrainingState& operator=(const TrainingState&) = default;
+  TrainingState& operator=(TrainingState&&)      = default;
 
   torch::jit::script::Module Module;
   Dataset DataSet;
@@ -83,27 +84,28 @@ public:
   std::shared_ptr<data_loader_type> TestDataLoader{nullptr};
   std::shared_ptr<torch::optim::Adam> Adam{nullptr};
   std::vector<torch::jit::IValue> Inputs;
-  //ArrayOID ReducerLocalPtrOID{ArrayOID::kNullID};
+  // ArrayOID ReducerLocalPtrOID{ArrayOID::kNullID};
 };
 
-template <typename Dataset> class SetUpTrainingContext {
-  //using ArrayOID = typename shad::Array<uint64_t>::ObjectID;
+template <typename Dataset>
+class SetUpTrainingContext {
+  // using ArrayOID = typename shad::Array<uint64_t>::ObjectID;
   using ArrayOID = typename Galois::LargeArray<uint64_t>;
 
   const int64_t trainingSetSize = 500;
-  const int64_t testSetSize = 500;
-  const size_t batchSize = 100;
+  const int64_t testSetSize     = 500;
+  const size_t batchSize        = 100;
 
   char modelFileName_[256];
   VertexOID _verticesOID;
   XEdgeOID _edgesOID;
   ArrayOID _featuresOID;
-  //ArrayOID _reducerArrayOID;
+  // ArrayOID _reducerArrayOID;
 
 public:
-  SetUpTrainingContext(const VertexOID &VertexArrayID,
-                       const XEdgeOID &EdgeArrayOID,
-                       const ArrayOID &FeaturesArrayID,
+  SetUpTrainingContext(const VertexOID& VertexArrayID,
+                       const XEdgeOID& EdgeArrayOID,
+                       const ArrayOID& FeaturesArrayID,
                        std::string modelFileName)
       : _verticesOID(VertexArrayID), _edgesOID(EdgeArrayOID),
         _featuresOID(FeaturesArrayID) {
@@ -113,7 +115,7 @@ public:
     std::strcpy(modelFileName_, modelFileName.c_str());
   }
 
-  void operator()(TrainingState<Dataset> &TS) {
+  void operator()(TrainingState<Dataset>& TS) {
     // Load Module
     TS.Module = torch::jit::load(modelFileName_);
     // Load Dataset
@@ -126,8 +128,8 @@ public:
 
     // Create DataLoader
     uint32_t thisLocality = static_cast<uint32_t>(shad::rt::thisLocality());
-    auto train_sampler = torch::data::samplers::DistributedRandomSampler(
-        trainingSetSize, shad::rt::numLocalities(), thisLocality, false);
+    auto train_sampler    = torch::data::samplers::DistributedRandomSampler(
+           trainingSetSize, shad::rt::numLocalities(), thisLocality, false);
     auto test_sampler = torch::data::samplers::DistributedRandomSampler(
         testSetSize, shad::rt::numLocalities(), thisLocality, false);
     auto stackedDataSet = TS.DataSet.map(
@@ -139,13 +141,13 @@ public:
 
     // Create Optimizer
     std::vector<at::Tensor> parameters;
-    for (const auto &params : TS.Module.parameters()) {
+    for (const auto& params : TS.Module.parameters()) {
       parameters.push_back(params);
     }
 
     const double learningRate = 0.01;
-    const int numEpochs = 200;
-    TS.Adam = std::make_unique<torch::optim::Adam>(
+    const int numEpochs       = 200;
+    TS.Adam                   = std::make_unique<torch::optim::Adam>(
         parameters, torch::optim::AdamOptions(learningRate).weight_decay(5e-4));
 
     // Set inputs
@@ -156,20 +158,21 @@ public:
 };
 
 struct InplaceFunctor {
-  void *operator()() {
-    auto ptr = shad::Array<uint64_t>::GetPtr(oid_);
+  void* operator()() {
+    auto ptr         = shad::Array<uint64_t>::GetPtr(oid_);
     uint64_t address = ptr->At(static_cast<uint32_t>(shad::rt::thisLocality()));
-    return reinterpret_cast<void *>(address);
+    return reinterpret_cast<void*>(address);
   }
 
   shad::Array<uint64_t>::ObjectID oid_;
 };
 
-template <typename TrainingState> void vcTrainLoop(TrainingState &TS) {
+template <typename TrainingState>
+void vcTrainLoop(TrainingState& TS) {
   size_t train_correct = 0;
-  size_t train_size = 0;
+  size_t train_size    = 0;
 
-  for (auto &batch : *TS.TrainDataLoader) {
+  for (auto& batch : *TS.TrainDataLoader) {
     TS.Inputs[0] = batch.Features;
     TS.Inputs[1] = batch.EdgeIndex;
     train_size += batch.Features.size(0);
@@ -184,7 +187,7 @@ template <typename TrainingState> void vcTrainLoop(TrainingState &TS) {
     loss.backward();
     TS.Module.eval();
     auto prediction = std::get<1>(output.max(1));
-    auto equal = prediction.eq(groundTruth);
+    auto equal      = prediction.eq(groundTruth);
     train_correct += equal.index({batch.Mask}).sum().template item<int64_t>();
   }
   std::cout << " Train Accuracy: "
@@ -193,7 +196,7 @@ template <typename TrainingState> void vcTrainLoop(TrainingState &TS) {
 
 template <typename TrainingState, typename TrainingStateItr>
 void vcReduceGradients(TrainingStateItr B, TrainingStateItr E) {
-  auto start = std::chrono::high_resolution_clock::now();
+  auto start       = std::chrono::high_resolution_clock::now();
   int64_t numRanks = shad::rt::numLocalities();
 
   std::map<at::ScalarType, MPI_Datatype> torchToMPITypes = {
@@ -209,7 +212,7 @@ void vcReduceGradients(TrainingStateItr B, TrainingStateItr E) {
   InplaceFunctor F{(*B).get().ReducerLocalPtrOID};
   for (int i = 0; i < (*B).get().Module.parameters().size(); ++i) {
     shad::for_each(
-        shad::distributed_parallel_tag{}, B, E, [=](TrainingState &TS) {
+        shad::distributed_parallel_tag{}, B, E, [=](TrainingState& TS) {
           auto itr = TS.Module.parameters().begin();
           for (int j = 0; j < i; ++j)
             ++itr;
@@ -228,16 +231,16 @@ void vcReduceGradients(TrainingStateItr B, TrainingStateItr E) {
     reducer->AllReduce(MPI_SUM, (*itr2).mutable_grad().numel());
 
     shad::for_each(shad::distributed_parallel_tag{}, B, E,
-                   [=](TrainingState &TS){
+                   [=](TrainingState& TS) {
                      auto itr = TS.Module.parameters().begin();
                      for (int j = 0; j < i; ++j)
                        ++itr;
                      (*itr).mutable_grad().data() =
-                       (*itr).mutable_grad().data() / numRanks;
+                         (*itr).mutable_grad().data() / numRanks;
                    });
   }
   auto end = std::chrono::high_resolution_clock::now();
-  std::cout  << " Reduction Time (s) : "
+  std::cout << " Reduction Time (s) : "
             << std::chrono::duration_cast<std::chrono::duration<double>>(end -
                                                                          start)
                    .count()
@@ -245,22 +248,22 @@ void vcReduceGradients(TrainingStateItr B, TrainingStateItr E) {
 }
 
 template <typename TrainingState>
-void vcBackPropAndEvaluationLoop(TrainingState &TS) {
+void vcBackPropAndEvaluationLoop(TrainingState& TS) {
   size_t test_correct = 0;
-  size_t test_size = 0;
+  size_t test_size    = 0;
   TS.Adam->step();
   TS.Adam->zero_grad();
 
-  for (auto &batch : *TS.TestDataLoader) {
+  for (auto& batch : *TS.TestDataLoader) {
     test_size += batch.Features.size(0);
     TS.Module.eval();
     TS.Inputs[0] = batch.Features;
     TS.Inputs[1] = batch.EdgeIndex;
 
     auto groundTruth = batch.Labels;
-    auto output = TS.Module.forward(TS.Inputs).toTensor();
-    auto prediction = std::get<1>(output.max(1));
-    auto equal = prediction.eq(groundTruth);
+    auto output      = TS.Module.forward(TS.Inputs).toTensor();
+    auto prediction  = std::get<1>(output.max(1));
+    auto equal       = prediction.eq(groundTruth);
     test_correct += equal.index({batch.Mask}).sum().template item<int64_t>();
   }
 
@@ -270,7 +273,7 @@ void vcBackPropAndEvaluationLoop(TrainingState &TS) {
 
 typename shad::Array<
     agile::workflow1::TrainingState<VertexClassificationWMDDataset>>::ObjectID
-GNN(uint64_t &num_edges, uint64_t &num_vertices, Graph_t &graph,
+GNN(uint64_t& num_edges, uint64_t& num_vertices, Graph_t& graph,
     std::string modelFileName);
 
 } // namespace agile::workflow1

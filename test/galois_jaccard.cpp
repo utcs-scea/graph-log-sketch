@@ -26,8 +26,9 @@
 using NodeData = std::tuple<katana::JaccardSimilarity>;
 using EdgeData = std::tuple<>;
 
-using Graph = katana::TypedPropertyGraphView<
-    katana::PropertyGraphViews::Default, NodeData, EdgeData>;
+using Graph =
+    katana::TypedPropertyGraphView<katana::PropertyGraphViews::Default,
+                                   NodeData, EdgeData>;
 using GNode = typename Graph::Node;
 
 namespace {
@@ -45,12 +46,12 @@ public:
     uint32_t intersection_size = 0;
     // Iterate over the edges of both n2 and base in sync, based on the
     // assumption that edges lists are sorted.
-    auto edges_n2_iter = graph_.OutEdges(n2).begin();
-    auto edges_n2_end = graph_.OutEdges(n2).end();
+    auto edges_n2_iter   = graph_.OutEdges(n2).begin();
+    auto edges_n2_end    = graph_.OutEdges(n2).end();
     auto edges_base_iter = graph_.OutEdges(base_).begin();
-    auto edges_base_end = graph_.OutEdges(base_).end();
+    auto edges_base_end  = graph_.OutEdges(base_).end();
     while (edges_n2_iter != edges_n2_end && edges_base_iter != edges_base_end) {
-      auto edge_n2_dst = graph_.OutEdgeDst(*edges_n2_iter);
+      auto edge_n2_dst   = graph_.OutEdgeDst(*edges_n2_iter);
       auto edge_base_dst = graph_.OutEdgeDst(*edges_base_iter);
       if (edge_n2_dst == edge_base_dst) {
         intersection_size++;
@@ -93,8 +94,8 @@ public:
 };
 
 template <typename IntersectAlgorithm>
-katana::Result<void>
-JaccardImpl(Graph& graph, size_t compare_node, katana::JaccardPlan /*plan*/) {
+katana::Result<void> JaccardImpl(Graph& graph, size_t compare_node,
+                                 katana::JaccardPlan /*plan*/) {
   if (compare_node >= graph.size()) {
     return katana::ErrorCode::InvalidArgument;
   }
@@ -114,7 +115,7 @@ JaccardImpl(Graph& graph, size_t compare_node, katana::JaccardPlan /*plan*/) {
 
   // Compute the similarity for each node
   katana::do_all(katana::iterate(graph), [&](const GNode& n2) {
-    double& n2_data = graph.GetData<katana::JaccardSimilarity>(n2);
+    double& n2_data  = graph.GetData<katana::JaccardSimilarity>(n2);
     uint32_t n2_size = graph.OutDegree(n2);
     // Count the number of neighbors of n2 and the number that are shared
     // with base
@@ -132,13 +133,13 @@ JaccardImpl(Graph& graph, size_t compare_node, katana::JaccardPlan /*plan*/) {
   return katana::ResultSuccess();
 }
 
-}  // namespace
+} // namespace
 
-katana::Result<void>
-katana::Jaccard(
-    const std::shared_ptr<PropertyGraph>& pg, uint32_t compare_node,
-    const std::string& output_property_name, katana::TxnContext* txn_ctx,
-    katana::JaccardPlan plan) {
+katana::Result<void> katana::Jaccard(const std::shared_ptr<PropertyGraph>& pg,
+                                     uint32_t compare_node,
+                                     const std::string& output_property_name,
+                                     katana::TxnContext* txn_ctx,
+                                     katana::JaccardPlan plan) {
   if (auto result = pg->ConstructNodeProperties<NodeData>(
           txn_ctx, {output_property_name});
       !result) {
@@ -166,9 +167,9 @@ katana::Jaccard(
 constexpr static const double EPSILON = 1e-6;
 
 katana::Result<void>
-katana::JaccardAssertValid(
-    const std::shared_ptr<PropertyGraph>& pg, uint32_t compare_node,
-    const std::string& property_name) {
+katana::JaccardAssertValid(const std::shared_ptr<PropertyGraph>& pg,
+                           uint32_t compare_node,
+                           const std::string& property_name) {
   Graph graph = KATANA_CHECKED(Graph::Make(pg, {property_name}, {}));
   ;
 
@@ -194,9 +195,9 @@ katana::JaccardAssertValid(
 }
 
 katana::Result<katana::JaccardStatistics>
-katana::JaccardStatistics::Compute(
-    const std::shared_ptr<PropertyGraph>& pg, uint32_t compare_node,
-    const std::string& property_name) {
+katana::JaccardStatistics::Compute(const std::shared_ptr<PropertyGraph>& pg,
+                                   uint32_t compare_node,
+                                   const std::string& property_name) {
   Graph graph = KATANA_CHECKED(Graph::Make(pg, {property_name}, {}));
   ;
 
@@ -221,8 +222,7 @@ katana::JaccardStatistics::Compute(
       total_similarity.reduce() / (graph.size() - 1)};
 }
 
-void
-katana::JaccardStatistics::Print(std::ostream& os) {
+void katana::JaccardStatistics::Print(std::ostream& os) {
   os << "Maximum similarity = " << max_similarity << std::endl;
   os << "Minimum similarity = " << min_similarity << std::endl;
   os << "Average similarity = " << average_similarity << std::endl;

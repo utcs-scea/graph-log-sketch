@@ -7,58 +7,61 @@
 #include "ego_graph.h"
 #include <tuple>
 
-using LS_CSR = galois::graphs::LS_LC_CSR_64_Graph<VertexType<(size_t)TYPES::NONE>, EdgeType>::with_out_of_line_lockable<true>::type;
+using LS_CSR = galois::graphs::LS_LC_CSR_64_Graph<
+    VertexType<(size_t)TYPES::NONE>,
+    EdgeType>::with_out_of_line_lockable<true>::type;
 using GNode = LS_CSR::GraphNode;
 
-template<typename Graph>
-void edge_list_to_graph(Graph** g, size_t num_nodes, std::vector<TYPES> nodesTypes,
-    std::vector<std::tuple<uint64_t, uint64_t, TYPES>> vec)
-{
-  std::vector<std::pair<uint64_t, TYPES>>* edge_list
-    = new std::vector<std::pair<uint64_t,TYPES>>[num_nodes]();
-  for(auto p : vec)
-  {
+template <typename Graph>
+void edge_list_to_graph(
+    Graph** g, size_t num_nodes, std::vector<TYPES> nodesTypes,
+    std::vector<std::tuple<uint64_t, uint64_t, TYPES>> vec) {
+  std::vector<std::pair<uint64_t, TYPES>>* edge_list =
+      new std::vector<std::pair<uint64_t, TYPES>>[num_nodes]();
+  for (auto p : vec) {
     edge_list[std::get<0>(p)].emplace_back(std::get<1>(p), std::get<2>(p));
   }
-  *g = new Graph(num_nodes, vec.size(), [edge_list](uint64_t n){ return edge_list[n].size();},
-      [edge_list](uint64_t v, uint64_t e){ return edge_list[v][e].first; },
-      [edge_list](uint64_t v, uint64_t e){ return EdgeType(edge_list[v][e].second); });
+  *g = new Graph(
+      num_nodes, vec.size(),
+      [edge_list](uint64_t n) { return edge_list[n].size(); },
+      [edge_list](uint64_t v, uint64_t e) { return edge_list[v][e].first; },
+      [edge_list](uint64_t v, uint64_t e) {
+        return EdgeType(edge_list[v][e].second);
+      });
 
-  galois::do_all(galois::iterate(**g),
-      [&](auto& vertex)
-      {
-        (*g)->getData(vertex).type = nodesTypes[vertex];
-      }, galois::steal());
-
+  galois::do_all(
+      galois::iterate(**g),
+      [&](auto& vertex) { (*g)->getData(vertex).type = nodesTypes[vertex]; },
+      galois::steal());
 }
 
-TEST_CASE( "Simple Feature_Vector", "[wf1]")
-{
+TEST_CASE("Simple Feature_Vector", "[wf1]") {
   galois::SharedMemSys SMS;
   galois::setActiveThreads(1);
 
-  SECTION( "Add Two Edges" )
-  {
+  SECTION("Add Two Edges") {
     LS_CSR* g;
-    edge_list_to_graph(&g, 2, {TYPES::PUBLICATION, TYPES::PERSON}, {{0,1, TYPES::WRITTENBY}, {1,0, TYPES::WRITTENBY}});
+    edge_list_to_graph(&g, 2, {TYPES::PUBLICATION, TYPES::PERSON},
+                       {{0, 1, TYPES::WRITTENBY}, {1, 0, TYPES::WRITTENBY}});
 
     gen_2_hop_features<LS_CSR, (size_t)TYPES::NONE>(g);
 
-    uint64_t arr_1_hop_0[(size_t) TYPES::NONE] = {1,0,0,0,0,0,0,0,1,0,0,0,0,0,0};
-    uint64_t arr_1_hop_1[(size_t) TYPES::NONE] = {0,0,0,1,0,0,0,0,1,0,0,0,0,0,0};
+    uint64_t arr_1_hop_0[(size_t)TYPES::NONE] = {1, 0, 0, 0, 0, 0, 0, 0,
+                                                 1, 0, 0, 0, 0, 0, 0};
+    uint64_t arr_1_hop_1[(size_t)TYPES::NONE] = {0, 0, 0, 1, 0, 0, 0, 0,
+                                                 1, 0, 0, 0, 0, 0, 0};
 
     auto& arr0_hop1 = g->getData(0).arr_1_hop;
     auto& arr1_hop1 = g->getData(1).arr_1_hop;
     auto& arr0_hop2 = g->getData(0).arr_2_hop;
     auto& arr1_hop2 = g->getData(1).arr_2_hop;
-    for(uint64_t i = 0; i < (size_t) TYPES::NONE; i++)
-    {
-      REQUIRE( arr_1_hop_0[i] == arr0_hop1[i]);
-      REQUIRE( arr_1_hop_1[i] == arr1_hop1[i]);
-      REQUIRE( arr_1_hop_1[i] == arr0_hop2[i]);
-      REQUIRE( arr_1_hop_0[i] == arr1_hop2[i]);
+    for (uint64_t i = 0; i < (size_t)TYPES::NONE; i++) {
+      REQUIRE(arr_1_hop_0[i] == arr0_hop1[i]);
+      REQUIRE(arr_1_hop_1[i] == arr1_hop1[i]);
+      REQUIRE(arr_1_hop_1[i] == arr0_hop2[i]);
+      REQUIRE(arr_1_hop_0[i] == arr1_hop2[i]);
     }
 
-    //delete g;
+    // delete g;
   }
 }

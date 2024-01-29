@@ -47,21 +47,22 @@
 
 using namespace agile::workflow1;
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   printf("Begin Wf1 Galois!\n");
   galois::Timer timer;
   timer.start();
 
-  galois::SharedMemSys G;  // init galois memory
+  galois::SharedMemSys G; // init galois memory
 
   // Handle handle;
   Graph_t graph;
-  std::string dataFile = argv[1];
-  EdgeType * Edges = new EdgeType(LARGE); 
-  GlobalIDType * GlobalIDS = new GlobalIDType(MEDIUM);
+  std::string dataFile    = argv[1];
+  EdgeType* Edges         = new EdgeType(LARGE);
+  GlobalIDType* GlobalIDS = new GlobalIDType(MEDIUM);
 
-  graph["Edges"] = (uint64_t) Edges;  // Vertex to Edges mapping, key is vertex encoding
-  graph["GlobalIDS"] = (uint64_t) GlobalIDS;   // Vertices, key is vertex encoding
+  graph["Edges"] =
+      (uint64_t)Edges; // Vertex to Edges mapping, key is vertex encoding
+  graph["GlobalIDS"] = (uint64_t)GlobalIDS; // Vertices, key is vertex encoding
 
   RF_args_t args;
   args.Edges_OID     = graph["Edges"];
@@ -72,20 +73,21 @@ int main(int argc, char *argv[]) {
 
   /********** CREATE COMPRESSED EDGE ARRAY AND VERTEX ARRAY **********/
   uint64_t num_vertices = GlobalIDS->size();
-  uint64_t num_edges = Edges->size();
+  uint64_t num_edges    = Edges->size();
 
   CSR(graph, num_vertices, num_edges);
   timer.stop();
-  printf("Time for graph construction = %lf\n", (double) timer.get_usec() / 1000000);
+  printf("Time for graph construction = %lf\n",
+         (double)timer.get_usec() / 1000000);
 
-  CSR_t * csr = (CSR_t *) graph["CSR"];
+  CSR_t* csr = (CSR_t*)graph["CSR"];
   printf("Total number of vertices = %lu\n", csr->size());
   printf("Total number of edges    = %lu\n", Edges->size());
 
-  free((EdgeType *) Edges);
-  free((GlobalIDType *) GlobalIDS);
-  free((VertexType *) graph["Vertices"]);
-  free((EdgeType *) graph["VertexEdges"]);
-  free((CSR_t *) graph["CSR"]);
+  free((EdgeType*)Edges);
+  free((GlobalIDType*)GlobalIDS);
+  free((VertexType*)graph["Vertices"]);
+  free((EdgeType*)graph["VertexEdges"]);
+  free((CSR_t*)graph["CSR"]);
   return 0;
 }

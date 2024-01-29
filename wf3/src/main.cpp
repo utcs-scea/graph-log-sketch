@@ -50,21 +50,30 @@ namespace cll = llvm::cl;
 
 static const char* name = "PaKman";
 
-static const cll::opt<std::uint64_t> num_threads("t", cll::desc("<num threads>"), cll::init(16));
+static const cll::opt<std::uint64_t>
+    num_threads("t", cll::desc("<num threads>"), cll::init(16));
 
-static const cll::opt<std::string> input_file(
-  "fasta-file", cll::desc("<input fasta file>"), cll::Required);
-static const cll::opt<std::uint64_t> kmer_length("k", cll::desc("<kmer length>"), cll::init(32));
-static const cll::opt<std::uint64_t> coverage("c", cll::desc("<coverage>"), cll::init(100));
-static const cll::opt<std::uint64_t> min_length_count("min-length", cll::desc("<minimum length count>"), cll::init(21));
-static const cll::opt<std::uint64_t> node_threshold("node-threshold", cll::desc("<compact graph until threshold number of nodes reached>"), cll::init(100000));
+static const cll::opt<std::string>
+    input_file("fasta-file", cll::desc("<input fasta file>"), cll::Required);
+static const cll::opt<std::uint64_t>
+    kmer_length("k", cll::desc("<kmer length>"), cll::init(32));
+static const cll::opt<std::uint64_t> coverage("c", cll::desc("<coverage>"),
+                                              cll::init(100));
+static const cll::opt<std::uint64_t>
+    min_length_count("min-length", cll::desc("<minimum length count>"),
+                     cll::init(21));
+static const cll::opt<std::uint64_t> node_threshold(
+    "node-threshold",
+    cll::desc("<compact graph until threshold number of nodes reached>"),
+    cll::init(100000));
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   cll::ParseCommandLineOptions(argc, argv);
   galois::SharedMemSys G;
   galois::setActiveThreads(num_threads);
 
   std::uint64_t mn_length = kmer_length - 1;
-  std::unique_ptr<pakman::PakmanGraph> graph = pakman::ingest(input_file, mn_length, coverage, min_length_count);
+  std::unique_ptr<pakman::PakmanGraph> graph =
+      pakman::ingest(input_file, mn_length, coverage, min_length_count);
   pakman::processContigs(*graph, mn_length);
 }

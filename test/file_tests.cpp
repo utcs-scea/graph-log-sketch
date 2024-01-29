@@ -4,31 +4,26 @@
 #include <benchmark.hpp>
 #include <test_bench.hpp>
 
-TEST_CASE( "Generating Small Graphs", "[files]")
-{
+TEST_CASE("Generating Small Graphs", "[files]") {
   galois::SharedMemSys G;
   galois::setActiveThreads(1);
   pa c = create_counters();
 
-  SECTION( "Ingest Citeseer Graph from Edge List" )
-  {
+  SECTION("Ingest Citeseer Graph from Edge List") {
     check_el_file_and_benchmark(c, "../graphs/citeseer.el");
   }
 
-  SECTION( "Ingest Cora Graph from Edge List" )
-  {
+  SECTION("Ingest Cora Graph from Edge List") {
     check_el_file_and_benchmark(c, "../graphs/cora.el");
   }
 }
 
-TEST_CASE( "Generate Large Graphs", "[files]")
-{
+TEST_CASE("Generate Large Graphs", "[files]") {
   galois::SharedMemSys G;
   galois::setActiveThreads(1);
   pa c = create_counters();
 
-  SECTION( "Ingest Yelp Graph from Edge List" )
-  {
+  SECTION("Ingest Yelp Graph from Edge List") {
     check_el_file_and_benchmark(c, "../graphs/yelp.el");
   }
 }

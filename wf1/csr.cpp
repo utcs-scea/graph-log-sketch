@@ -49,43 +49,49 @@
 
 namespace agile::workflow1 {
 
-struct Args_t { uint64_t delta; uint64_t oid; };
+struct Args_t {
+  uint64_t delta;
+  uint64_t oid;
+};
 
 // Update the global ids on this locale and spawn updateIDS on next locale.
 // void updateIDS(Handle & handle, const Args_t & args) {
 //   auto GlobalIDS = GlobalIDType::GetPtr((GlobalIDOID) args.oid);
-//   auto updateLambda = [] (const uint64_t & key, Vertex & value, const uint64_t & delta) {value.id += delta;};
+//   auto updateLambda = [] (const uint64_t & key, Vertex & value, const
+//   uint64_t & delta) {value.id += delta;};
 
 //   my_map->ForEachEntry(updateLambda, args.delta);
 // }
 
-
 // Fill in Vertices ... insert {key, value.edges, value.type} at index value.id
-// void moveVertex(Handle & handle, const uint64_t & key, Vertex & value, uint64_t & verticesOID) {
+// void moveVertex(Handle & handle, const uint64_t & key, Vertex & value,
+// uint64_t & verticesOID) {
 //   auto Vertices = VertexType::GetPtr((VertexOID) verticesOID);
-//   Vertices->AsyncInsertAt(handle, value.id, Vertex(key, value.edges, value.type));
+//   Vertices->AsyncInsertAt(handle, value.id, Vertex(key, value.edges,
+//   value.type));
 // }
 
-
 // // Fill in dst global id and fire-and-forget insert
-// void Dst_(Handle & handle, const uint64_t & i, Vertex & dstV, uint64_t & ndx, Edge & edge, uint64_t & XEdgesOID) {
+// void Dst_(Handle & handle, const uint64_t & i, Vertex & dstV, uint64_t & ndx,
+// Edge & edge, uint64_t & XEdgesOID) {
 //   auto XEdges = XEdgeType::GetPtr((XEdgeOID) XEdgesOID);
 
 //   edge.dst_glbid = dstV.id;
 //   XEdges->AsyncInsertAt(handle, ndx, edge);
-  
+
 // };
 
-
 // Move edges from Edges to XEdges
-// void moveEdges(Handle & handle, const uint64_t & src_id, std::vector<Edge> & edges,
-//      uint64_t & globalIDSOID, uint64_t & verticesOID, uint64_t & vertexEdgesOID) {
+// void moveEdges(Handle & handle, const uint64_t & src_id, std::vector<Edge> &
+// edges,
+//      uint64_t & globalIDSOID, uint64_t & verticesOID, uint64_t &
+//      vertexEdgesOID) {
 //   auto Vertices  = VertexType::GetPtr((VertexOID) verticesOID);
 //   auto GlobalIDS = GlobalIDType::GetPtr((GlobalIDOID) globalIDSOID);
 //   auto VertexEdges = EdgeType::GetPtr((EdgeOID) vertexEdgesOID);
 
 //   Vertex srcVertex;
-//   GlobalIDS->Lookup(src_id, &srcVertex);                                    // lookup global id for src vertex
+//   GlobalIDS->Lookup(src_id, &srcVertex); // lookup global id for src vertex
 
 //   // Map global id to edges
 //   for (auto edge : edges) {
@@ -96,26 +102,26 @@ struct Args_t { uint64_t delta; uint64_t oid; };
 //     edge.dst_glbid = dstVertex.id;
 //     VertexEdges->BufferedAsyncInsert(handle, srcVertex.id, edge);
 //   }
-  
-//   // uint64_t ndx = Vertices->At(srcVertex.id).start;                           // start index for src vertex edges
 
-//   // for (auto edge : edges) {                                                  // for each edge of src vertex
+//   // uint64_t ndx = Vertices->At(srcVertex.id).start; // start index for src
+//   vertex edges
+
+//   // for (auto edge : edges) { // for each edge of src vertex
 //   //   edge.src_glbid = srcVertex.id;
-//   //   GlobalIDS->AsyncApply(handle, edge.dst, Dst_, ndx, edge, vertexEdgesOID);     // ... send edge to dst vertex and forget
-//   //   ndx ++;                                                                  // ... increment edge index
-//   // } 
+//   //   GlobalIDS->AsyncApply(handle, edge.dst, Dst_, ndx, edge,
+//   vertexEdgesOID);     // ... send edge to dst vertex and forget
+//   //   ndx ++; // ... increment edge index
+//   // }
 // }
 
-
-
 /********** CREATE COMPRESSED EDGE ARRAY AND VERTEX ARRAY **********/
-void CSR(Graph_t &graph, uint64_t num_vertices, uint64_t num_edges) {
+void CSR(Graph_t& graph, uint64_t num_vertices, uint64_t num_edges) {
   printf("Start building CSR\n");
   galois::Timer timer;
   timer.start();
   // ***** convert local ids to global ids *****/
-  EdgeType & Edges = *((EdgeType *) graph["Edges"]);
-  GlobalIDType & GlobalIDS = *((GlobalIDType *) graph["GlobalIDS"]);
+  EdgeType& Edges         = *((EdgeType*)graph["Edges"]);
+  GlobalIDType& GlobalIDS = *((GlobalIDType*)graph["GlobalIDS"]);
 
   // no need to updateIDS on single node
   // Args_t my_args = {0, graph["GlobalIDS"]};
@@ -123,13 +129,14 @@ void CSR(Graph_t &graph, uint64_t num_vertices, uint64_t num_edges) {
 
   // ***** allocate space for Vertices Array *****/
   // auto XEdges = XEdgeType::Create(num_edges, Edge());
-  VertexType * Vertices = new VertexType(num_vertices + 1, Vertex());  // Vertices, key is vertex id (start from 0)
-  graph["Vertices"] = (uint64_t) (Vertices);
+  VertexType* Vertices = new VertexType(
+      num_vertices + 1, Vertex()); // Vertices, key is vertex id (start from 0)
+  graph["Vertices"] = (uint64_t)(Vertices);
 
   // Vertex to edges mapping, key is vertex id (start from 0)
   // We need this so we could lookup edges by vertex id
-  EdgeType * VertexEdges = new EdgeType(num_edges);  
-  graph["VertexEdges"] = (uint64_t) (VertexEdges);
+  EdgeType* VertexEdges = new EdgeType(num_edges);
+  graph["VertexEdges"]  = (uint64_t)(VertexEdges);
 
   // XEdges->FillPtrs();
   // shad::rt::waitForCompletion(handle);
@@ -138,45 +145,41 @@ void CSR(Graph_t &graph, uint64_t num_vertices, uint64_t num_edges) {
 
   // ***** copy vertices from GlobalIDS to Vertices *****/
   printf("copy vertices 1!\n");
-  galois::do_all(
-    galois::iterate(GlobalIDS),
-    [Vertices](const GlobalIDType::value_type& p) {
-      (*Vertices)[p.second.id] = Vertex(p.first, p.second.edges, p.second.type);
-    }
-  );
+  galois::do_all(galois::iterate(GlobalIDS),
+                 [Vertices](const GlobalIDType::value_type& p) {
+                   (*Vertices)[p.second.id] =
+                       Vertex(p.first, p.second.edges, p.second.type);
+                 });
   printf("copy vertices 2!\n");
 
-  // Note: Since now we construct CSR by galois, vertex.start will not be filled anymore
-  // exclusiveScanVertices<Vertex>(graph["Vertices"]);     // convert # edges to start location
+  // Note: Since now we construct CSR by galois, vertex.start will not be filled
+  // anymore exclusiveScanVertices<Vertex>(graph["Vertices"]);     // convert #
+  // edges to start location
 
   // ***** copy edges from Edges to VertexEdges *****/
-  // Edges->AsyncForEachEntry(handle, moveEdges, GlobalIDSOID, graph["Vertices"], graph["VertexEdges"]);
-  // waitForCompletion(handle);
-  galois::do_all(
-    galois::iterate(Edges),
-    [Vertices, VertexEdges, GlobalIDS](EdgeType::value_type& p) {
-      auto src_node = GlobalIDS.find(p.first)->second;
-      auto dst_node = GlobalIDS.find(p.second.dst)->second;
-      p.second.src_glbid = src_node.id;
-      p.second.dst_glbid = dst_node.id;
-      VertexEdges->insert({src_node.id, p.second});
-    }
-  );
+  // Edges->AsyncForEachEntry(handle, moveEdges, GlobalIDSOID,
+  // graph["Vertices"], graph["VertexEdges"]); waitForCompletion(handle);
+  galois::do_all(galois::iterate(Edges),
+                 [Vertices, VertexEdges, GlobalIDS](EdgeType::value_type& p) {
+                   auto src_node      = GlobalIDS.find(p.first)->second;
+                   auto dst_node      = GlobalIDS.find(p.second.dst)->second;
+                   p.second.src_glbid = src_node.id;
+                   p.second.dst_glbid = dst_node.id;
+                   VertexEdges->insert({src_node.id, p.second});
+                 });
 
   printf("Build CSR!\n");
 
   // ***** Create CSR *****/
-  // Edges->AsyncForEachEntry(handle, moveEdges, GlobalIDSOID, graph["Vertices"], graph["XEdges"]);
-  // waitForCompletion(handle);
-  auto edgeNum_func = [VertexEdges](size_t n) {
-    return VertexEdges->count(n);
-  };
+  // Edges->AsyncForEachEntry(handle, moveEdges, GlobalIDSOID,
+  // graph["Vertices"], graph["XEdges"]); waitForCompletion(handle);
+  auto edgeNum_func = [VertexEdges](size_t n) { return VertexEdges->count(n); };
 
   auto edgeDst_func = [VertexEdges](size_t n) {
     std::vector<size_t> dst(VertexEdges->count(n));
     auto range = VertexEdges->equal_range(n);
     for (auto it = range.first; it != range.second; ++it) {
-        dst.push_back(it->second.dst_glbid);
+      dst.push_back(it->second.dst_glbid);
     }
     return dst.data();
   };
@@ -185,14 +188,15 @@ void CSR(Graph_t &graph, uint64_t num_vertices, uint64_t num_edges) {
     std::vector<Edge> dst(VertexEdges->count(n));
     auto range = VertexEdges->equal_range(n);
     for (auto it = range.first; it != range.second; ++it) {
-        dst.push_back(it->second);
+      dst.push_back(it->second);
     }
     return dst.data();
   };
 
-  graph["CSR"] = (uint64_t) new CSR_t(true, num_vertices, num_edges, edgeNum_func, edgeDst_func, edgeData_func);
+  graph["CSR"] = (uint64_t) new CSR_t(
+      true, num_vertices, num_edges, edgeNum_func, edgeDst_func, edgeData_func);
   timer.stop();
-  printf("Time for CSR = %lf\n", (double) timer.get_usec() / 1000000);
+  printf("Time for CSR = %lf\n", (double)timer.get_usec() / 1000000);
 }
 
-}
+} // namespace agile::workflow1

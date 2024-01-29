@@ -9,8 +9,8 @@
 
 namespace katana {
 
-/// A computational plan to for Jaccard, specifying the algorithm and any parameters
-/// associated with it.
+/// A computational plan to for Jaccard, specifying the algorithm and any
+/// parameters associated with it.
 class JaccardPlan : public Plan {
 public:
   enum EdgeSorting {
@@ -57,14 +57,15 @@ using JaccardSimilarity = katana::PODProperty<double>;
 /// controls the assumptions made about edge list ordering.
 /// The property named output_property_name is created by this function and may
 /// not exist before the call.
-KATANA_EXPORT Result<void> Jaccard(
-    const std::shared_ptr<PropertyGraph>& pg, uint32_t compare_node,
-    const std::string& output_property_name, katana::TxnContext* txn_ctx,
-    JaccardPlan plan = {});
+KATANA_EXPORT Result<void> Jaccard(const std::shared_ptr<PropertyGraph>& pg,
+                                   uint32_t compare_node,
+                                   const std::string& output_property_name,
+                                   katana::TxnContext* txn_ctx,
+                                   JaccardPlan plan = {});
 
-KATANA_EXPORT Result<void> JaccardAssertValid(
-    const std::shared_ptr<PropertyGraph>& pg, uint32_t compare_node,
-    const std::string& property_name);
+KATANA_EXPORT Result<void>
+JaccardAssertValid(const std::shared_ptr<PropertyGraph>& pg,
+                   uint32_t compare_node, const std::string& property_name);
 
 struct KATANA_EXPORT JaccardStatistics {
   /// The maximum similarity excluding the comparison node.
@@ -77,11 +78,11 @@ struct KATANA_EXPORT JaccardStatistics {
   /// Print the statistics in a human readable form.
   void Print(std::ostream& os = std::cout);
 
-  static katana::Result<JaccardStatistics> Compute(
-      const std::shared_ptr<PropertyGraph>& pg, uint32_t compare_node,
-      const std::string& property_name);
+  static katana::Result<JaccardStatistics>
+  Compute(const std::shared_ptr<PropertyGraph>& pg, uint32_t compare_node,
+          const std::string& property_name);
 };
 
-}  // namespace katana
+} // namespace katana
 
 #endif

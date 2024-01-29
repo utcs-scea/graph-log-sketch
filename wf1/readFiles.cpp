@@ -51,31 +51,35 @@
 
 namespace agile::workflow1 {
 
-std::vector <std::string> split(std::string & line, char delim, uint64_t size = 0) {
+std::vector<std::string> split(std::string& line, char delim,
+                               uint64_t size = 0) {
   uint64_t ndx = 0, start = 0, end = 0;
-  std::vector <std::string> tokens(size);
+  std::vector<std::string> tokens(size);
 
-  for ( ; end < line.length(); end ++)  {
-    if ( (line[end] == delim) || (line[end] == '\n') ) {
-       tokens[ndx] = line.substr(start, end - start);
-       start = end + 1;
-       ndx ++;
-  } }
+  for (; end < line.length(); end++) {
+    if ((line[end] == delim) || (line[end] == '\n')) {
+      tokens[ndx] = line.substr(start, end - start);
+      start       = end + 1;
+      ndx++;
+    }
+  }
 
-  tokens[size - 1] = line.substr(start, end - start);     // flush last token
+  tokens[size - 1] = line.substr(start, end - start); // flush last token
   return tokens;
 }
 
-inline void insertVertex(GlobalIDType & GlobalIDS, const uint64_t & key, const uint64_t & num_edges, const TYPES & type, uint64_t & id_counter) {
-   auto found = GlobalIDS.find(key);
-   if (found == GlobalIDS.end()) {
-      GlobalIDS[key] = Vertex(id_counter++, num_edges, type);
-   } else {
-      found->second.edges += num_edges;
-   }
+inline void insertVertex(GlobalIDType& GlobalIDS, const uint64_t& key,
+                         const uint64_t& num_edges, const TYPES& type,
+                         uint64_t& id_counter) {
+  auto found = GlobalIDS.find(key);
+  if (found == GlobalIDS.end()) {
+    GlobalIDS[key] = Vertex(id_counter++, num_edges, type);
+  } else {
+    found->second.edges += num_edges;
+  }
 }
 
-void readFile(const RF_args_t & args) {
+void readFile(const RF_args_t& args) {
   std::string line;
   struct stat stats;
   std::string filename = args.filename;
@@ -83,38 +87,48 @@ void readFile(const RF_args_t & args) {
   // uint64_t num_locales = (uint64_t) shad::rt::numLocalities();
 
   std::ifstream file(filename);
-  if (! file.is_open()) { printf("cannot open file %s\n", filename.c_str()); exit(-1); }
+  if (!file.is_open()) {
+    printf("cannot open file %s\n", filename.c_str());
+    exit(-1);
+  }
 
-  stat(filename.c_str(), & stats);
+  stat(filename.c_str(), &stats);
 
-  // uint64_t num_bytes = stats.st_size / num_locales;                      // file size / number of locales
-  // uint64_t start = this_locale * num_bytes;
+  // uint64_t num_bytes = stats.st_size / num_locales;                      //
+  // file size / number of locales uint64_t start = this_locale * num_bytes;
   // uint64_t end = start + num_bytes;
   uint64_t start = 0;
-  uint64_t end = stats.st_size;
+  uint64_t end   = stats.st_size;
 
   file.seekg(start);
 
-  EdgeType & Edges = *((EdgeType *) args.Edges_OID);
-  GlobalIDType & GlobalIDS = *((GlobalIDType *) args.GlobalIDS_OID);
+  EdgeType& Edges         = *((EdgeType*)args.Edges_OID);
+  GlobalIDType& GlobalIDS = *((GlobalIDType*)args.GlobalIDS_OID);
 
-  uint64_t id_counter = 0; 
+  uint64_t id_counter = 0;
   while (start < end) {
     getline(file, line);
     start += line.size() + 1;
-    if (line[0] == '#') continue;                                // skip comments
-    std::vector <std::string> tokens = split(line, ',', 10);     // delimiter and # tokens set for wmd data file
+    if (line[0] == '#')
+      continue; // skip comments
+    std::vector<std::string> tokens =
+        split(line, ',', 10); // delimiter and # tokens set for wmd data file
 
     if (tokens[0] == "Person") {
-      insertVertex(GlobalIDS, ENCODE<uint64_t, std::string, UINT>(tokens[1]), 0, TYPES::PERSON, id_counter);
+      insertVertex(GlobalIDS, ENCODE<uint64_t, std::string, UINT>(tokens[1]), 0,
+                   TYPES::PERSON, id_counter);
     } else if (tokens[0] == "ForumEvent") {
-      insertVertex(GlobalIDS, ENCODE<uint64_t, std::string, UINT>(tokens[4]), 0, TYPES::FORUMEVENT, id_counter);
+      insertVertex(GlobalIDS, ENCODE<uint64_t, std::string, UINT>(tokens[4]), 0,
+                   TYPES::FORUMEVENT, id_counter);
     } else if (tokens[0] == "Forum") {
-      insertVertex(GlobalIDS, ENCODE<uint64_t, std::string, UINT>(tokens[3]), 0, TYPES::FORUM, id_counter);
+      insertVertex(GlobalIDS, ENCODE<uint64_t, std::string, UINT>(tokens[3]), 0,
+                   TYPES::FORUM, id_counter);
     } else if (tokens[0] == "Publication") {
-      insertVertex(GlobalIDS, ENCODE<uint64_t, std::string, UINT>(tokens[5]), 0, TYPES::PUBLICATION, id_counter);
+      insertVertex(GlobalIDS, ENCODE<uint64_t, std::string, UINT>(tokens[5]), 0,
+                   TYPES::PUBLICATION, id_counter);
     } else if (tokens[0] == "Topic") {
-      insertVertex(GlobalIDS, ENCODE<uint64_t, std::string, UINT>(tokens[6]), 0, TYPES::TOPIC, id_counter);
+      insertVertex(GlobalIDS, ENCODE<uint64_t, std::string, UINT>(tokens[6]), 0,
+                   TYPES::TOPIC, id_counter);
     } else if (tokens[0] == "Sale") {
       Edge sale(tokens);
       Edges.insert({sale.src, sale});
@@ -154,8 +168,10 @@ void readFile(const RF_args_t & args) {
 
       insertVertex(GlobalIDS, includes.src, 1, includes.src_type, id_counter);
       insertVertex(GlobalIDS, includes.dst, 0, includes.dst_type, id_counter);
-      insertVertex(GlobalIDS, includedIN.src, 1, includedIN.src_type, id_counter);
-      insertVertex(GlobalIDS, includedIN.dst, 0, includedIN.dst_type, id_counter);
+      insertVertex(GlobalIDS, includedIN.src, 1, includedIN.src_type,
+                   id_counter);
+      insertVertex(GlobalIDS, includedIN.dst, 0, includedIN.dst_type,
+                   id_counter);
     } else if (tokens[0] == "HasTopic") {
       Edge hasTopic(tokens);
       Edges.insert({hasTopic.src, hasTopic});
@@ -184,6 +200,8 @@ void readFile(const RF_args_t & args) {
       insertVertex(GlobalIDS, hasOrg.dst, 0, hasOrg.dst_type, id_counter);
       insertVertex(GlobalIDS, orgIN.src, 1, orgIN.src_type, id_counter);
       insertVertex(GlobalIDS, orgIN.dst, 0, orgIN.dst_type, id_counter);
-}  } }
+    }
+  }
+}
 
 } // namespace agile::workflow1
