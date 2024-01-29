@@ -1,5 +1,3 @@
-#pragma once
-
 #include <cerrno>
 #include <counters.hpp>
 #include <fstream>
@@ -14,7 +12,7 @@
 
 constexpr uint64_t rseed = 48048593;
 
-constexpr uint64_t BENCH_NUM         = 2;
+constexpr uint64_t BENCH_NUM         = 1;
 constexpr uint64_t WARM_UP_COOL_DOWN = 0;
 
 struct RNG {
