@@ -6,6 +6,7 @@
 #include "galois/graphs/LC_CSR_64_Graph.h"
 #include "galois/graphs/LC_CSR_Graph.h"
 #include "galois/graphs/MorphGraph.h"
+#include "galois/graphs/LC_ADJ_Morph_Graph.h"
 #include "galois/graphs/TypeTraits.h"
 #include "Lonestar/BoilerPlate.h"
 #include <graph_benchmark_style.hpp>

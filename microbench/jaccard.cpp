@@ -31,14 +31,14 @@ cll::opt<BenchStyle> style(
     cll::values(clEnumVal(STATIC, "STATIC"), clEnumVal(EVOLVE, "EVOLVE")),
     cll::init(STATIC));
 
-enum GraphType : uint8_t { LS_CSR, CSR_64, MOR_GR };
-cll::opt<GraphType> gtype("g",
-                          cll::desc("Choose LS_CSR, CSR_64, or MOR_GR as the "
-                                    "target (default value LS_CSR)"),
-                          cll::values(clEnumVal(LS_CSR, "LS_CSR"),
-                                      clEnumVal(CSR_64, "CSR_64"),
-                                      clEnumVal(MOR_GR, "MOR_GR")),
-                          cll::init(LS_CSR));
+enum GraphType : uint8_t { LS_CSR, CSR_64, MOR_GR, LC_MOR_GR };
+cll::opt<GraphType> gtype(
+    "g",
+    cll::desc("Choose LS_CSR, CSR_64, MOR_GR, or LC_MOR_GR as the "
+              "target (default value LS_CSR)"),
+    cll::values(clEnumVal(LS_CSR, "LS_CSR"), clEnumVal(CSR_64, "CSR_64"),
+                clEnumVal(MOR_GR, "MOR_GR"), clEnumVal(LC_MOR_GR, "LC_MOR_GR")),
+    cll::init(LS_CSR));
 
 static const cll::opt<uint64_t>
     num_n("n", cll::desc("Choose a number of nodes to generate"),
@@ -66,21 +66,25 @@ using LC_CSR_32_GRAPH =
     galois::graphs::LC_CSR_Graph<void, void>::with_no_lockable<true>::type;
 using MORPH_GRAPH =
     galois::graphs::MorphGraph<void, void, true>::with_no_lockable<true>::type;
+using LC_MORPH_GRAPH = galois::graphs::LC_ADJ_Morph_Graph;
 
 using LSJA = Jaccard_Algo<LS_CSR_LOCK_OUT>;
 using LC6A = Jaccard_Algo<LC_CSR_64_GRAPH>;
 using LC3A = Jaccard_Algo<LC_CSR_32_GRAPH>;
 using MORG = Jaccard_Algo<MORPH_GRAPH>;
+using LCMG = Jaccard_Algo<LC_MORPH_GRAPH>;
 
 LSJA lclo;
 LC6A lc6g;
 LC3A lc3g;
 MORG morg;
+LCMG lcmg;
 
 auto lclo_evo = add_edges_per_node<LS_CSR_LOCK_OUT>;
 auto lc6g_evo = regen_graph_sorted<LC_CSR_64_GRAPH>;
 auto lc3g_evo = regen_graph_sorted<LC_CSR_32_GRAPH>;
 auto morg_evo = add_edges_per_edge<true, MORPH_GRAPH>;
+auto lcmg_evo = add_edges_per_edge<true, LC_MORPH_GRAPH>;
 
 int main(int argc, char** argv) {
   cll::ParseCommandLineOptions(argc, argv);
@@ -170,6 +174,15 @@ int main(int argc, char** argv) {
                   graph, jutr);
             });
         break;
+      case LC_MOR_GR:
+        run_algo_p_evolve<LC_MORPH_GRAPH>(
+            statsfn, "LC_MOR_GR EVOLVE", c, 8, num_nodes, num_edges, edge_list,
+            lcmg_evo, [&jutr](LC_MORPH_GRAPH& graph) { jutr.reset(); },
+            [&jutr](LC_MORPH_GRAPH& graph) {
+              lcmg.JaccardImpl<LCMG::IntersectWithSortedEdgeList, JaccardNoRet>(
+                  graph, jutr);
+            });
+        break;
       }
       jutr.print(std::cout);
     }
@@ -219,6 +232,15 @@ int main(int argc, char** argv) {
                   graph, jutr);
             });
         break;
+      case LC_MOR_GR:
+        run_algo_p_static<LC_MORPH_GRAPH>(
+            statsfn, "LC_MOR_GR STATIC", c, num_nodes, num_edges, edge_list,
+            [&jutr](LC_MORPH_GRAPH& graph) { jutr.reset(); },
+            [&jutr](LC_MORPH_GRAPH& graph) {
+              lcmg.JaccardImpl<LCMG::IntersectWithSortedEdgeList, JaccardRet>(
+                  graph, jutr);
+            });
+        break;
       }
       jutr.print(std::cout);
     } else {
@@ -248,6 +270,15 @@ int main(int argc, char** argv) {
             [&jutr](MORPH_GRAPH& graph) { jutr.reset(); },
             [&jutr](MORPH_GRAPH& graph) {
               morg.JaccardImpl<MORG::IntersectWithSortedEdgeList, JaccardNoRet>(
+                  graph, jutr);
+            });
+        break;
+      case LC_MOR_GR:
+        run_algo_p_static<LC_MORPH_GRAPH>(
+            statsfn, "LC_MOR_GR STATIC", c, num_nodes, num_edges, edge_list,
+            [&jutr](LC_MORPH_GRAPH& graph) { jutr.reset(); },
+            [&jutr](LC_MORPH_GRAPH& graph) {
+              lcmg.JaccardImpl<LCMG::IntersectWithSortedEdgeList, JaccardNoRet>(
                   graph, jutr);
             });
         break;
