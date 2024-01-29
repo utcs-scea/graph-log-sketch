@@ -171,7 +171,7 @@ void run_algo_p_evolve(
           return graph;
         },
         [edge_list, num_edges, i, evo, chunk_num](Graph* graph) {
-          evo(graph, num_edges / chunk_num * (i - 1), num_edges / chunk_num,
+          evo(graph, num_edges / chunk_num * (i - 1), num_edges / chunk_num * i,
               num_edges / chunk_num, edge_list, i);
         },
         [](Graph* graph) { delete graph; });
