@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cerrno>
 #include <counters.hpp>
 #include <fstream>
