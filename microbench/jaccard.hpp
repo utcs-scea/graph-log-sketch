@@ -278,13 +278,21 @@ struct Jaccard_Algo
   }
 
   template <typename IntersectAlgorithm, typename JRet>
-  void JaccardImpl(Graph& graph, JRet& ret, const std::vector<std::pair<uint64_t, uint64_t>>& iterators)
+  void JaccardImpl(Graph& graph, JRet& ret)
   {
+    using idx_it = boost::counting_iterator<uint64_t>;
+
     const uint64_t size = graph.size();
-    galois::do_all(galois::iterate(iterators.begin(), iterators.end()),
-      [&](const std::pair<uint64_t, uint64_t> p)
+    galois::do_all(galois::iterate(idx_it(0), idx_it(size * (size - 1) / 2)),
+      [&](const uint64_t linear_index)
       {
-        this->JaccardImplSinglePair<IntersectAlgorithm>(graph, p.first, p.second, ret);
+        // https://stackoverflow.com/a/27088560
+        // convert linear index to (row, col) index:
+        const double k = (double)linear_index;
+        const double n = (double)size;
+        const uint64_t i = size - 2 - uint64_t(floor(sqrt(-8.0L * k + 4.0L * n * (n - 1.0L) - 7.0L) / 2.0L - 0.5L));
+        const uint64_t j = linear_index + i + 1 - size * (size - 1) / 2 + (size - i) * ((size - i) - 1) / 2;
+        this->JaccardImplSinglePair<IntersectAlgorithm>(graph, i, j, ret);
       }, galois::steal());
   }
 
