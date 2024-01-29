@@ -34,8 +34,7 @@ int cblas_splits;
 
 #include "CombBLAS/CombBLAS.h"
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
   using namespace combblas;
   cblas_splits = omp_get_max_threads();
 
@@ -44,15 +43,13 @@ int main(int argc, char** argv)
 
   MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
 
-  MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
-  MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 
-  if(argc < 3)
-  {
-    if(myrank == 0)
-    {
-			cout << "Usage:   ./gen-rand-bfs <Scale> <outfile-tag>" << endl;
-			cout << "Example: ./gen-rand-bfs 25" << endl;
+  if (argc < 3) {
+    if (myrank == 0) {
+      cout << "Usage:   ./gen-rand-bfs <Scale> <outfile-tag>" << endl;
+      cout << "Example: ./gen-rand-bfs 25" << endl;
     }
     MPI_Finalize();
     return -1;
@@ -64,8 +61,7 @@ int main(int argc, char** argv)
   std::ofstream ofs(ofn.str(), std::ofstream::out);
 
   unsigned scale = static_cast<unsigned>(atoi(argv[1]));
-  if(myrank == 0)
-  {
+  if (myrank == 0) {
     std::cerr << "Forcing scale to : " << scale << endl;
   }
 
@@ -75,21 +71,20 @@ int main(int argc, char** argv)
   MPI_Barrier(MPI_COMM_WORLD);
   double t01 = MPI_Wtime();
   MPI_Barrier(MPI_COMM_WORLD);
-  DistEdgeList<int64_t> * DEL = new DistEdgeList<int64_t>();
+  DistEdgeList<int64_t>* DEL = new DistEdgeList<int64_t>();
   DEL->GenGraph500Data(initiator, scale, EDGEFACTOR, true, true);
   MPI_Barrier(MPI_COMM_WORLD);
   t02 = MPI_Wtime();
 
-  if(myrank == 0)
-  {
-    std::cerr << "Generation took " << t02-t01 << " seconds" << endl;
+  if (myrank == 0) {
+    std::cerr << "Generation took " << t02 - t01 << " seconds" << endl;
   }
 
   combblas::packed_edge* pedges = DEL->getPackedEdges();
 
-  for(int64_t i = 0; i < DEL->getNumLocalEdges(); i++)
-  {
-    ofs << get_v0_from_edge(&pedges[i]) << "\t" << get_v1_from_edge(&pedges[i]) << std::endl;
+  for (int64_t i = 0; i < DEL->getNumLocalEdges(); i++) {
+    ofs << get_v0_from_edge(&pedges[i]) << "\t" << get_v1_from_edge(&pedges[i])
+        << std::endl;
   }
 
   MPI_Finalize();

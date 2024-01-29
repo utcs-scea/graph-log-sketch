@@ -48,7 +48,8 @@ enum Algo { AsyncTile = 0, Async, SyncTile, Sync };
 const char* const ALGO_NAMES[] = {"AsyncTile", "Async", "SyncTile", "Sync"};
 
 using Graph =
-    galois::graphs::LS_LC_CSR_64_Graph<unsigned, void>::with_no_lockable<true>::type;
+    galois::graphs::LS_LC_CSR_64_Graph<unsigned,
+                                       void>::with_no_lockable<true>::type;
 //::with_numa_alloc<true>::type;
 
 using GNode = Graph::GraphNode;
@@ -175,70 +176,74 @@ void syncAlgo(Graph& graph, GNode source, const P& pushWrap,
   }
 }
 
-TEST_CASE( "Running Galois SSSP_BFS", "[bfs]" )
-{
+TEST_CASE("Running Galois SSSP_BFS", "[bfs]") {
   galois::SharedMemSys G;
   galois::setActiveThreads(1);
   pa c = create_counters();
 
-  SECTION( "All Nodes Citeseer Galois" )
-  {
+  SECTION("All Nodes Citeseer Galois") {
     uint64_t num_nodes;
     uint64_t num_edges;
-    auto ret = el_file_to_edge_list("../graphs/citeseer.el", num_nodes, num_edges);
-    Graph graph = Graph((uint32_t) num_nodes, num_edges, [ret](uint32_t n){return ret[n].size();},
-        [ret](uint32_t n, uint64_t e) {return (uint32_t) ret[n][e];}, [](uint32_t n, uint64_t e){ return 0; });
+    auto ret =
+        el_file_to_edge_list("../graphs/citeseer.el", num_nodes, num_edges);
+    Graph graph =
+        Graph((uint32_t)num_nodes, num_edges,
+              [ret](uint32_t n) { return ret[n].size(); },
+              [ret](uint32_t n, uint64_t e) { return (uint32_t)ret[n][e]; },
+              [](uint32_t n, uint64_t e) { return 0; });
     delete[] ret;
-    auto f = [&graph, c](std::string s)
-    {
-      run_test_and_benchmark<uint64_t>(s, c, 6,
-        [&graph]{return 0;},
-        [&graph](uint64_t v)
-        {
-          for(GNode n : graph)
-          {
-            galois::do_all(galois::iterate(graph),
-                   [&graph](GNode n) { graph.getData(n) = BFS::DIST_INFINITY; });
-            syncAlgo<false, GNode>(graph, graph[0], NodePushWrap(), OutEdgeRangeFn{graph});
-          }
-        },
-        [&graph](uint64_t v)
-        {
-          GNode last; for(GNode n : graph) last = n;
-          //bool veri = BFS::verify(graph, last); REQUIRE(veri == true);
-        },
-        [](uint64_t v){});
+    auto f = [&graph, c](std::string s) {
+      run_test_and_benchmark<uint64_t>(
+          s, c, 6, [&graph] { return 0; },
+          [&graph](uint64_t v) {
+            for (GNode n : graph) {
+              galois::do_all(galois::iterate(graph), [&graph](GNode n) {
+                graph.getData(n) = BFS::DIST_INFINITY;
+              });
+              syncAlgo<false, GNode>(graph, graph[0], NodePushWrap(),
+                                     OutEdgeRangeFn{graph});
+            }
+          },
+          [&graph](uint64_t v) {
+            GNode last;
+            for (GNode n : graph)
+              last = n;
+            // bool veri = BFS::verify(graph, last); REQUIRE(veri == true);
+          },
+          [](uint64_t v) {});
     };
     f("All Nodes Citeseer Galois");
   }
 
-  SECTION( "All Nodes Cora Galois" )
-  {
+  SECTION("All Nodes Cora Galois") {
     uint64_t num_nodes;
     uint64_t num_edges;
     auto ret = el_file_to_edge_list("../graphs/cora.el", num_nodes, num_edges);
-    Graph graph = Graph((uint32_t) num_nodes, num_edges, [ret](uint32_t n){return ret[n].size();},
-        [ret](uint32_t n, uint64_t e) {return (uint32_t) ret[n][e];}, [](uint32_t n, uint64_t e){ return 0; });
+    Graph graph =
+        Graph((uint32_t)num_nodes, num_edges,
+              [ret](uint32_t n) { return ret[n].size(); },
+              [ret](uint32_t n, uint64_t e) { return (uint32_t)ret[n][e]; },
+              [](uint32_t n, uint64_t e) { return 0; });
     delete[] ret;
-    auto f = [&graph, c](std::string s)
-    {
-      run_test_and_benchmark<uint64_t>(s, c, 6,
-        [&graph]{return 0;},
-        [&graph](uint64_t v)
-        {
-          for(GNode n : graph)
-          {
-            galois::do_all(galois::iterate(graph),
-                   [&graph](GNode n) { graph.getData(n) = BFS::DIST_INFINITY; });
-              syncAlgo<false, GNode>(graph, n, NodePushWrap(), OutEdgeRangeFn{graph});
-          }
-        },
-        [&graph](uint64_t v)
-        {
-          GNode last; for(GNode n : graph) last = n;
-          //bool veri = BFS::verify(graph, last); REQUIRE(veri == true);
-        },
-        [](uint64_t v){});
+    auto f = [&graph, c](std::string s) {
+      run_test_and_benchmark<uint64_t>(
+          s, c, 6, [&graph] { return 0; },
+          [&graph](uint64_t v) {
+            for (GNode n : graph) {
+              galois::do_all(galois::iterate(graph), [&graph](GNode n) {
+                graph.getData(n) = BFS::DIST_INFINITY;
+              });
+              syncAlgo<false, GNode>(graph, n, NodePushWrap(),
+                                     OutEdgeRangeFn{graph});
+            }
+          },
+          [&graph](uint64_t v) {
+            GNode last;
+            for (GNode n : graph)
+              last = n;
+            // bool veri = BFS::verify(graph, last); REQUIRE(veri == true);
+          },
+          [](uint64_t v) {});
     };
 
     f("All Nodes Cora Galois");
@@ -249,10 +254,10 @@ TEST_CASE( "Running Galois SSSP_BFS", "[bfs]" )
     uint64_t num_nodes;
     uint64_t num_edges;
     auto ret = el_file_to_edge_list("../graphs/yelp.el", num_nodes, num_edges);
-    Graph graph = Graph((uint32_t) num_nodes, num_edges, [ret](uint32_t n){return ret[n].size();},
-        [ret](uint32_t n, uint64_t e) {return (uint32_t) ret[n][e];}, [](uint32_t n, uint64_t e){ return 0; });
-    delete[] ret;
-    auto f = [&graph, c](std::string s)
+    Graph graph = Graph((uint32_t) num_nodes, num_edges, [ret](uint32_t
+  n){return ret[n].size();}, [ret](uint32_t n, uint64_t e) {return (uint32_t)
+  ret[n][e];}, [](uint32_t n, uint64_t e){ return 0; }); delete[] ret; auto f =
+  [&graph, c](std::string s)
     {
       run_test_and_benchmark<uint64_t>(s, c, 6,
         [&graph]{return 0;},
@@ -261,8 +266,8 @@ TEST_CASE( "Running Galois SSSP_BFS", "[bfs]" )
           for(GNode n : graph)
           {
             galois::do_all(galois::iterate(graph),
-                   [&graph](GNode n) { graph.getData(n) = BFS::DIST_INFINITY; });
-              syncAlgo<false, GNode>(graph, n, NodePushWrap(), OutEdgeRangeFn{graph});
+                   [&graph](GNode n) { graph.getData(n) = BFS::DIST_INFINITY;
+  }); syncAlgo<false, GNode>(graph, n, NodePushWrap(), OutEdgeRangeFn{graph});
           }
         },
         [&graph](uint64_t v)

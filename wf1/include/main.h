@@ -51,10 +51,10 @@
 #include <limits.h>
 #include <string>
 
-#define TINY   5000
-#define SMALL  500000
+#define TINY 5000
+#define SMALL 500000
 #define MEDIUM 5000000
-#define LARGE  50000000
+#define LARGE 50000000
 
 namespace agile::workflow1 {
 using Graph_t = std::map<std::string, uint64_t>;
@@ -62,11 +62,11 @@ using Graph_t = std::map<std::string, uint64_t>;
 struct RF_args_t {
   uint64_t Edges_OID;
   uint64_t GlobalIDS_OID;
-  char filename [120];
+  char filename[120];
 };
 
-void readFile(const RF_args_t & args);
-void CSR(Graph_t &, uint64_t, uint64_t);
+void readFile(const RF_args_t& args);
+void CSR(Graph_t&, uint64_t, uint64_t);
 } // namespace agile::workflow1
 
-#endif  // MAIN_H
+#endif // MAIN_H

@@ -14,33 +14,33 @@
 
 constexpr uint64_t rseed = 48048593;
 
-constexpr uint64_t BENCH_NUM = 1;
+constexpr uint64_t BENCH_NUM         = 1;
 constexpr uint64_t WARM_UP_COOL_DOWN = 0;
 
-struct RNG
-{
-  uint64_t operator() (uint64_t n){ return std::rand() % n; }
+struct RNG {
+  uint64_t operator()(uint64_t n) { return std::rand() % n; }
 };
 
-template<typename R>
-void runner(std::string s, R r)
-{
+template <typename R>
+void runner(std::string s, R r) {
   r.template operator()<false, false>(s);
-  r.template operator()<true , false>(s + " PAR");
-  void *p = mmap(NULL, 1<<31, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT), -1, 0);
-  if(MAP_FAILED == p) return;
-  munmap(p, 1<<31);
-  r.template operator()<false, true >(s + " EHP");
-  r.template operator()<true , true >(s + " PAR EHP");
+  r.template operator()<true, false>(s + " PAR");
+  void* p = mmap(NULL, 1 << 31, PROT_READ | PROT_WRITE,
+                 MAP_PRIVATE | MAP_ANON | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT),
+                 -1, 0);
+  if (MAP_FAILED == p)
+    return;
+  munmap(p, 1 << 31);
+  r.template operator()<false, true>(s + " EHP");
+  r.template operator()<true, true>(s + " PAR EHP");
 }
 
 #ifdef BENCH
-template<typename B>
-void benchmark(pa count, const char* str, int cpu, B bench, const char* statsFileName = "stats.txt")
-{
+template <typename B>
+void benchmark(pa count, const char* str, int cpu, B bench,
+               const char* statsFileName = "stats.txt") {
   std::ofstream stats(statsFileName, std::ofstream::app);
-  if (!stats.is_open())
-  {
+  if (!stats.is_open()) {
     std::cerr << "FAILURE TO OPEN FILE " << statsFileName << std::endl;
     exit(-5);
   }
@@ -52,74 +52,66 @@ void benchmark(pa count, const char* str, int cpu, B bench, const char* statsFil
   sched_getaffinity(0, sizeof(cpu_set_t), &old_set);
 
   int ret = sched_setaffinity(0, sizeof(cpu_set_t), &new_set);
-  if(ret != 0)
-  {
+  if (ret != 0) {
     std::cerr << "UNABLE TO PROPERLY SET SCHEDULER AFFINITY ret_code: " << ret
-              << "\terrno: " << errno
-              << "\terrstr: " << strerror(errno) << std::endl;
+              << "\terrno: " << errno << "\terrstr: " << strerror(errno)
+              << std::endl;
     exit(-10);
   }
 
   stats << str << "\t" << num_counters() << "\t" << BENCH_NUM << std::endl;
-  for(uint64_t i = 0; i < WARM_UP_COOL_DOWN *2 + BENCH_NUM; i++)
-  {
+  for (uint64_t i = 0; i < WARM_UP_COOL_DOWN * 2 + BENCH_NUM; i++) {
     bench(count);
 
-    if(WARM_UP_COOL_DOWN <= i && WARM_UP_COOL_DOWN + BENCH_NUM > i)
+    if (WARM_UP_COOL_DOWN <= i && WARM_UP_COOL_DOWN + BENCH_NUM > i)
       print_counters(count, stats);
   }
 
   ret = sched_setaffinity(0, sizeof(cpu_set_t), &old_set);
-  if (ret != 0)
-  {
+  if (ret != 0) {
     std::cerr << "UNABLE TO PROPERLY SET SCHEDULER AFFINITY ret_code: " << ret
-              << "\terrno: " << errno
-              << "\terrstr: " << strerror(errno) << std::endl;
+              << "\terrno: " << errno << "\terrstr: " << strerror(errno)
+              << std::endl;
     exit(-11);
   }
-
 }
 
-template<typename B>
-void benchmark(pa count, const char* str, B bench, const char* statsFileName = "stats.txt")
-{
+template <typename B>
+void benchmark(pa count, const char* str, B bench,
+               const char* statsFileName = "stats.txt") {
   std::ofstream stats(statsFileName, std::ofstream::app);
-  if (!stats.is_open())
-  {
+  if (!stats.is_open()) {
     std::cerr << "FAILURE TO OPEN FILE " << statsFileName << std::endl;
     exit(-5);
   }
 
   stats << str << "\t" << num_counters() << "\t" << BENCH_NUM << std::endl;
-  for(uint64_t i = 0; i < WARM_UP_COOL_DOWN *2 + BENCH_NUM; i++)
-  {
+  for (uint64_t i = 0; i < WARM_UP_COOL_DOWN * 2 + BENCH_NUM; i++) {
     bench(count);
 
-    if(WARM_UP_COOL_DOWN <= i && WARM_UP_COOL_DOWN + BENCH_NUM > i)
+    if (WARM_UP_COOL_DOWN <= i && WARM_UP_COOL_DOWN + BENCH_NUM > i)
       print_counters(count, stats);
   }
-
 }
 
 #else
-template<typename B>
-void benchmark(pa count, const char* str, int cpu, B bench, const char* statsFileName = "stats.txt")
-{
+template <typename B>
+void benchmark(pa count, const char* str, int cpu, B bench,
+               const char* statsFileName = "stats.txt") {
   bench(count);
 }
 
-template<typename B>
-void benchmark(pa count, const char* str, B bench, const char* statsFileName = "stats.txt")
-{
+template <typename B>
+void benchmark(pa count, const char* str, B bench,
+               const char* statsFileName = "stats.txt") {
   bench(count);
 }
 #endif
 
-template<typename T, typename S, typename C, typename B>
-void run_benchmark(const std::string& statsfn, std::string bench_name, pa count, int cpu, S setup, B bench, C cleanup)
-{
-  auto b = [&setup, &bench, &cleanup](pa c)
-  {
+template <typename T, typename S, typename C, typename B>
+void run_benchmark(const std::string& statsfn, std::string bench_name, pa count,
+                   int cpu, S setup, B bench, C cleanup) {
+  auto b = [&setup, &bench, &cleanup](pa c) {
     T t = setup();
     reset_counters(c);
     start_counters(c);
@@ -130,11 +122,10 @@ void run_benchmark(const std::string& statsfn, std::string bench_name, pa count,
   benchmark(count, bench_name.c_str(), cpu, b, statsfn.c_str());
 }
 
-template<typename T, typename S, typename C, typename B>
-void run_benchmark(const std::string& statsfn, std::string bench_name, pa count, S setup, B bench, C cleanup)
-{
-  auto b = [&setup, &bench, &cleanup](pa c)
-  {
+template <typename T, typename S, typename C, typename B>
+void run_benchmark(const std::string& statsfn, std::string bench_name, pa count,
+                   S setup, B bench, C cleanup) {
+  auto b = [&setup, &bench, &cleanup](pa c) {
     T t = setup();
     reset_counters(c);
     start_counters(c);
@@ -145,15 +136,14 @@ void run_benchmark(const std::string& statsfn, std::string bench_name, pa count,
   benchmark(count, bench_name.c_str(), b, statsfn.c_str());
 }
 
-template<typename T, typename S, typename C, typename A, typename B>
-void run_test_and_benchmark(std::string bench_name, pa count, int cpu, S setup, B bench, A asserts, C cleanup)
-{
+template <typename T, typename S, typename C, typename A, typename B>
+void run_test_and_benchmark(std::string bench_name, pa count, int cpu, S setup,
+                            B bench, A asserts, C cleanup) {
   T t = setup();
   bench(t);
   asserts(t);
   cleanup(t);
-  auto b = [&setup, &bench, &cleanup](pa c)
-  {
+  auto b = [&setup, &bench, &cleanup](pa c) {
     T t = setup();
     reset_counters(c);
     start_counters(c);
@@ -164,10 +154,11 @@ void run_test_and_benchmark(std::string bench_name, pa count, int cpu, S setup, 
   benchmark(count, bench_name.c_str(), cpu, b);
 }
 
-std::vector<uint64_t> rand_nodes(uint64_t sz, uint64_t num_nodes, uint64_t rseed_vec)
-{
+std::vector<uint64_t> rand_nodes(uint64_t sz, uint64_t num_nodes,
+                                 uint64_t rseed_vec) {
   std::vector<uint64_t> samps;
-  for(uint64_t i = 0; i < num_nodes; i++) samps.push_back(i);
+  for (uint64_t i = 0; i < num_nodes; i++)
+    samps.push_back(i);
   srand(rseed_vec);
   std::random_shuffle(samps.begin(), samps.end(), RNG());
   samps.resize(sz);
@@ -175,15 +166,13 @@ std::vector<uint64_t> rand_nodes(uint64_t sz, uint64_t num_nodes, uint64_t rseed
   return samps;
 }
 
-std::vector<std::pair<uint64_t,uint64_t>> el_file_to_rand_vec_edge(const std::string& ELFile, uint64_t& num_nodes, uint64_t& num_edges)
-{
+std::vector<std::pair<uint64_t, uint64_t>>
+el_file_to_rand_vec_edge(const std::string& ELFile, uint64_t& num_nodes,
+                         uint64_t& num_edges) {
   std::ifstream graphFile(ELFile.c_str());
-  if (!graphFile.is_open())
-  {
-    std::cerr << "UNABLE TO open graphFile: " << ELFile
-              << "\terrno: " << errno
-              << "\terrstr: " << strerror(errno)
-              << std::endl;
+  if (!graphFile.is_open()) {
+    std::cerr << "UNABLE TO open graphFile: " << ELFile << "\terrno: " << errno
+              << "\terrstr: " << strerror(errno) << std::endl;
 
     exit(-2);
   }
@@ -194,11 +183,10 @@ std::vector<std::pair<uint64_t,uint64_t>> el_file_to_rand_vec_edge(const std::st
   graphFile >> num_nodes;
   graphFile >> src;
 
-  std::vector<std::pair<uint64_t,uint64_t>> ret;
+  std::vector<std::pair<uint64_t, uint64_t>> ret;
 
-  while(graphFile >> src && graphFile >> dest)
-  {
-    ret.emplace_back(src,dest);
+  while (graphFile >> src && graphFile >> dest) {
+    ret.emplace_back(src, dest);
   }
 
   std::srand(rseed);
@@ -211,15 +199,13 @@ std::vector<std::pair<uint64_t,uint64_t>> el_file_to_rand_vec_edge(const std::st
   return ret;
 }
 
-std::vector<uint64_t>* el_file_to_edge_list(const std::string& ELFile, uint64_t& num_nodes, uint64_t& num_edges)
-{
+std::vector<uint64_t>* el_file_to_edge_list(const std::string& ELFile,
+                                            uint64_t& num_nodes,
+                                            uint64_t& num_edges) {
   std::ifstream graphFile(ELFile.c_str());
-  if (!graphFile.is_open())
-  {
-    std::cerr << "UNABLE TO open graphFile: " << ELFile
-              << "\terrno: " << errno
-              << "\terrstr: " << strerror(errno)
-              << std::endl;
+  if (!graphFile.is_open()) {
+    std::cerr << "UNABLE TO open graphFile: " << ELFile << "\terrno: " << errno
+              << "\terrstr: " << strerror(errno) << std::endl;
 
     exit(-2);
   }
@@ -234,8 +220,7 @@ std::vector<uint64_t>* el_file_to_edge_list(const std::string& ELFile, uint64_t&
 
   num_edges = 0;
 
-  while(graphFile >> src && graphFile >> dest)
-  {
+  while (graphFile >> src && graphFile >> dest) {
     num_edges++;
     ret[src].emplace_back(dest);
   }
@@ -243,6 +228,5 @@ std::vector<uint64_t>* el_file_to_edge_list(const std::string& ELFile, uint64_t&
   graphFile.close();
   return ret;
 }
-
 
 #endif
