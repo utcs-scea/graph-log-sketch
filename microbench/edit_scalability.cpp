@@ -14,6 +14,7 @@ using namespace std;
 #include "galois/Galois.h"
 #include "graph.hpp"
 #include "algo.hpp"
+#include "counter.hpp"
 
 static const char* name = "Edit Scalability Benchmarking Suite";
 static const char* desc = "Creates graphs from files in order to see how"
@@ -148,6 +149,8 @@ int main(int argc, char const* argv[]) {
 
     // execute the insertions
     {
+      BENCHMARK_SCOPE("Ingestion");
+
       // todo: benchmark this scope
       galois::setActiveThreads(ingest_threads);
       galois::do_all(galois::iterate(insertions.begin(), insertions.end()),
