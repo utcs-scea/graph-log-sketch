@@ -9,10 +9,11 @@ namespace cl = llvm::cl;
 #include <vector>
 using namespace std;
 
-#include "algo.hpp"
-#include "counter.hpp"
-#include "galois/Galois.h"
-#include "graph.hpp"
+#include "scea/algo/bfs.hpp"
+#include "scea/algo/nop.hpp"
+#include "scea/graph/lscsr.hpp"
+#include "scea/graph/morph.hpp"
+#include "scea/perf.hpp"
 
 static const char* name = "Edit Scalability Benchmarking Suite";
 static const char* desc = "Creates graphs from files in order to see how"
@@ -77,27 +78,27 @@ int main(int argc, char const* argv[]) {
   if (algo_threads == 0)
     throw runtime_error("algo threads must be greater than zero");
 
-  unique_ptr<scea::Graph> graph;
+  unique_ptr<scea::graph::MutableGraph> graph;
   switch (graph_type) {
   case GraphType::lscsr: {
-    graph = make_unique<scea::LS_CSR>(num_vertices);
+    graph = make_unique<scea::graph::LS_CSR>(num_vertices);
     break;
   }
   case GraphType::morph: {
-    graph = make_unique<scea::MorphGraph>(num_vertices);
+    graph = make_unique<scea::graph::MorphGraph>(num_vertices);
     break;
   }
   default:
     throw runtime_error("unknown graph_type");
   }
 
-  unique_ptr<scea::Algo> algo;
+  unique_ptr<scea::algo::Algo> algo;
   switch (algo_name) {
   case AlgoName::nop:
-    algo = make_unique<scea::Nop>();
+    algo = make_unique<scea::algo::Nop>();
     break;
   case AlgoName::sssp_bfs:
-    algo = make_unique<scea::SSSP_BFS>(sssp_bfs_src);
+    algo = make_unique<scea::algo::SSSP_BFS>(sssp_bfs_src);
     break;
   default:
     throw runtime_error("unknown algorithm");

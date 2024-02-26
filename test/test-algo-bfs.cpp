@@ -1,15 +1,15 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "galois/Galois.h"
-#include "graph.hpp"
-#include "algo.hpp"
+#include "scea/graph/morph.hpp"
+#include "scea/algo/bfs.hpp"
 
 TEST_CASE("SSSP_BFS correctly computes shortest paths", "[bfs]") {
   galois::SharedMemSys sys;
   galois::setActiveThreads(1);
 
   SECTION("small graph") {
-    scea::MorphGraph graph(7);
+    scea::graph::MorphGraph graph(7);
 
     /*
      * 0 - 1
@@ -27,6 +27,15 @@ TEST_CASE("SSSP_BFS correctly computes shortest paths", "[bfs]") {
     REQUIRE(!graph.add_edges(5, {3, 4, 6}));
     REQUIRE(!graph.add_edges(6, {5}));
 
-    { scea::SSSP_BFS bfs(1); }
+    {
+      auto result = scea::algo::SSSP_BFS::compute(graph, 1);
+      REQUIRE(result[0] == 1);
+      REQUIRE(result[1] == 0);
+      REQUIRE(result[2] == 1);
+      REQUIRE(result[3] == 1);
+      REQUIRE(result[4] == 2);
+      REQUIRE(result[5] == 2);
+      REQUIRE(result[6] == 3);
+    }
   }
 }
