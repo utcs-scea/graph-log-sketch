@@ -2,6 +2,7 @@
 
 #include <limits>
 #include <atomic>
+#include <memory>
 
 #include "graph.hpp"
 #include "galois/LargeArray.h"
@@ -24,21 +25,22 @@ class SSSP_BFS : public Algo {
 public:
   SSSP_BFS(uint64_t src) : m_src(src) {}
 
-  void operator()(Graph& g) override {
+  static std::unique_ptr<galois::LargeArray<uint64_t>> compute(Graph& g,
+                                                               uint64_t src) {
     using Cont = galois::InsertBag<uint64_t>;
 
     auto currSt = std::make_unique<Cont>();
     auto nextSt = std::make_unique<Cont>();
 
-    auto visited = galois::LargeArray<std::atomic_bool>();
+    galois::LargeArray<std::atomic_bool> visited;
     visited.create(g.size(), false);
 
-    auto shortest_path = galois::LargeArray<uint64_t>();
-    shortest_path.create(g.size(), std::numeric_limits<uint64_t>::max());
+    auto shortest_path = std::make_unique<galois::LargeArray<uint64_t>>();
+    shortest_path->create(g.size(), std::numeric_limits<uint64_t>::max());
 
-    nextSt->push(m_src);
-    visited[m_src]       = true;
-    shortest_path[m_src] = 0U;
+    nextSt->push(src);
+    visited[src]           = true;
+    shortest_path->at(src) = 0U;
 
     uint64_t level = 0U;
 
@@ -53,7 +55,7 @@ public:
             if (visited[vertex].exchange(true, std::memory_order_seq_cst))
               return;
 
-            shortest_path[vertex] = level;
+            shortest_path->at(vertex) = level;
 
             // not previously visited, add all edges
             g.for_each_edge(vertex, [&](uint64_t const& neighbor) {
@@ -63,7 +65,10 @@ public:
           },
           galois::steal());
     }
+    return shortest_path;
   }
+
+  void operator()(Graph& g) override { compute(g, m_src); }
 };
 
 } // namespace scea

@@ -1,20 +1,18 @@
 #include "llvm/Support/CommandLine.h"
 namespace cl = llvm::cl;
 
-#include <iostream>
 #include <fstream>
-#include <vector>
-#include <sstream>
+#include <iostream>
 #include <mutex>
+#include <sstream>
 #include <utility>
+#include <vector>
 using namespace std;
 
-#include <boost/algorithm/string/predicate.hpp>
-
-#include "galois/Galois.h"
-#include "graph.hpp"
 #include "algo.hpp"
 #include "counter.hpp"
+#include "galois/Galois.h"
+#include "graph.hpp"
 
 static const char* name = "Edit Scalability Benchmarking Suite";
 static const char* desc = "Creates graphs from files in order to see how"
@@ -28,11 +26,11 @@ cl::opt<string> input_file_path(cl::Positional, cl::desc("[input file]"),
                                 cl::init("-"));
 
 cl::opt<size_t>
-    ingest_threads("ingest_threads",
+    ingest_threads("ingest-threads",
                    cl::desc("number of threads used for ingesting edges"),
                    cl::init(1));
 
-cl::opt<size_t> algo_threads("algo_threads",
+cl::opt<size_t> algo_threads("algo-threads",
                              cl::desc("number of threads used for algorithm"),
                              cl::init(1));
 
@@ -40,20 +38,31 @@ cl::opt<uint64_t> num_vertices("num-vertices",
                                cl::desc("number of vertices in the graph"),
                                cl::Required);
 
-cl::opt<string> graph_type("graph,g",
-                           cl::desc("graph representation (lscsr, ...)"),
-                           cl::init("lscsr"));
+enum GraphType { lscsr, morph };
+
+cl::opt<GraphType>
+    graph_type("graph,g", cl::desc("Choose graph representation:"),
+               cl::init(lscsr),
+               cl::values(clEnumValN(lscsr, "lscsr", "log-structured CSR"),
+                          clEnumValN(morph, "morph", "Galois MorphGraph")));
 
 /*
  * Algo args
  */
 
-cl::opt<string> algo_name("algo", cl::desc("algorithm to run (nop, sssp_bfs)"),
-                          cl::init("nop"));
+enum AlgoName { nop, sssp_bfs };
 
-cl::OptionCategory sssp_bfs_category("SSSP_BFS Algorithm Options");
+cl::opt<AlgoName> algo_name(
+    "algo,a", cl::desc("Choose algorithm to run:"), cl::init(nop),
+    cl::values(
+        clEnumVal(nop, "do nothing"),
+        clEnumValN(
+            sssp_bfs, "bfs",
+            "compute single-source shortest path using a parallel BFS")));
 
-cl::opt<uint64_t> sssp_bfs_src("sssp-bfs-src", cl::desc("the source vertex"),
+cl::OptionCategory sssp_bfs_category("Options specific to BFS algorithm:");
+
+cl::opt<uint64_t> sssp_bfs_src("bfs-src", cl::desc("the source vertex"),
                                cl::cat(sssp_bfs_category));
 
 int main(int argc, char const* argv[]) {
@@ -69,18 +78,30 @@ int main(int argc, char const* argv[]) {
     throw runtime_error("algo threads must be greater than zero");
 
   unique_ptr<scea::Graph> graph;
-  if (boost::iequals(graph_type, "lscsr"))
+  switch (graph_type) {
+  case GraphType::lscsr: {
     graph = make_unique<scea::LS_CSR>(num_vertices);
-  else
-    throw runtime_error("unknown graph type: expected one of `lscsr`, ...");
+    break;
+  }
+  case GraphType::morph: {
+    graph = make_unique<scea::MorphGraph>(num_vertices);
+    break;
+  }
+  default:
+    throw runtime_error("unknown graph_type");
+  }
 
   unique_ptr<scea::Algo> algo;
-  if (boost::iequals(algo_name, "nop"))
+  switch (algo_name) {
+  case AlgoName::nop:
     algo = make_unique<scea::Nop>();
-  else if (boost::iequals(algo_name, "bfs"))
+    break;
+  case AlgoName::sssp_bfs:
     algo = make_unique<scea::SSSP_BFS>(sssp_bfs_src);
-  else
-    throw runtime_error("unknown algo: expected one of `nop`, `bfs`");
+    break;
+  default:
+    throw runtime_error("unknown algorithm");
+  }
 
   istream* in = &cin;
   ifstream input_file;
@@ -94,7 +115,8 @@ int main(int argc, char const* argv[]) {
   auto const validate_vertex = [&warn_ignored_edges](uint64_t vertex) {
     if (vertex >= num_vertices) {
       call_once(warn_ignored_edges, []() {
-        cerr << "warning: some edges were ignored because at least one vertex "
+        cerr << "warning: some edges were ignored because at least one "
+                "vertex "
                 "was out of range"
              << endl;
       });
@@ -148,10 +170,9 @@ int main(int argc, char const* argv[]) {
     }
 
     // execute the insertions
-    {
+    if (!insertions.empty()) {
       BENCHMARK_SCOPE("Ingestion");
 
-      // todo: benchmark this scope
       galois::setActiveThreads(ingest_threads);
       galois::do_all(galois::iterate(insertions.begin(), insertions.end()),
                      [&](pair<uint64_t, vector<uint64_t>> const& operation) {
@@ -161,7 +182,8 @@ int main(int argc, char const* argv[]) {
 
     // execute the algorithm
     {
-      // todo: benchmark this scope
+      BENCHMARK_SCOPE("Algorithm");
+
       galois::setActiveThreads(algo_threads);
       (*algo)(*graph);
     }
