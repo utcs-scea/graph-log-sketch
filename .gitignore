@@ -1,5 +1,2 @@
-bin/
-*build/
-data/
-tags
+.gitignore
 .vscode
