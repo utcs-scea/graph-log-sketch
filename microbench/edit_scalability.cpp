@@ -1,121 +1,194 @@
-#include "jaccard.hpp"
 #include "llvm/Support/CommandLine.h"
+namespace cl = llvm::cl;
 
-namespace cll = llvm::cl;
+#include <fstream>
+#include <iostream>
+#include <mutex>
+#include <sstream>
+#include <utility>
+#include <vector>
+using namespace std;
 
-static const char* name = "Edit Scalability";
+#include "scea/algo/bfs.hpp"
+#include "scea/algo/nop.hpp"
+#include "scea/graph/lscsr.hpp"
+#include "scea/graph/morph.hpp"
+#include "scea/perf.hpp"
 
-static const char* desc =
-    "Creates graphs from files in order to see how long it takes.";
+static const char* name = "Edit Scalability Benchmarking Suite";
+static const char* desc = "Creates graphs from files in order to see how"
+                          " edits impact algorithm performance.";
 
-static const char* url = "edit_scalability";
+/*
+ * Command-line args
+ */
 
-static const cll::opt<std::string>
-    inputFile(cll::Positional, cll::desc("<input file>"), cll::Required);
+cl::opt<string> input_file_path(cl::Positional, cl::desc("[input file]"),
+                                cl::init("-"));
 
-static const cll::opt<std::string>
-    statsFile(cll::Positional, cll::desc("<stat file>"), cll::Required);
+cl::opt<size_t>
+    ingest_threads("ingest-threads",
+                   cl::desc("number of threads used for ingesting edges"),
+                   cl::init(1));
 
-static const cll::opt<std::uint64_t>
-    numGThreads(cll::Positional, cll::desc("<num threads>"), cll::Required);
+cl::opt<size_t> algo_threads("algo-threads",
+                             cl::desc("number of threads used for algorithm"),
+                             cl::init(1));
 
-enum GraphType : uint8_t {
-  LS_CSR,
-  LS_CPR,
-  LS_COO,
-  LS_CIS,
-  CSR_64,
-  CSR_32,
-  MOR_GR
-};
-cll::opt<GraphType>
-    gtype("g",
-          cll::desc("Choose LS_CSR, LS_CPR, LS_COO, CSR_64, CSR_32, or MOR_GR "
-                    "as the target (default value LS_CSR)"),
-          cll::values(clEnumVal(LS_CSR, "LS_CSR"), clEnumVal(LS_CPR, "LS_CPR"),
-                      clEnumVal(LS_COO, "LS_COO"), clEnumVal(LS_CIS, "LS_CIS"),
-                      clEnumVal(CSR_64, "CSR_64"), clEnumVal(CSR_32, "CSR_32"),
-                      clEnumVal(MOR_GR, "MOR_GR")),
-          cll::init(LS_CSR));
+cl::opt<uint64_t> num_vertices("num-vertices",
+                               cl::desc("number of vertices in the graph"),
+                               cl::Required);
 
-static const cll::opt<uint64_t>
-    rseed_vec("seed", cll::desc("Choose a random seed for the random vector"),
-              cll::init(rseed));
+enum GraphType { lscsr, morph };
 
-using LS_CSR_LOCK_OUT =
-    galois::graphs::LS_LC_CSR_64_Graph<void,
-                                       void>::with_no_lockable<true>::type;
-using LC_CSR_64_GRAPH =
-    galois::graphs::LC_CSR_64_Graph<void, void>::with_no_lockable<true>::type;
-using LC_CSR_32_GRAPH =
-    galois::graphs::LC_CSR_Graph<void, void>::with_no_lockable<true>::type;
-using MORPH_GRAPH =
-    galois::graphs::MorphGraph<void, void, true>::with_no_lockable<true>::type;
+cl::opt<GraphType>
+    graph_type("graph,g", cl::desc("Choose graph representation:"),
+               cl::init(lscsr),
+               cl::values(clEnumValN(lscsr, "lscsr", "log-structured CSR"),
+                          clEnumValN(morph, "morph", "Galois MorphGraph")));
 
-auto lclo_evo = add_edges_per_node<LS_CSR_LOCK_OUT>;
-auto lcpo_evo = add_edges_group_insert_sort<LS_CSR_LOCK_OUT>;
-auto lcoo_evo = add_edges_one_by_one<LS_CSR_LOCK_OUT>;
-auto lcis_evo = add_edges_count_insert_sort<LS_CSR_LOCK_OUT>;
-auto lc6g_evo = regen_graph_sorted<LC_CSR_64_GRAPH>;
-auto lc3g_evo = regen_graph_sorted<LC_CSR_32_GRAPH>;
-auto morg_evo = add_edges_per_edge<false, MORPH_GRAPH>;
+/*
+ * Algo args
+ */
 
-int main(int argc, char** argv) {
-  cll::ParseCommandLineOptions(argc, argv);
-  std::string statsfn = statsFile;
-  galois::SharedMemSys G;
-  galois::setActiveThreads(numGThreads);
-  pa c = create_counters();
-  std::chrono::high_resolution_clock::time_point t0;
-  std::chrono::high_resolution_clock::time_point t1;
+enum AlgoName { nop, sssp_bfs };
 
-  uint64_t num_nodes;
-  uint64_t num_edges;
+cl::opt<AlgoName> algo_name(
+    "algo,a", cl::desc("Choose algorithm to run:"), cl::init(nop),
+    cl::values(
+        clEnumVal(nop, "do nothing"),
+        clEnumValN(
+            sssp_bfs, "bfs",
+            "compute single-source shortest path using a parallel BFS")));
 
-  t0             = std::chrono::high_resolution_clock::now();
-  auto edge_list = el_file_to_rand_vec_edge(inputFile, num_nodes, num_edges);
-  t1             = std::chrono::high_resolution_clock::now();
-  auto diff      = std::chrono::duration<uint64_t, std::nano>(t1 - t0).count();
-  std::cout << "File Read Time (ns):\t" << diff << std::endl;
+cl::OptionCategory sssp_bfs_category("Options specific to BFS algorithm:");
 
-  t0 = std::chrono::high_resolution_clock::now();
-  switch (gtype) {
-  case LS_CIS:
-    run_p_evolve<LS_CSR_LOCK_OUT>(statsfn,
-                                  "LS_CIS " + std::to_string(numGThreads), c, 8,
-                                  num_nodes, num_edges, edge_list, lcis_evo);
-    break;
-  case LS_COO:
-    run_p_evolve<LS_CSR_LOCK_OUT>(statsfn,
-                                  "LS_COO " + std::to_string(numGThreads), c, 8,
-                                  num_nodes, num_edges, edge_list, lcoo_evo);
-    break;
-  case LS_CPR:
-    run_p_evolve<LS_CSR_LOCK_OUT>(statsfn,
-                                  "LS_CPR " + std::to_string(numGThreads), c, 8,
-                                  num_nodes, num_edges, edge_list, lcpo_evo);
-    break;
-  case LS_CSR:
-    run_p_evolve<LS_CSR_LOCK_OUT>(statsfn,
-                                  "LS_CSR " + std::to_string(numGThreads), c, 8,
-                                  num_nodes, num_edges, edge_list, lclo_evo);
-    break;
-  case CSR_64:
-    run_p_evolve<LC_CSR_64_GRAPH>(statsfn,
-                                  "CSR_64 " + std::to_string(numGThreads), c, 8,
-                                  num_nodes, num_edges, edge_list, lc6g_evo);
-    break;
-  case CSR_32:
-    run_p_evolve<LC_CSR_32_GRAPH>(statsfn,
-                                  "CSR_32 " + std::to_string(numGThreads), c, 8,
-                                  num_nodes, num_edges, edge_list, lc3g_evo);
-    break;
-  case MOR_GR:
-    run_p_evolve<MORPH_GRAPH>(statsfn, "MOR_GR " + std::to_string(numGThreads),
-                              c, 8, num_nodes, num_edges, edge_list, morg_evo);
+cl::opt<uint64_t> sssp_bfs_src("bfs-src", cl::desc("the source vertex"),
+                               cl::cat(sssp_bfs_category));
+
+int main(int argc, char const* argv[]) {
+  // parse args
+  cl::ParseCommandLineOptions(argc, argv);
+
+  galois::SharedMemSys sys;
+
+  // validate args
+  if (ingest_threads == 0)
+    throw runtime_error("ingest threads must be greater than zero");
+  if (algo_threads == 0)
+    throw runtime_error("algo threads must be greater than zero");
+
+  unique_ptr<scea::graph::MutableGraph> graph;
+  switch (graph_type) {
+  case GraphType::lscsr: {
+    graph = make_unique<scea::graph::LS_CSR>(num_vertices);
     break;
   }
-  t1   = std::chrono::high_resolution_clock::now();
-  diff = std::chrono::duration<uint64_t, std::nano>(t1 - t0).count();
-  std::cout << "Approx Runtime (ns):\t" << diff << std::endl;
+  case GraphType::morph: {
+    graph = make_unique<scea::graph::MorphGraph>(num_vertices);
+    break;
+  }
+  default:
+    throw runtime_error("unknown graph_type");
+  }
+
+  unique_ptr<scea::algo::Algo> algo;
+  switch (algo_name) {
+  case AlgoName::nop:
+    algo = make_unique<scea::algo::Nop>();
+    break;
+  case AlgoName::sssp_bfs:
+    algo = make_unique<scea::algo::SSSP_BFS>(sssp_bfs_src);
+    break;
+  default:
+    throw runtime_error("unknown algorithm");
+  }
+
+  istream* in = &cin;
+  ifstream input_file;
+  if (input_file_path != "-") {
+    input_file.open(input_file_path);
+    in = &input_file;
+  }
+
+#ifndef NDEBUG
+  once_flag warn_ignored_edges;
+  auto const validate_vertex = [&warn_ignored_edges](uint64_t vertex) {
+    if (vertex >= num_vertices) {
+      call_once(warn_ignored_edges, []() {
+        cerr << "warning: some edges were ignored because at least one "
+                "vertex "
+                "was out of range"
+             << endl;
+      });
+      return false;
+    }
+    return true;
+  };
+#endif
+
+  while (!in->eof()) { // for each batch
+    /*
+     * each line is a parallel insertion, of the form:
+     * ```
+     * src dst1 dst2 dst3 ...
+     * ```
+     */
+
+    // parse the insertions
+    vector<pair<uint64_t, vector<uint64_t>>> insertions;
+
+    string batch_raw;
+    while (getline(*in, batch_raw)) {
+      if (batch_raw.length() == 0)
+        break;
+
+      istringstream batch(batch_raw);
+
+      uint64_t src;
+      batch >> src;
+#ifndef NDEBUG
+      if (!validate_vertex(src))
+        break;
+#endif
+
+      vector<uint64_t> dsts;
+      dsts.reserve(1);
+      while (!batch.eof()) {
+        uint64_t tmp;
+        batch >> tmp;
+#ifndef NDEBUG
+        if (!validate_vertex(tmp))
+          continue;
+#endif
+        dsts.emplace_back(tmp);
+      }
+
+      if (dsts.empty())
+        throw runtime_error("operation must include destination edges");
+
+      insertions.emplace_back(src, move(dsts));
+    }
+
+    // execute the insertions
+    if (!insertions.empty()) {
+      BENCHMARK_SCOPE("Ingestion");
+
+      galois::setActiveThreads(ingest_threads);
+      galois::do_all(galois::iterate(insertions.begin(), insertions.end()),
+                     [&](pair<uint64_t, vector<uint64_t>> const& operation) {
+                       graph->add_edges(operation.first, operation.second);
+                     });
+    }
+
+    // execute the algorithm
+    {
+      BENCHMARK_SCOPE("Algorithm");
+
+      galois::setActiveThreads(algo_threads);
+      (*algo)(*graph);
+    }
+  }
+
+  return 0;
 }

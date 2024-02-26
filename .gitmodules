@@ -1,11 +1,4 @@
 [submodule "galois"]
 	path = galois
 	url = https://github.com/utcs-scea/Galois.git
-  branch = dgraph
-[submodule "CombBLAS"]
-	path = CombBLAS
-	url = https://github.com/PASSIONLab/CombBLAS.git
-[submodule "pytorch"]
-	path = pytorch
-	url = https://github.com/utcs-scea/pytorch.git
-  brach = small-fix-for-build
+  	branch = dgraph

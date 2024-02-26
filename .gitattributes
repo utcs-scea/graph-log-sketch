@@ -1,2 +1,0 @@
-graphs/yelp.el filter=lfs diff=lfs merge=lfs -text
-graphs/flickr.el filter=lfs diff=lfs merge=lfs -text
