@@ -104,6 +104,7 @@ int main(int argc, char const* argv[]) {
   };
 #endif
 
+  int batch_number = 0;
   while (!in->eof()) { // for each batch
     /*
      * each line is a parallel insertion, of the form:
@@ -149,7 +150,7 @@ int main(int argc, char const* argv[]) {
 
     // execute the insertions
     {
-      BENCHMARK_SCOPE("Ingestion");
+      BENCHMARK_SCOPE("Ingestion for Batch " + to_string(batch_number));
 
       // todo: benchmark this scope
       galois::setActiveThreads(ingest_threads);
@@ -161,10 +162,13 @@ int main(int argc, char const* argv[]) {
 
     // execute the algorithm
     {
+      BENCHMARK_SCOPE("Algorithm for Batch " + to_string(batch_number));
       // todo: benchmark this scope
       galois::setActiveThreads(algo_threads);
       (*algo)(*graph);
     }
+    
+    batch_number++;
   }
 
   return 0;

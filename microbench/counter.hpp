@@ -50,7 +50,7 @@ public:
     void stop() {
         if (fd != -1) {
             ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
-            read(fd, &count, sizeof(long long));
+            int ret = read(fd, &count, sizeof(long long));
         }
     }
 
