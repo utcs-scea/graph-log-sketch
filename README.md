@@ -1,6 +1,10 @@
-# Graph Log Sketches
+# Graph Log Sketch
 
 This repository implements benchmarking tools to evaluate graph representations against various workloads.
+
+## Goal
+
+Using LS_CSR as an in-memory graph representation and demonstrating that it outperforms other in-memory representations in terms of various metrics
 
 ## Build Instructions
 
@@ -36,3 +40,53 @@ Let's look at an example:
 ```
 
 This workload has two "batches": the first creates three edges in parallel (`1->2`, `1->3`, and `1->4`). Then, the algorithm is executed once. Finally, two more edges are created (`2->3` and `2->4`).
+
+## Microbenchmarks
+
+### Ingestion
+1. For the same type of graph, various ingestion methods (currently streaming workload, batched updates and ingesting complete graph at the same time
+2. Order of edges
+    2.1 Globally Sorted (uninteresting workload since edits will never happen)
+    2.2 Uniformly random (extreme case)
+    2.3 A more realistic workload, where there is a distribution such that a contiguous set of edges for a given vertex occur together, for example, N1 edges for v1, N2 edges for v2, …, Nm edges for vm, N1’ edges for v1, N2’ edges for v2, …
+    2.4 Start with random edges (not ordered in any fashion or way)
+    2.5 Can we define a quantitative measure of “randomness” for the workload? For example, if there are a total of N updates to be made to the graph, every time in the update edge list, if list[i].src != list[i+1].src, increment a count variable and then obtain (count/N)
+    2.5 The above methodology does not take into account the out-degree of the vertex when the switch happens (when we switch from vertex i to j while making our updates, we will have to copy the entire edge list of vertex i to the tail of the LS_CSR - can we weigh the individual counts by the outdegrees to get a more realistic sense of the “randomness”?
+3. More generally, ingests can be thought of as updates if we include deletions as well
+4. Running algorithms on the graph
+    - Nop
+    - BFS
+    - Triangle Counting
+    - PageRank
+    - Connected Components
+
+## Experimental Inputs
+We will use several types of graphs which can vary by
+    - Input Size
+    - Topology
+        - Sparse
+        - Power Law graphs
+
+
+## Measurements
+We plan to measure the following properties:
+    - Speed (follows from cacheability?)
+    - Memory Usage
+        - Compaction strategies should impact memory usage - more specifically, we want to observe that whenever a compaction call is made, how much memory do we recover as well as how does it affect the overall memory usage of the program
+        - How do deletions impact memory usage (how much memory do we recover in comparison to when we don’t use compactions to recover memory from deletions) - basically measure resident set size with and without compactions
+    - Scalability (doesn’t exist for now) -> Chunk up buffer and copy (parallelize memcpy)
+    - Cacheability (measuring the number of cache misses across different workloads?) - Investigate this (ingest itself caches the last access) - why? Rather than an actual metric
+
+Start measurements on a single local machine and then move to a distributed setting
+
+## Correctness
+Graph constructed correctly (any exercising of graph API same as using the CSR constructed from it)
+
+## Moving to a Distributed Setting
+    - Partitioning Policy - given an initial graph, how do we distribute it efficiently among the hosts (depending on how much of the graph is available to us, complete graph vs streaming workload, will the partitioning policy look different for these scenarios?)
+    - Edits - efficient method to figure which edit corresponds to which host
+        - Edits to existing vertices
+        - Adding new vertices (which host gets the ownership of the new vertex)
+
+## Baselines
+1. GraphOne
