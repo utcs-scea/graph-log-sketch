@@ -30,8 +30,6 @@ GALOIS_EXTRA_CXX_FLAGS ?= ""
 GALOIS_CONTAINER_MOUNTS ?=
 GALOIS_CONTAINER_ENV ?=
 
-.PHONY: docker
-
 dependencies: dependencies-asdf
 
 dependencies-asdf:
@@ -85,16 +83,20 @@ docker-image-dependencies:
 	@mkdir -p build
 	@mkdir -p data
 
+.PHONY: docker
 docker:
 	@docker --context ${CONTAINER_CONTEXT} run --rm \
 	-v ${SRC_DIR}/:${CONTAINER_SRC_DIR} \
 	${GALOIS_CONTAINER_MOUNTS} \
 	${GALOIS_CONTAINER_ENV} \
 	--privileged \
-	--workdir=${CONTAINER_WORKDIR} ${CONTAINER_OPTS} -${INTERACTIVE}t \
+	--workdir=${CONTAINER_WORKDIR} \
+	${CONTAINER_OPTS} \
+	-${INTERACTIVE}t \
 	${IMAGE_NAME}:${VERSION} \
 	${CONTAINER_CMD}
 
+.PHONY: cmake
 cmake:
 	@echo "Must be run from inside the dev Docker container"
 	@cmake \

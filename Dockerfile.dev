@@ -30,11 +30,12 @@ RUN echo "sonar-scanner -Dsonar.host.url=$SONAR_ADDRESS -Dsonar.projectVersion=$
 CMD ["bash", "/sonar/sonar.sh"]
 
 # Base ci image
-FROM --platform=linux/amd64 ${BUILD_IMAGE} AS build
+FROM --platform=linux/amd64 ${BUILD_IMAGE} AS dev
 
 ARG COMPILER=g++-12
 ARG GCC_VERSION=12.3.0
 
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update && \
   apt install -y \
     ${COMPILER}=${GCC_VERSION}* \
@@ -49,6 +50,12 @@ RUN apt update && \
     gdb \
     vim \
     git \
+    shfmt \
+    language-pack-en \
+    python3 \
+    python3-pip \
+    libfmt-dev \
+    libzstd-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
