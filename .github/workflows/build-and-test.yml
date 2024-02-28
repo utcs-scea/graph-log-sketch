@@ -16,7 +16,7 @@ jobs:
 
       - uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: llvm clang-tidy libc++-dev libc6-dev libgtest-dev libboost-all-dev cmake libfmt-dev libboost-all-dev
+          packages: llvm clang-tidy libc++-dev libc6-dev libgtest-dev libboost-all-dev cmake libfmt-dev libopenmpi-dev
           version: 1.0
 
       - name: Create build directory
@@ -32,4 +32,4 @@ jobs:
 
       - name: Run tests
         working-directory: build
-        run: ./tests
+        run: ctest --output-on-failure
