@@ -1,0 +1,35 @@
+name: Build and Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: llvm clang-tidy libc++-dev libc6-dev libgtest-dev libboost-all-dev cmake libfmt-dev libboost-all-dev
+          version: 1.0
+
+      - name: Create build directory
+        run: mkdir build
+
+      - name: Run CMake
+        working-directory: build
+        run: cmake -S .. -B . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build project
+        working-directory: build
+        run: cmake --build . --config Release -j
+
+      - name: Run tests
+        working-directory: build
+        run: ./tests
