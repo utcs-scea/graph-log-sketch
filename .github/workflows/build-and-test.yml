@@ -31,7 +31,7 @@ jobs:
         run: |
           if [[ -d catch2-v3/build ]]; then
             echo "Catch2 v3 found in cache"
-            cd catch2-v3
+            cd catch2-v3/build
           else
             git clone https://github.com/catchorg/Catch2.git catch2-v3
             cd catch2-v3
