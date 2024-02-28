@@ -1,4 +1,4 @@
 [submodule "galois"]
-	path = galois
-	url = https://github.com/utcs-scea/Galois.git
-  	branch = dgraph
+path = galois
+url = https://github.com/utcs-scea/Galois.git
+branch = master
