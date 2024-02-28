@@ -1,0 +1,58 @@
+name: Build and Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm clang-tidy libc++-dev libc6-dev libgtest-dev libboost-all-dev cmake
+
+      - uses: actions/cache@v4
+        id: catch2-cache
+        with:
+          path: catch2-v3/build
+          key: ${{ runner.os }}-catch2-v3-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-catch2-v3-
+
+      - name: Install Catch2 v3 (if not cached)
+        run: |
+          if [[ -d catch2-v3/build ]]; then
+            echo "Catch2 v3 found in cache"
+          else
+            git clone https://github.com/catchorg/Catch2.git catch2-v3
+            cd catch2-v3
+            git checkout v3.5.2
+            mkdir build
+            cd build
+            cmake .. -B . -DCMAKE_BUILD_TYPE=Release
+            make -j
+            sudo make install
+          fi
+
+      - name: Create build directory
+        run: mkdir build
+
+      - name: Run CMake
+        working-directory: build
+        run: cmake -S .. -B . -DCMAKE_BUILD_TYPE=Release -DCATCH2_DIR=/usr/local/lib/cmake/Catch2  # Update path if needed
+
+      - name: Build project
+        working-directory: build
+        run: cmake --build . --target tests --config Release
+
+      - name: Run tests
+        working-directory: build
+        run: ./tests
