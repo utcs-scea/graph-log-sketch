@@ -1,0 +1,131 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2023. University of Texas at Austin. All rights reserved.
+ARG BUILD_IMAGE=ubuntu:22.04
+
+# Sonar image
+FROM --platform=linux/amd64 ubuntu:22.04 AS sonar
+
+RUN apt-get update && \
+  apt-get install -y \
+    curl \
+    unzip \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV SONAR_SCANNER_VERSION=5.0.0.2966
+RUN mkdir -p /tmp/sonar \
+  && curl -sSLo /tmp/sonar/scanner.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$SONAR_SCANNER_VERSION-linux.zip \
+  && unzip -o /tmp/sonar/scanner.zip -d /usr/local/ \
+  && rm -rf /tmp/sonar
+RUN for exe in /usr/local/sonar-scanner-${SONAR_SCANNER_VERSION}-linux/bin/*; do ln -s ${exe} /usr/local/bin/$(basename "${exe}"); done
+
+ARG VERSION
+ARG SONAR_ADDRESS
+ENV SONAR_ADDRESS=${SONAR_ADDRESS}
+ENV VERSION=${VERSION}
+
+WORKDIR /sonar
+
+RUN echo "sonar-scanner -Dsonar.host.url=$SONAR_ADDRESS -Dsonar.projectVersion=$VERSION" > sonar.sh
+
+CMD ["bash", "/sonar/sonar.sh"]
+
+# Base ci image
+FROM --platform=linux/amd64 ${BUILD_IMAGE} AS build
+
+ARG COMPILER=g++-12
+ARG GCC_VERSION=12.3.0
+
+RUN apt update && \
+  apt install -y \
+    ${COMPILER}=${GCC_VERSION}* \
+    build-essential \
+    make \
+    libboost-all-dev \
+    libfmt-dev \
+    lsb-release \
+    wget \
+    software-properties-common \
+    gnupg \
+    gdb \
+    vim \
+    git \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+
+COPY --from=sonar /usr/local/sonar-scanner-*-linux /usr/local/sonar-scanner-linux
+RUN for exe in /usr/local/sonar-scanner-linux/bin/*; do ln -s ${exe} /usr/local/bin/$(basename "${exe}"); done
+COPY --from=sonar /sonar/sonar.sh /sonar/sonar.sh
+
+ENV OMPI_ALLOW_RUN_AS_ROOT=1
+ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
+# CMake
+RUN apt-get update -y \
+      &&  apt install -y ca-certificates gpg wget \
+      &&  wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null \
+      &&  echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ jammy main' | tee /etc/apt/sources.list.d/kitware.list >/dev/null \
+      &&  apt-get update -y \
+      &&  rm /usr/share/keyrings/kitware-archive-keyring.gpg \
+      &&  apt-get install -y kitware-archive-keyring \
+      &&  apt-get update -y \
+      &&  apt-get install -y cmake cmake-curses-gui \
+      &&  apt-get purge -y gpg wget \
+      &&  apt-get autoremove -y \
+      &&  apt-get clean -y \
+      &&  rm -rf /var/lib/apt/lists/*
+
+ARG IS_CI=true
+
+RUN if [ "${IS_CI}" != "true" ] ; then \
+  apt update -y \
+    &&  apt install -y \
+    vim \
+    gdb \
+    universal-ctags \
+    powerline \
+    zsh \
+    valgrind \
+    sudo \
+    doxygen \
+    texlive-latex-extra \
+    texlive-font-utils \
+    &&  apt clean \
+    &&  update-locale; fi
+
+ARG SRC_DIR=/galois
+ARG BUILD_DIR=/galois/build
+ARG UNAME
+ARG UID
+ARG GID
+
+RUN if [ "${UNAME}" != "root" ] ; then groupadd -g ${GID} ${UNAME} \
+      &&  useradd -ms /bin/bash  -u "${UID}" -g "${GID}" ${UNAME} ; fi
+
+RUN mkdir -p /home/${UNAME} \
+      && chown ${UNAME}:${UNAME} /home/${UNAME}
+
+USER ${UNAME}
+WORKDIR /home/${UNAME}
+ENV BUILD_DIR=${BUILD_DIR}
+
+RUN pip3 install compdb pre-commit cpplint "clang-format>=12.0.1"
+
+RUN echo "export SRC_DIR=${SRC_DIR}" >> /home/${UNAME}/.profile
+RUN echo "export BUILD_DIR=${BUILD_DIR}" >> /home/${UNAME}/.profile
+
+RUN echo "PATH=/home/${UNAME}/.local/bin/:\$PATH" >> /home/${UNAME}/.zshenv
+WORKDIR ${SRC_DIR}
+
+ENV GCC_VERSION=${GCC_VERSION}
+ENV TERM=xterm-256color
+ENV USER=${UNAME}
+ENV LANG="C.UTF-8"
+ENV LC_COLLATE="C.UTF-8"
+ENV LC_CTYPE="C.UTF-8"
+ENV LC_MESSAGES="C.UTF-8"
+ENV LC_MONETARY="C.UTF-8"
+ENV LC_NUMERIC="C.UTF-8"
+ENV LC_TIME="C.UTF-8"
+
+USER ${UNAME}
