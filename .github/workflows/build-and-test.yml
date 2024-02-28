@@ -53,7 +53,7 @@ jobs:
 
       - name: Build project
         working-directory: build
-        run: cmake --build . --target tests --config Release
+        run: cmake --build . --target tests --config Release -j
 
       - name: Run tests
         working-directory: build
