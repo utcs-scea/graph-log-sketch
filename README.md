@@ -33,7 +33,7 @@ with algorithm executions acting as a logical barrier.
 
 Let's look at an example:
 
-```bash
+```plaintext
 1 2
 1 3
 1 4

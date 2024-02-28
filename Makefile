@@ -116,7 +116,7 @@ setup: cmake
 
 .PHONY: tests
 tests:
-	echo "This is a test of the emergency systems"
+	@ctest --test-dir ${BUILD_DIR} --output-on-failure
 
 run-tests: tests
 
