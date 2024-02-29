@@ -1,10 +1,12 @@
+// SPDX-License-Identifier: BSD-2-Clause
+// Copyright (c) 2023. University of Texas at Austin. All rights reserved.
+
 #pragma once
 
-#include "scea/graph/mutable_graph_interface.hpp"
+#include <vector>
 
 #include "galois/graphs/LS_LC_CSR_Graph.h"
-
-#include <vector>
+#include "scea/graph/mutable_graph_interface.hpp"
 
 namespace scea::graph {
 
@@ -13,7 +15,7 @@ private:
   galois::graphs::LS_LC_CSR_Graph<> graph;
 
 public:
-  LS_CSR(uint64_t num_vertices) : graph(num_vertices) {}
+  explicit LS_CSR(uint64_t num_vertices) : graph(num_vertices) {}
 
   virtual ~LS_CSR() {}
 

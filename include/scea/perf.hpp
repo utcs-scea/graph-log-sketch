@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: BSD-2-Clause
+// Copyright (c) 2023. University of Texas at Austin. All rights reserved.
+
 #pragma once
 
 #include <linux/perf_event.h>
 #include <unistd.h>
 #include <syscall.h>
 #include <sys/ioctl.h>
+
 #include <string>
 #include <iostream>
 #include <cstring>
@@ -12,18 +16,19 @@
 
 class PerfEvent {
 private:
-  int fd;
-  long long count;
+  int32_t fd;
+  int64_t count;
 
-  static long perf_event_open(struct perf_event_attr* hw_event, pid_t pid,
-                              int cpu, int group_fd, unsigned long flags) {
+  static int64_t perf_event_open(struct perf_event_attr* hw_event, pid_t pid,
+                                 int32_t cpu, int32_t group_fd,
+                                 uint64_t flags) {
     return syscall(__NR_perf_event_open, hw_event, pid, cpu, group_fd, flags);
   }
 
 public:
   PerfEvent() : fd(-1), count(0) {}
 
-  void setup(long long type, long long config) {
+  void setup(int64_t type, int64_t config) {
     struct perf_event_attr pe;
     memset(&pe, 0, sizeof(struct perf_event_attr));
     pe.type           = type;
@@ -49,12 +54,12 @@ public:
   void stop() {
     if (fd != -1) {
       ioctl(fd, PERF_EVENT_IOC_DISABLE, 0);
-      size_t nread = read(fd, &count, sizeof(long long));
-      assert(nread == sizeof(long long));
+      size_t nread = read(fd, &count, sizeof(int64_t));
+      assert(nread == sizeof(int64_t));
     }
   }
 
-  long long getCount() const { return count; }
+  int64_t getCount() const { return count; }
 
   ~PerfEvent() {
     if (fd != -1) {
@@ -69,7 +74,8 @@ private:
   std::string scopeName;
 
 public:
-  PerfScopeBenchmarker(const std::string& name) : scopeName(name), events(4) {
+  explicit PerfScopeBenchmarker(const std::string& name)
+      : scopeName(name), events(4) {
     events[0].setup(PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES);
     events[1].setup(PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_REFERENCES);
     events[2].setup(PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS);

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2023. University of Texas at Austin. All rights reserved.
+
 cmake_minimum_required(VERSION 3.17 FATAL_ERROR)
 project(
     graph-log-sketch
