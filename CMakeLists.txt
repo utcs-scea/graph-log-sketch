@@ -4,7 +4,7 @@ project(
     VERSION       0.1.0
     DESCRIPTION   "Monorepo for Galois based workflows using Log Structured CSR"
     HOMEPAGE_URL  "https://github.com/utcs-scea/graph-log-sketch"
-    LANGUAGES     CXX
+    LANGUAGES     C CXX
 )
 
 # helper functions
