@@ -44,7 +44,6 @@ jobs:
         fetch-depth: 0
         lfs: 'true'
         submodules: recursive
-        token: ${{ secrets.CI_PAT }}
 
     - name: Set up environment variables
       timeout-minutes: 1
