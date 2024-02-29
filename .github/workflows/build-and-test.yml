@@ -28,7 +28,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Create Docker Image
-      timeout-minutes: 10
+      timeout-minutes: 20
       run: |
         make ci-image
 
