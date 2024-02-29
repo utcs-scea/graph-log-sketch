@@ -56,7 +56,8 @@ git-submodules:
 
 ci-image:
 	@${MAKE} docker-image-dependencies
-	@docker --context ${CONTAINER_CONTEXT} build \
+	@docker image inspect galois:${VERSION} >/dev/null 2>&1 || \
+	docker --context ${CONTAINER_CONTEXT} build \
 	--build-arg SRC_DIR=${CONTAINER_SRC_DIR} \
 	--build-arg BUILD_DIR=${CONTAINER_BUILD_DIR} \
 	--build-arg UNAME=runner \
@@ -68,7 +69,8 @@ ci-image:
 
 docker-image:
 	@${MAKE} docker-image-dependencies
-	@docker --context ${CONTAINER_CONTEXT} build \
+	@docker image inspect ${IMAGE_NAME}:${VERSION} >/dev/null 2>&1 || \
+	docker --context ${CONTAINER_CONTEXT} build \
 	--build-arg SRC_DIR=${CONTAINER_SRC_DIR} \
 	--build-arg BUILD_DIR=${CONTAINER_BUILD_DIR} \
 	--build-arg UNAME=${UNAME} \
