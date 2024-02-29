@@ -64,9 +64,6 @@ COPY --from=sonar /usr/local/sonar-scanner-*-linux /usr/local/sonar-scanner-linu
 RUN for exe in /usr/local/sonar-scanner-linux/bin/*; do ln -s ${exe} /usr/local/bin/$(basename "${exe}"); done
 COPY --from=sonar /sonar/sonar.sh /sonar/sonar.sh
 
-ENV OMPI_ALLOW_RUN_AS_ROOT=1
-ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-
 # CMake
 RUN apt-get update -y \
   &&  apt install -y ca-certificates gpg wget \

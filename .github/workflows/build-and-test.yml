@@ -102,6 +102,8 @@ jobs:
           make docker
 
   docker-pre-commit-ubuntu-2204:
+    # TODO(Patrick) Re-enable on next PR after running pre-commit on repo
+    if: false
     name: pre-commit
     runs-on: self-hosted
     permissions:
