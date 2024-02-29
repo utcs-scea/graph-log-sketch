@@ -114,11 +114,11 @@ cmake:
 
 setup: cmake
 
-.PHONY: tests
-tests:
+.PHONY: test
+test:
 	@ctest --test-dir ${BUILD_DIR} --output-on-failure
 
-run-tests: tests
+run-tests: test
 
 # this command is slow since hooks are not stored in the container image
 # this is mostly for CI use

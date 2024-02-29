@@ -14,11 +14,6 @@ if(CMAKE_CXX_FLAGS)
     message(STATUS "Provided CXX Flags: " ${CMAKE_CXX_FLAGS})
 endif()
 
-set(BUILD_TESTING_SAVED "${BUILD_TESTING}")
-set(BUILD_TESTING OFF)
-add_subdirectory(galois EXCLUDE_FROM_ALL)
-set(BUILD_TESTING "${BUILD_TESTING_SAVED}")
-
 set(GALOIS_ENABLE_DIST ON CACHE BOOL "" FORCE)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,16 +22,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
 # LLVM dependency for CLI argument parsing
 find_package(LLVM REQUIRED CONFIG)
-add_definitions(${LLVM_DEFINITIONS})
-llvm_map_components_to_libnames(llvm_libs support)
 include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
 
 # MPI Dependency
 find_package(MPI REQUIRED)
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 
-# add include directories
-include_directories(include ${LLVM_INCLUDE_DIRS})
+set(BUILD_TESTING_SAVED "${BUILD_TESTING}")
+set(BUILD_TESTING OFF)
+add_subdirectory(galois EXCLUDE_FROM_ALL)
+set(BUILD_TESTING "${BUILD_TESTING_SAVED}")
 
 add_subdirectory(microbench)
 

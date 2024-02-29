@@ -16,8 +16,11 @@ jobs:
 
       - uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: llvm clang-tidy libc++-dev libc6-dev libgtest-dev libboost-all-dev cmake libfmt-dev libopenmpi-dev
+          packages: llvm clang-tidy libc++-dev libc6-dev libgtest-dev libboost-all-dev cmake libfmt-dev
           version: 1.0
+
+      - name: Manually install openmpi
+        run: apt install libopenmpi-dev
 
       - name: Create build directory
         run: mkdir build
