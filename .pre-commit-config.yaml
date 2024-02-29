@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2023. University of Texas at Austin. All rights reserved.
+
+fail_fast: true
+exclude: ^galois/|.gitmodules|.gitignore|.git/|^graphs/|^ok/
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.2.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.4
+    hooks:
+      - id: forbid-tabs
+        exclude: ^scripts/|Makefile
+      - id: remove-tabs
+        exclude: ^scripts/|Makefile
+        args: [--whitespaces-count, '2']
+      - id: insert-license
+        files: .*\.sh$|.*\.yml$|.*\.yaml$|.*\.txt$|.*\.py|.*\.cmake|.*\.cfg$|Dockerfile.*|Makefile.*|.clang-format|.clang-tidy|.tool-versions
+        exclude: LICENSE.txt
+        args:
+          - --detect-license-in-X-top-lines=10
+      - id: insert-license
+        files: .*\.c$|.*\.cc$|.*\.cpp$|.*\.hpp$|.*\.h$
+        args:
+          - --detect-license-in-X-top-lines=10
+          - --comment-style
+          - //
+      - id: insert-license
+        files: .*\.md$
+        args:
+          - --detect-license-in-X-top-lines=10
+          - --comment-style
+          - <!--|  ~|  -->
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.31.1
+    hooks:
+      - id: markdownlint
+      - id: markdownlint-fix
+  - repo: https://github.com/jumanjihouse/pre-commit-hooks
+    rev: 3.0.0
+    hooks:
+      - id: shfmt
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.6
+    hooks:
+      - id: codespell
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: v1.3.5
+    hooks:
+      - id: clang-format
+        args: [-i]
+      - id: cpplint
+        args: [--quiet]

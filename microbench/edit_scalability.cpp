@@ -1,14 +1,11 @@
-#include "llvm/Support/CommandLine.h"
-namespace cl = llvm::cl;
-
 #include <fstream>
 #include <iostream>
 #include <mutex>
 #include <sstream>
 #include <utility>
 #include <vector>
-using namespace std;
 
+#include "llvm/Support/CommandLine.h"
 #include "scea/algo/bfs.hpp"
 #include "scea/algo/nop.hpp"
 #include "scea/graph/lscsr.hpp"
@@ -18,13 +15,14 @@ using namespace std;
 static const char* name = "Edit Scalability Benchmarking Suite";
 static const char* desc = "Creates graphs from files in order to see how"
                           " edits impact algorithm performance.";
+namespace cl            = llvm::cl;
 
 /*
  * Command-line args
  */
 
-cl::opt<string> input_file_path(cl::Positional, cl::desc("[input file]"),
-                                cl::init("-"));
+cl::opt<std::string> input_file_path(cl::Positional, cl::desc("[input file]"),
+                                     cl::init("-"));
 
 cl::opt<size_t>
     ingest_threads("ingest-threads",
@@ -42,10 +40,12 @@ cl::opt<uint64_t> num_vertices("num-vertices",
 enum GraphType { lscsr, morph };
 
 cl::opt<GraphType>
-    graph_type("graph,g", cl::desc("Choose graph representation:"),
+    graph_type("graph", cl::desc("Choose graph representation:"),
                cl::init(lscsr),
                cl::values(clEnumValN(lscsr, "lscsr", "log-structured CSR"),
                           clEnumValN(morph, "morph", "Galois MorphGraph")));
+cl::alias graph_type_alias("g", cl::desc("Alias for --graph"),
+                           cl::aliasopt(graph_type));
 
 /*
  * Algo args
@@ -54,12 +54,14 @@ cl::opt<GraphType>
 enum AlgoName { nop, sssp_bfs };
 
 cl::opt<AlgoName> algo_name(
-    "algo,a", cl::desc("Choose algorithm to run:"), cl::init(nop),
+    "algo", cl::desc("Choose algorithm to run:"), cl::init(nop),
     cl::values(
         clEnumVal(nop, "do nothing"),
         clEnumValN(
             sssp_bfs, "bfs",
             "compute single-source shortest path using a parallel BFS")));
+cl::alias algo_name_alias("a", cl::desc("Alias for --algo"),
+                          cl::aliasopt(algo_name));
 
 cl::OptionCategory sssp_bfs_category("Options specific to BFS algorithm:");
 
@@ -74,52 +76,52 @@ int main(int argc, char const* argv[]) {
 
   // validate args
   if (ingest_threads == 0)
-    throw runtime_error("ingest threads must be greater than zero");
+    throw std::runtime_error("ingest threads must be greater than zero");
   if (algo_threads == 0)
-    throw runtime_error("algo threads must be greater than zero");
+    throw std::runtime_error("algo threads must be greater than zero");
 
-  unique_ptr<scea::graph::MutableGraph> graph;
+  std::unique_ptr<scea::graph::MutableGraph> graph;
   switch (graph_type) {
   case GraphType::lscsr: {
-    graph = make_unique<scea::graph::LS_CSR>(num_vertices);
+    graph = std::make_unique<scea::graph::LS_CSR>(num_vertices);
     break;
   }
   case GraphType::morph: {
-    graph = make_unique<scea::graph::MorphGraph>(num_vertices);
+    graph = std::make_unique<scea::graph::MorphGraph>(num_vertices);
     break;
   }
   default:
-    throw runtime_error("unknown graph_type");
+    throw std::runtime_error("unknown graph_type");
   }
 
-  unique_ptr<scea::algo::Algo> algo;
+  std::unique_ptr<scea::algo::Algo> algo;
   switch (algo_name) {
   case AlgoName::nop:
-    algo = make_unique<scea::algo::Nop>();
+    algo = std::make_unique<scea::algo::Nop>();
     break;
   case AlgoName::sssp_bfs:
-    algo = make_unique<scea::algo::SSSP_BFS>(sssp_bfs_src);
+    algo = std::make_unique<scea::algo::SSSP_BFS>(sssp_bfs_src);
     break;
   default:
-    throw runtime_error("unknown algorithm");
+    throw std::runtime_error("unknown algorithm");
   }
 
-  istream* in = &cin;
-  ifstream input_file;
+  std::istream* in = &std::cin;
+  std::ifstream input_file;
   if (input_file_path != "-") {
     input_file.open(input_file_path);
     in = &input_file;
   }
 
 #ifndef NDEBUG
-  once_flag warn_ignored_edges;
+  std::once_flag warn_ignored_edges;
   auto const validate_vertex = [&warn_ignored_edges](uint64_t vertex) {
     if (vertex >= num_vertices) {
-      call_once(warn_ignored_edges, []() {
-        cerr << "warning: some edges were ignored because at least one "
-                "vertex "
-                "was out of range"
-             << endl;
+      std::call_once(warn_ignored_edges, []() {
+        std::cerr << "warning: some edges were ignored because at least one "
+                     "vertex "
+                     "was out of range"
+                  << std::endl;
       });
       return false;
     }
@@ -136,14 +138,14 @@ int main(int argc, char const* argv[]) {
      */
 
     // parse the insertions
-    vector<pair<uint64_t, vector<uint64_t>>> insertions;
+    std::vector<std::pair<uint64_t, std::vector<uint64_t>>> insertions;
 
-    string batch_raw;
-    while (getline(*in, batch_raw)) {
+    std::string batch_raw;
+    while (std::getline(*in, batch_raw)) {
       if (batch_raw.length() == 0)
         break;
 
-      istringstream batch(batch_raw);
+      std::istringstream batch(batch_raw);
 
       uint64_t src;
       batch >> src;
@@ -152,7 +154,7 @@ int main(int argc, char const* argv[]) {
         break;
 #endif
 
-      vector<uint64_t> dsts;
+      std::vector<uint64_t> dsts;
       dsts.reserve(1);
       while (!batch.eof()) {
         uint64_t tmp;
@@ -165,9 +167,9 @@ int main(int argc, char const* argv[]) {
       }
 
       if (dsts.empty())
-        throw runtime_error("operation must include destination edges");
+        throw std::runtime_error("operation must include destination edges");
 
-      insertions.emplace_back(src, move(dsts));
+      insertions.emplace_back(src, std::move(dsts));
     }
 
     // execute the insertions
@@ -175,10 +177,11 @@ int main(int argc, char const* argv[]) {
       BENCHMARK_SCOPE("Ingestion");
 
       galois::setActiveThreads(ingest_threads);
-      galois::do_all(galois::iterate(insertions.begin(), insertions.end()),
-                     [&](pair<uint64_t, vector<uint64_t>> const& operation) {
-                       graph->add_edges(operation.first, operation.second);
-                     });
+      galois::do_all(
+          galois::iterate(insertions.begin(), insertions.end()),
+          [&](std::pair<uint64_t, std::vector<uint64_t>> const& operation) {
+            graph->add_edges(operation.first, operation.second);
+          });
     }
 
     // execute the algorithm
