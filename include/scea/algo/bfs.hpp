@@ -1,11 +1,14 @@
+// SPDX-License-Identifier: BSD-2-Clause
+// Copyright (c) 2023. University of Texas at Austin. All rights reserved.
+
 #pragma once
 
-#include "algo_interface.hpp"
-
-#include <limits>
 #include <atomic>
+#include <limits>
 #include <memory>
+#include <utility>
 
+#include "algo_interface.hpp"
 #include "galois/LargeArray.h"
 
 namespace scea::algo {
@@ -14,7 +17,7 @@ class SSSP_BFS : public Algo {
   const uint64_t m_src;
 
 public:
-  SSSP_BFS(uint64_t src) : m_src(src) {}
+  explicit SSSP_BFS(uint64_t src) : m_src(src) {}
 
   static galois::LargeArray<uint64_t> compute(scea::graph::MutableGraph& g,
                                               uint64_t src) {

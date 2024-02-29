@@ -1,10 +1,12 @@
+// SPDX-License-Identifier: BSD-2-Clause
+// Copyright (c) 2023. University of Texas at Austin. All rights reserved.
+
 #pragma once
 
-#include "scea/graph/mutable_graph_interface.hpp"
+#include <vector>
 
 #include "galois/graphs/MorphGraph.h"
-
-#include <vector>
+#include "scea/graph/mutable_graph_interface.hpp"
 
 namespace scea::graph {
 
@@ -16,7 +18,7 @@ private:
   std::vector<Graph::GraphNode> vertices;
 
 public:
-  MorphGraph(uint64_t num_vertices) : vertices(num_vertices) {
+  explicit MorphGraph(uint64_t num_vertices) : vertices(num_vertices) {
     for (uint64_t i = 0; i < num_vertices; ++i) {
       auto n = graph.createNode(i);
       graph.addNode(n);
