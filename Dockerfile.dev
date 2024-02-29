@@ -7,9 +7,9 @@ FROM --platform=linux/amd64 ubuntu:22.04 AS sonar
 
 RUN apt-get update && \
   apt-get install -y \
-    curl \
-    unzip \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+  curl \
+  unzip \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ENV SONAR_SCANNER_VERSION=5.0.0.2966
 RUN mkdir -p /tmp/sonar \
@@ -38,25 +38,25 @@ ARG GCC_VERSION=12.3.0
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update && \
   apt install -y \
-    ${COMPILER}=${GCC_VERSION}* \
-    build-essential \
-    make \
-    libboost-all-dev \
-    libfmt-dev \
-    lsb-release \
-    wget \
-    software-properties-common \
-    gnupg \
-    gdb \
-    vim \
-    git \
-    shfmt \
-    language-pack-en \
-    python3 \
-    python3-pip \
-    libfmt-dev \
-    libzstd-dev \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+  ${COMPILER}=${GCC_VERSION}* \
+  build-essential \
+  make \
+  libboost-all-dev \
+  libfmt-dev \
+  lsb-release \
+  wget \
+  software-properties-common \
+  gnupg \
+  gdb \
+  vim \
+  git \
+  shfmt \
+  language-pack-en \
+  python3 \
+  python3-pip \
+  libfmt-dev \
+  libzstd-dev \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 
@@ -69,36 +69,36 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
 # CMake
 RUN apt-get update -y \
-      &&  apt install -y ca-certificates gpg wget \
-      &&  wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null \
-      &&  echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ jammy main' | tee /etc/apt/sources.list.d/kitware.list >/dev/null \
-      &&  apt-get update -y \
-      &&  rm /usr/share/keyrings/kitware-archive-keyring.gpg \
-      &&  apt-get install -y kitware-archive-keyring \
-      &&  apt-get update -y \
-      &&  apt-get install -y cmake cmake-curses-gui \
-      &&  apt-get purge -y gpg wget \
-      &&  apt-get autoremove -y \
-      &&  apt-get clean -y \
-      &&  rm -rf /var/lib/apt/lists/*
+  &&  apt install -y ca-certificates gpg wget \
+  &&  wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null \
+  &&  echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ jammy main' | tee /etc/apt/sources.list.d/kitware.list >/dev/null \
+  &&  apt-get update -y \
+  &&  rm /usr/share/keyrings/kitware-archive-keyring.gpg \
+  &&  apt-get install -y kitware-archive-keyring \
+  &&  apt-get update -y \
+  &&  apt-get install -y cmake cmake-curses-gui \
+  &&  apt-get purge -y gpg wget \
+  &&  apt-get autoremove -y \
+  &&  apt-get clean -y \
+  &&  rm -rf /var/lib/apt/lists/*
 
 ARG IS_CI=true
 
 RUN if [ "${IS_CI}" != "true" ] ; then \
   apt update -y \
-    &&  apt install -y \
-    vim \
-    gdb \
-    universal-ctags \
-    powerline \
-    zsh \
-    valgrind \
-    sudo \
-    doxygen \
-    texlive-latex-extra \
-    texlive-font-utils \
-    &&  apt clean \
-    &&  update-locale; fi
+  &&  apt install -y \
+  vim \
+  gdb \
+  universal-ctags \
+  powerline \
+  zsh \
+  valgrind \
+  sudo \
+  doxygen \
+  texlive-latex-extra \
+  texlive-font-utils \
+  &&  apt clean \
+  &&  update-locale; fi
 
 ARG SRC_DIR=/galois
 ARG BUILD_DIR=/galois/build
@@ -107,10 +107,10 @@ ARG UID
 ARG GID
 
 RUN if [ "${UNAME}" != "root" ] ; then groupadd -g ${GID} ${UNAME} \
-      &&  useradd -ms /bin/bash  -u "${UID}" -g "${GID}" ${UNAME} ; fi
+  &&  useradd -ms /bin/bash  -u "${UID}" -g "${GID}" ${UNAME} ; fi
 
 RUN mkdir -p /home/${UNAME} \
-      && chown ${UNAME}:${UNAME} /home/${UNAME}
+  && chown ${UNAME}:${UNAME} /home/${UNAME}
 
 USER ${UNAME}
 WORKDIR /home/${UNAME}

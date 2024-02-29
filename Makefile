@@ -114,6 +114,8 @@ cmake:
 
 setup: cmake
 
+setup-ci: cmake
+
 .PHONY: test
 test:
 	@ctest --test-dir ${BUILD_DIR} --output-on-failure

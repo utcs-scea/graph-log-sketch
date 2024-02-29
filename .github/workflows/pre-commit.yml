@@ -1,0 +1,54 @@
+name: Docker / Ubuntu 22.04 / pre-commit
+run-name: docker-pre-commit-ubuntu-2204 performed by @${{ github.triggering_actor }}
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-pre-commit-ubuntu-2204:
+    name: pre-commit
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE_NAME: galois
+      CONTAINER_SRC_DIR: "/galois"
+      CONTAINER_BUILD_DIR: "/galois/dockerbuild"
+      CONTAINER_WORK_DIR: "/galois"
+      INTERACTIVE: ""
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.CI_PAT }}
+
+    - name: Set up environment variables
+      timeout-minutes: 1
+      run: |
+        echo "SRC_DIR=$(pwd)" >> $GITHUB_ENV
+        echo "IMAGE_VERSION=$(git log --pretty="%h" -1 Dockerfile.dev)" >> $GITHUB_ENV
+        cat $GITHUB_ENV
+
+    - name: Check pre-commit
+      timeout-minutes: 10
+      run: |
+        IMAGE_NAME="${{ env.IMAGE_NAME }}" \
+          VERSION="${{ env.IMAGE_VERSION }}" \
+          make docker-pre-commit
