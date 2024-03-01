@@ -42,6 +42,7 @@ public:
     while (!nextSt->empty()) {
       std::swap(currSt, nextSt);
       nextSt->clear();
+      // todo(meyer): is there any reason to do this during each execution?
       currSt->push(std::optional<uint64_t>());
 
       galois::do_all(
