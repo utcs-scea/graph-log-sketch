@@ -18,6 +18,8 @@ public:
 
   virtual void for_each_edge(uint64_t src,
                              std::function<void(uint64_t const&)> callback) = 0;
+
+  virtual void compact(){};
 };
 
 } // namespace scea::graph

@@ -66,6 +66,10 @@ cl::opt<AlgoName> algo_name(
 cl::alias algo_name_alias("a", cl::desc("Alias for --algo"),
                           cl::aliasopt(algo_name));
 
+cl::opt<bool>
+    compress("c",
+             cl::desc("Enable graph compression during algorithm execution"));
+
 cl::OptionCategory sssp_bfs_category("Options specific to BFS algorithm:");
 
 cl::opt<uint64_t> sssp_bfs_src("bfs-src", cl::desc("the source vertex"),
@@ -103,7 +107,7 @@ int main(int argc, char const* argv[]) {
     algo = std::make_unique<scea::algo::Nop>();
     break;
   case AlgoName::sssp_bfs:
-    algo = std::make_unique<scea::algo::SSSP_BFS>(sssp_bfs_src);
+    algo = std::make_unique<scea::algo::SSSP_BFS>(sssp_bfs_src, compress);
     break;
   default:
     throw std::runtime_error("unknown algorithm");

@@ -30,6 +30,8 @@ public:
     for (auto const& dst : graph.edges(src))
       callback(dst);
   }
+
+  void compact() override { graph.compact(); }
 };
 
 } // namespace scea::graph
