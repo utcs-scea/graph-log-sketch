@@ -1,6 +1,7 @@
 import subprocess
 import re
 import matplotlib.pyplot as plt
+import numpy as np
 
 def run_command(batch_number, ingest_threads, algo_threads):
     command = f"./build/edit-scalability --algo=nop --algo_threads={algo_threads} --graph,g=lscsr --ingest_threads={ingest_threads} --num-vertices=4 ./build/sample.txt"
@@ -56,6 +57,7 @@ def main(n, batch_numbers):
         plot_data(batch_number, thread_counts, avg_cpu_cycles_algorithm, 'Edit Scalability (algorithm)', f'plots/algorithm_cpu_cycles_batch_{batch_number}.png')
 
 if __name__ == "__main__":
-    n = 5
-    batch_numbers = [0, 1]
+    n = 1
+    num_batches = 2
+    batch_numbers = np.arange(num_batches)
     main(n, batch_numbers)
