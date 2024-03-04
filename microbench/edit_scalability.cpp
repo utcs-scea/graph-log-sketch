@@ -117,13 +117,15 @@ int main(int argc, char const* argv[]) {
   }
 
 #ifndef NDEBUG
+  uint64_t current_line = 0;
   std::once_flag warn_ignored_edges;
-  auto const validate_vertex = [&warn_ignored_edges](uint64_t vertex) {
+  auto const validate_vertex = [&warn_ignored_edges,
+                                &current_line](uint64_t vertex) {
     if (vertex >= num_vertices) {
-      std::call_once(warn_ignored_edges, []() {
-        std::cerr << "warning: some edges were ignored because at least one "
-                     "vertex "
-                     "was out of range"
+      std::call_once(warn_ignored_edges, [&current_line]() {
+        std::cerr << "warning on input line " << current_line
+                  << ": some edges were ignored because at least one "
+                     "vertex was out of range"
                   << std::endl;
       });
       return false;
@@ -145,6 +147,9 @@ int main(int argc, char const* argv[]) {
 
     std::string batch_raw;
     while (std::getline(*in, batch_raw)) {
+#ifndef NDEBUG
+      ++current_line;
+#endif
       if (batch_raw.length() == 0)
         break;
 
@@ -169,8 +174,10 @@ int main(int argc, char const* argv[]) {
         dsts.emplace_back(tmp);
       }
 
+#ifndef NDEBUG
       if (dsts.empty())
         throw std::runtime_error("operation must include destination edges");
+#endif
 
       insertions.emplace_back(src, std::move(dsts));
     }
