@@ -140,9 +140,8 @@ int main(int argc, char const* argv[]) {
 #ifndef NDEBUG
   uint64_t current_line = 0;
   std::once_flag warn_ignored_edges;
-  auto const validate_vertex = [&warn_ignored_edges,
-                                &current_line,
-                                 num_vertices](uint64_t vertex) {
+  auto const validate_vertex = [&warn_ignored_edges, &current_line,
+                                num_vertices](uint64_t vertex) {
     if (vertex >= num_vertices) {
       std::call_once(warn_ignored_edges, [&current_line]() {
         std::cerr << "warning on input line " << current_line
