@@ -8,72 +8,92 @@
 #include <utility>
 #include <vector>
 
-#include "llvm/Support/CommandLine.h"
+#include <boost/program_options.hpp>
+
 #include "scea/algo/bfs.hpp"
 #include "scea/algo/nop.hpp"
 #include "scea/graph/lscsr.hpp"
 #include "scea/graph/morph.hpp"
 #include "scea/perf.hpp"
 
-static const char* name = "Edit Scalability Benchmarking Suite";
-static const char* desc = "Creates graphs from files in order to see how"
-                          " edits impact algorithm performance.";
-namespace cl            = llvm::cl;
-
-/*
- * Command-line args
- */
-
-cl::opt<std::string> input_file_path(cl::Positional, cl::desc("[input file]"),
-                                     cl::init("-"));
-
-cl::opt<size_t>
-    ingest_threads("ingest-threads",
-                   cl::desc("number of threads used for ingesting edges"),
-                   cl::init(1));
-
-cl::opt<size_t> algo_threads("algo-threads",
-                             cl::desc("number of threads used for algorithm"),
-                             cl::init(1));
-
-cl::opt<uint64_t> num_vertices("num-vertices",
-                               cl::desc("number of vertices in the graph"),
-                               cl::Required);
-
 enum GraphType { lscsr, morph };
-
-cl::opt<GraphType>
-    graph_type("graph", cl::desc("Choose graph representation:"),
-               cl::init(lscsr),
-               cl::values(clEnumValN(lscsr, "lscsr", "log-structured CSR"),
-                          clEnumValN(morph, "morph", "Galois MorphGraph")));
-cl::alias graph_type_alias("g", cl::desc("Alias for --graph"),
-                           cl::aliasopt(graph_type));
-
-/*
- * Algo args
- */
-
 enum AlgoName { nop, sssp_bfs };
 
-cl::opt<AlgoName> algo_name(
-    "algo", cl::desc("Choose algorithm to run:"), cl::init(nop),
-    cl::values(
-        clEnumVal(nop, "do nothing"),
-        clEnumValN(
-            sssp_bfs, "bfs",
-            "compute single-source shortest path using a parallel BFS")));
-cl::alias algo_name_alias("a", cl::desc("Alias for --algo"),
-                          cl::aliasopt(algo_name));
+std::istream& operator>>(std::istream& in, GraphType& type) {
+  std::string name;
+  in >> name;
 
-cl::OptionCategory sssp_bfs_category("Options specific to BFS algorithm:");
+  if (name == "lscsr") {
+    type = lscsr;
+  } else if (name == "morph") {
+    type = morph;
+  } else {
+    // Handle invalid input (throw exception, print error message, etc.)
+    in.setstate(std::ios_base::failbit);
+  }
 
-cl::opt<uint64_t> sssp_bfs_src("bfs-src", cl::desc("the source vertex"),
-                               cl::cat(sssp_bfs_category));
+  return in;
+}
+
+std::istream& operator>>(std::istream& in, AlgoName& name) {
+  std::string type;
+  in >> type;
+
+  if (type == "nop") {
+    name = nop;
+  } else if (type == "bfs") {
+    name = sssp_bfs;
+  } else {
+    // Handle invalid input (throw exception, print error message, etc.)
+    in.setstate(std::ios_base::failbit);
+  }
+
+  return in;
+}
 
 int main(int argc, char const* argv[]) {
-  // parse args
-  cl::ParseCommandLineOptions(argc, argv);
+  namespace po = boost::program_options;
+  po::options_description desc("Edit Scalability Benchmarking Suite");
+  desc.add_options()                                              //
+      ("help,h", "Print help messages")                           //
+      ("input-file", po::value<std::string>(), "Input file path") //
+      ("ingest-threads", po::value<size_t>()->default_value(1),
+       "Number of threads for ingesting edges") //
+      ("algo-threads", po::value<size_t>()->default_value(1),
+       "Number of threads for the algorithm") //
+      ("num-vertices", po::value<uint64_t>()->required(),
+       "Number of vertices in the graph") //
+      ("graph,g", po::value<GraphType>()->default_value(lscsr),
+       "Graph representation (lscsr: log-structured CSR, morph: Galois "
+       "MorphGraph)") //
+      ("algo", po::value<AlgoName>()->default_value(nop),
+       "Algorithm to run (nop: do nothing, bfs: compute "
+       "single-source shortest path using BFS)")                              //
+      ("bfs-src", po::value<uint64_t>(), "Source vertex (for BFS algorithm)") //
+      ;
+
+  po::variables_map vm;
+  try {
+    // Parse command line arguments
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
+  } catch (po::error& e) {
+    std::cout << e.what() << std::endl;
+    std::cout << desc << std::endl;
+  }
+
+  // Check for help option
+  if (vm.count("help")) {
+    std::cout << desc << std::endl;
+    return 1;
+  }
+
+  std::string const input_file_path = vm["input-file"].as<std::string>();
+  size_t const ingest_threads       = vm["ingest-threads"].as<size_t>();
+  size_t const algo_threads         = vm["algo-threads"].as<size_t>();
+  uint64_t const num_vertices       = vm["num-vertices"].as<uint64_t>();
+  GraphType const graph_type        = vm["graph"].as<GraphType>();
+  AlgoName const algo_name          = vm["algo"].as<AlgoName>();
 
   galois::SharedMemSys sys;
 
@@ -99,12 +119,14 @@ int main(int argc, char const* argv[]) {
 
   std::unique_ptr<scea::algo::Algo> algo;
   switch (algo_name) {
-  case AlgoName::nop:
+  case AlgoName::nop: {
     algo = std::make_unique<scea::algo::Nop>();
     break;
-  case AlgoName::sssp_bfs:
-    algo = std::make_unique<scea::algo::SSSP_BFS>(sssp_bfs_src);
+  }
+  case AlgoName::sssp_bfs: {
+    algo = std::make_unique<scea::algo::SSSP_BFS>(vm["bfs-src"].as<uint64_t>());
     break;
+  }
   default:
     throw std::runtime_error("unknown algorithm");
   }
@@ -118,7 +140,8 @@ int main(int argc, char const* argv[]) {
 
 #ifndef NDEBUG
   std::once_flag warn_ignored_edges;
-  auto const validate_vertex = [&warn_ignored_edges](uint64_t vertex) {
+  auto const validate_vertex = [&warn_ignored_edges,
+                                num_vertices](uint64_t vertex) {
     if (vertex >= num_vertices) {
       std::call_once(warn_ignored_edges, []() {
         std::cerr << "warning: some edges were ignored because at least one "
