@@ -68,9 +68,8 @@ int main(int argc, char const* argv[]) {
        "MorphGraph)") //
       ("algo", po::value<AlgoName>()->default_value(nop),
        "Algorithm to run (nop: do nothing, bfs: compute "
-       "single-source shortest path using BFS)")                              //
-      ("bfs-src", po::value<uint64_t>(), "Source vertex (for BFS algorithm)") //
-      ;
+       "single-source shortest path using BFS)") //
+      ("bfs-src", po::value<uint64_t>(), "Source vertex (for BFS algorithm)");
 
   po::variables_map vm;
   try {
