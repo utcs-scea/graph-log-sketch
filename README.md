@@ -95,3 +95,12 @@ make hooks
 # run pre-commit on repo once
 make pre-commit
 ```
+
+### [ninja](https://ninja-build.org/)
+
+Developers can use Ninja instead of Make to build by adding the following to their
+`.bashrc` or `.profile` settings.
+
+```shell
+export GALOIS_CONTAINER_ENV="-e GALOIS_BUILD_TOOL=Ninja"
+```
