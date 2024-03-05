@@ -17,7 +17,7 @@ CONTAINER_BUILD_DIR ?= /galois/build
 CONTAINER_WORKDIR ?= ${CONTAINER_SRC_DIR}
 CONTAINER_CONTEXT ?= default
 CONTAINER_OPTS ?=
-CONTAINER_CMD ?= setarch `uname -m` -R bash -l
+CONTAINER_CMD ?= bash -l
 INTERACTIVE ?= i
 
 BUILD_TYPE ?= Release
@@ -32,6 +32,19 @@ GALOIS_CONTAINER_ENV ?=
 GALOIS_CONTAINER_FLAGS ?=
 GALOIS_BUILD_TOOL ?= 'Unix Makefiles'
 GALOIS_CCACHE_DIR ?= ${SRC_DIR}/.ccache
+
+# Variables for SonarQube
+PROFILE ?= observability
+CONTAINER_SONAR_DIR ?= /galois/build-sonar
+CONTAINER_SONAR_CMD ?= ${CONTAINER_CMD} -c "make sonar-scan"
+SONAR_EXE ?= sonar-scanner
+SONAR_PROJECT_VERSION ?= -Dsonar.projectVersion=0.1.0
+define sonar_ip
+$(shell kubectl --context ${PROFILE} get nodes --namespace sonarqube -o jsonpath="{.items[0].status.addresses[0].address}")
+endef
+define sonar_port
+$(shell kubectl --context ${PROFILE} get --namespace sonarqube -o jsonpath="{.spec.ports[0].nodePort}" services sonarqube-sonarqube)
+endef
 
 dependencies: dependencies-asdf
 
@@ -128,6 +141,57 @@ test:
 	@ctest --test-dir ${BUILD_DIR} --output-on-failure
 
 run-tests: test
+
+gcovr:
+	@echo "Should be run outside a container"
+	@echo file://${SRC_DIR}/build-sonar/coverage/html
+	@python -mwebbrowser file://${SRC_DIR}/build-sonar/coverage/html
+
+sonar:
+	@echo "Should be run outside a container"
+	@echo http://$(call sonar_ip):$(call sonar_port)
+	@python -mwebbrowser http://$(call sonar_ip):$(call sonar_port)
+
+
+run-gcovr:
+	COVERAGE_CMD='echo done' ${MAKE} run-coverage
+
+run-sonar:
+	COVERAGE_CMD="${SONAR_EXE} -Dsonar.host.url=http://$(call sonar_ip):$(call sonar_port) ${SONAR_PROJECT_VERSION}" ${MAKE} run-coverage
+
+run-coverage:
+	@docker --context ${CONTAINER_CONTEXT} run --rm \
+	-v ${SRC_DIR}/:${CONTAINER_SRC_DIR} \
+	${GALOIS_CONTAINER_MOUNTS} \
+	${GALOIS_CONTAINER_ENV} \
+	-e=COVERAGE_CMD="${COVERAGE_CMD}" \
+	--privileged \
+	--net=host \
+	--workdir=${CONTAINER_WORKDIR} ${CONTAINER_OPTS} -${INTERACTIVE}t \
+	${IMAGE_NAME}:${VERSION} \
+	${CONTAINER_SONAR_CMD}
+
+sonar-scan:
+	@mkdir -p ${CONTAINER_SONAR_DIR}/coverage
+	@cmake \
+  -S ${SRC_DIR} \
+  -B ${CONTAINER_SONAR_DIR} \
+	-DCMAKE_C_COMPILER=gcc-12 \
+	-DCMAKE_CXX_COMPILER=g++-12 \
+  -DCMAKE_BUILD_TYPE=Coverage \
+  -DBUILD_TESTING=ON
+	@cd ${CONTAINER_SONAR_DIR} && \
+	make -j8 && \
+	ctest --verbose --output-junit junit.xml
+	@cd ${CONTAINER_SONAR_DIR} && \
+	gcovr \
+	--gcov-executable gcov-12 \
+	--root .. \
+	--xml-pretty --xml cobertura.xml \
+	--sonarqube sonarqube.xml \
+	--html-details coverage/html \
+	-j8 .
+	@${COVERAGE_CMD}
 
 # this command is slow since hooks are not stored in the container image
 # this is mostly for CI use
