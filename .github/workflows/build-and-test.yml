@@ -47,6 +47,7 @@ jobs:
       CONTAINER_BUILD_DIR: "/galois/build"
       CONTAINER_WORK_DIR: "/galois"
       GALOIS_CONTAINER_ENV: "-e=GALOIS_BUILD_TOOL=Ninja"
+      GALOIS_CONTAINER_FLAGS: "--cpus=8"
       INTERACTIVE: ""
     defaults:
       run:
@@ -93,7 +94,7 @@ jobs:
     - name: Build
       timeout-minutes: 15
       run: |
-        CONTAINER_CMD="bash -c 'ninja -j 8 || ninja -j 1 || ninja -j 1'" \
+        CONTAINER_CMD="bash -c 'ninja || ninja || ninja'" \
           IMAGE_NAME="${{ env.IMAGE_NAME }}" \
           VERSION="${{ env.IMAGE_VERSION }}" \
           CONTAINER_WORKDIR="${{ env.CONTAINER_BUILD_DIR }}" \

@@ -29,6 +29,7 @@ GALOIS_EXTRA_CXX_FLAGS ?= ""
 # Developer variables that should be set as env vars in startup files like .profile
 GALOIS_CONTAINER_MOUNTS ?=
 GALOIS_CONTAINER_ENV ?=
+GALOIS_CONTAINER_FLAGS ?=
 GALOIS_BUILD_TOOL ?= 'Unix Makefiles'
 GALOIS_CCACHE_DIR ?= ${SRC_DIR}/.ccache
 
@@ -95,6 +96,7 @@ docker:
 	-v ${GALOIS_CCACHE_DIR}/:/home/${UNAME}/.ccache \
 	${GALOIS_CONTAINER_MOUNTS} \
 	${GALOIS_CONTAINER_ENV} \
+	${GALOIS_CONTAINER_FLAGS} \
 	--privileged \
 	--workdir=${CONTAINER_WORKDIR} \
 	${CONTAINER_OPTS} \
