@@ -102,6 +102,7 @@ RUN if [ "${IS_CI}" != "true" ] ; then \
   doxygen \
   texlive-latex-extra \
   texlive-font-utils \
+  gcovr \
   &&  apt clean \
   &&  update-locale; fi
 
