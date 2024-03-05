@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 def run_command(batch_number, ingest_threads, algo_threads):
-    command = f"./build/edit-scalability --algo=nop --algo_threads={algo_threads} --graph,g=lscsr --ingest_threads={ingest_threads} --num-vertices=4 ./build/sample.txt"
+    command = f"./build/microbench/edit-scalability --algo=nop --algo-threads={algo_threads} --graph=lscsr --ingest-threads={ingest_threads} --num-vertices=65608366 --input-file=/var/local/graphs/inputs/friendster_batched_10.el"
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Command failed with error: {result.stderr}")
@@ -58,6 +58,6 @@ def main(n, batch_numbers):
 
 if __name__ == "__main__":
     n = 1
-    num_batches = 2
+    num_batches = 10
     batch_numbers = np.arange(num_batches)
     main(n, batch_numbers)

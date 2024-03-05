@@ -1,13 +1,28 @@
 import argparse
 import random
+from collections import defaultdict
 
-def divide_file_into_batches(input_file, num_batches, output_file, randomize=False, sort_within_batch=False):
+def group_edges_by_source(lines):
+    grouped_edges = defaultdict(list)
+    for line in lines:
+        parts = line.strip().split()
+        if len(parts) < 2:
+            continue
+        source, targets = parts[0], parts[1:]
+        grouped_edges[source].extend(targets)
+    grouped_lines = [f"{source} {' '.join(targets)}\n" for source, targets in grouped_edges.items()]
+    return grouped_lines
+
+def divide_file_into_batches(input_file, num_batches, output_file, randomize=False, sort_within_batch=True, group_by_source=True):
     try:
         with open(input_file, 'r') as f:
             lines = f.readlines()
         
         if randomize:
             random.shuffle(lines)
+        
+        if group_by_source:
+            lines = group_edges_by_source(lines)
         
         n = len(lines)
         lines_per_batch = n // num_batches
@@ -60,6 +75,10 @@ parser.add_argument('--sort_within_batch',
                     action='store_true',
                     help='sort edges within each batch by source vertex')
 
+parser.add_argument('--group_by_source',
+                    action='store_true',
+                    help='group edges by source vertex')
+
 args = parser.parse_args()
 
-divide_file_into_batches(args.input, args.num_batches, args.output, args.random, args.sort_within_batch)
+divide_file_into_batches(args.input, args.num_batches, args.output, args.random, args.sort_within_batch, args.group_by_source)

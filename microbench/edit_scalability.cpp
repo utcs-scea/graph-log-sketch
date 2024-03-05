@@ -153,6 +153,7 @@ int main(int argc, char const* argv[]) {
     return true;
   };
 #endif
+  int batch = 0;
 
   while (!in->eof()) { // for each batch
     /*
@@ -199,7 +200,7 @@ int main(int argc, char const* argv[]) {
 
     // execute the insertions
     if (!insertions.empty()) {
-      BENCHMARK_SCOPE("Ingestion");
+      BENCHMARK_SCOPE("Ingestion for Batch " + std::to_string(batch));
 
       galois::setActiveThreads(ingest_threads);
       galois::do_all(
@@ -211,11 +212,12 @@ int main(int argc, char const* argv[]) {
 
     // execute the algorithm
     {
-      BENCHMARK_SCOPE("Algorithm");
+      BENCHMARK_SCOPE("Algorithm for Batch " + std::to_string(batch));
 
       galois::setActiveThreads(algo_threads);
       (*algo)(*graph);
     }
+    batch++;
   }
 
   return 0;
