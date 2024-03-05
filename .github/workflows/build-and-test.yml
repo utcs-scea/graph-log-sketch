@@ -46,6 +46,7 @@ jobs:
       CONTAINER_SRC_DIR: "/galois"
       CONTAINER_BUILD_DIR: "/galois/build"
       CONTAINER_WORK_DIR: "/galois"
+      GALOIS_CONTAINER_ENV: "-e=GALOIS_BUILD_TOOL=Ninja"
       INTERACTIVE: ""
     defaults:
       run:
@@ -71,16 +72,18 @@ jobs:
         echo "UID=$(id -u)" >> $GITHUB_ENV
         echo "GID=$(id -g)" >> $GITHUB_ENV
         echo "SRC_DIR=$(pwd)" >> $GITHUB_ENV
+        echo "GALOIS_CCACHE_DIR=/var/local/$(whoami)/.ccache" >> $GITHUB_ENV
         echo "GALOIS_TEST_DISCOVERY_TIMEOUT=600" >> $GITHUB_ENV
         echo "IMAGE_VERSION=$(git log --pretty="%h" -1 Dockerfile.dev)" >> $GITHUB_ENV
         if [ ${{ matrix.sanitizer-type }} == 'san' ]; then
-          echo "GALOIS_CONTAINER_ENV=-e=GALOIS_EXTRA_CXX_FLAGS='\"-fsanitize=address -fsanitize=undefined\"'" >> $GITHUB_ENV
+          echo "GALOIS_CONTAINER_ENV=$GALOIS_CONTAINER_ENV -e=GALOIS_EXTRA_CXX_FLAGS='\"-fsanitize=address -fsanitize=undefined\"'" >> $GITHUB_ENV
         fi
         cat $GITHUB_ENV
 
     - name: Configure
       timeout-minutes: 10
       run: |
+        mkdir -p ${{ env.GALOIS_CCACHE_DIR }} -m=777
         CONTAINER_CMD="make setup-ci" \
           CONTAINER_OPTS="-e=BUILD_TYPE=${{ matrix.build-type }}" \
           IMAGE_NAME="${{ env.IMAGE_NAME }}" \
@@ -90,7 +93,7 @@ jobs:
     - name: Build
       timeout-minutes: 15
       run: |
-        CONTAINER_CMD="bash -c 'make -j8 || make || make'" \
+        CONTAINER_CMD="bash -c 'ninja -j 8 || ninja -j 1 || ninja -j 1'" \
           IMAGE_NAME="${{ env.IMAGE_NAME }}" \
           VERSION="${{ env.IMAGE_VERSION }}" \
           CONTAINER_WORKDIR="${{ env.CONTAINER_BUILD_DIR }}" \

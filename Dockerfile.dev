@@ -65,7 +65,7 @@ COPY --from=sonar /usr/local/sonar-scanner-*-linux /usr/local/sonar-scanner-linu
 RUN for exe in /usr/local/sonar-scanner-linux/bin/*; do ln -s ${exe} /usr/local/bin/$(basename "${exe}"); done
 COPY --from=sonar /sonar/sonar.sh /sonar/sonar.sh
 
-# CMake
+# CMake and build optimization packages
 RUN apt-get update -y \
   &&  apt install -y ca-certificates gpg wget \
   &&  wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null \
@@ -79,6 +79,11 @@ RUN apt-get update -y \
   &&  apt-get autoremove -y \
   &&  apt-get clean -y \
   &&  rm -rf /var/lib/apt/lists/*
+RUN apt update && \
+  apt install -y \
+  ccache \
+  ninja-build \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ARG IS_CI=true
 
