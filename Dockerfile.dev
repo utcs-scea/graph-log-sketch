@@ -40,6 +40,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update && \
   apt install -y \
   ${COMPILER}=${GCC_VERSION}* \
+  ccache \
   build-essential \
   make \
   libboost-all-dev \
@@ -57,6 +58,7 @@ RUN apt update && \
   python3-pip \
   libfmt-dev \
   libzstd-dev \
+  unzip \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
@@ -75,15 +77,16 @@ RUN apt-get update -y \
   &&  apt-get install -y kitware-archive-keyring \
   &&  apt-get update -y \
   &&  apt-get install -y cmake cmake-curses-gui \
-  &&  apt-get purge -y gpg wget \
+  &&  apt-get purge -y gpg \
   &&  apt-get autoremove -y \
   &&  apt-get clean -y \
   &&  rm -rf /var/lib/apt/lists/*
-RUN apt update && \
-  apt install -y \
-  ccache \
-  ninja-build \
-  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Minimum version required for ninja to be cgroup aware
+ENV NINJA_BUILD_VERSION=1.11.1
+RUN wget https://github.com/ninja-build/ninja/releases/download/v${NINJA_BUILD_VERSION}/ninja-linux.zip -P /tmp && \
+  unzip /tmp/ninja-linux.zip -d /usr/bin && \
+  rm /tmp/ninja-linux.zip
 
 ARG IS_CI=true
 
