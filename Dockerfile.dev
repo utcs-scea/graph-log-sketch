@@ -82,7 +82,6 @@ RUN apt-get update -y \
   &&  apt-get clean -y \
   &&  rm -rf /var/lib/apt/lists/*
 
-# Minimum version required for ninja to be cgroup aware
 ENV NINJA_BUILD_VERSION=1.11.1
 RUN wget https://github.com/ninja-build/ninja/releases/download/v${NINJA_BUILD_VERSION}/ninja-linux.zip -P /tmp && \
   unzip /tmp/ninja-linux.zip -d /usr/bin && \

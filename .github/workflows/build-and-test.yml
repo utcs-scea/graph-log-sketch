@@ -94,7 +94,7 @@ jobs:
     - name: Build
       timeout-minutes: 15
       run: |
-        CONTAINER_CMD="bash -c 'ninja || ninja || ninja'" \
+        CONTAINER_CMD="bash -c 'ninja -j10 || ninja || ninja'" \
           IMAGE_NAME="${{ env.IMAGE_NAME }}" \
           VERSION="${{ env.IMAGE_VERSION }}" \
           CONTAINER_WORKDIR="${{ env.CONTAINER_BUILD_DIR }}" \
