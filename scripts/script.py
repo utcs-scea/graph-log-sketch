@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2023. University of Texas at Austin. All rights reserved.
+
 import subprocess
 import re
 import matplotlib.pyplot as plt
@@ -22,7 +25,7 @@ def extract_cpu_cycles_for_algorithm(batch_number, output):
 def average_cpu_cycles(batch_number, threads, n, func):
     total_cpu_cycles = 0
     for _ in range(n):
-        output = run_command(batch_number, threads if func == extract_cpu_cycles_for_ingestion else 1, 
+        output = run_command(batch_number, threads if func == extract_cpu_cycles_for_ingestion else 1,
                              1 if func == extract_cpu_cycles_for_ingestion else threads)
         if output:
             cpu_cycles = func(batch_number, output)

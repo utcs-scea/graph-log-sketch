@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2023. University of Texas at Austin. All rights reserved.
+
 import argparse
 import random
 from collections import defaultdict
@@ -17,30 +20,30 @@ def divide_file_into_batches(input_file, num_batches, output_file, randomize=Fal
     try:
         with open(input_file, 'r') as f:
             lines = f.readlines()
-        
+
         if randomize:
             random.shuffle(lines)
-        
+
         if group_by_source:
             lines = group_edges_by_source(lines)
-        
+
         n = len(lines)
         lines_per_batch = n // num_batches
         if n % num_batches:
             lines_per_batch += 1
-        
+
         batches = [lines[i:i + lines_per_batch] for i in range(0, n, lines_per_batch)]
-        
+
         if sort_within_batch:
             for i in range(len(batches)):
                 batches[i] = sorted(batches[i], key=lambda x: int(x.split()[0]))
-        
+
         with open(output_file, 'w') as f:
             for batch in batches:
                 for line in batch:
                     f.write(line)
                 f.write('\n')
-            
+
         print(f"File divided into {num_batches} batches and saved to {output_file}")
     except FileNotFoundError:
         print("Input file not found.")
