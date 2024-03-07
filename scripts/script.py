@@ -52,12 +52,12 @@ def plot_data(batch_number, thread_counts, avg_cpu_cycles_data, title, filename)
     print(f"Bar chart saved to '{filename}'")
 
 def main(n, batch_numbers):
-    thread_counts = [1, 2, 4, 8, 16]
+    thread_counts = [1, 2, 4, 8]
     for batch_number in batch_numbers:
         avg_cpu_cycles_ingestion = [average_cpu_cycles(batch_number, threads, n, extract_cpu_cycles_for_ingestion) for threads in thread_counts]
-        plot_data(batch_number, thread_counts, avg_cpu_cycles_ingestion, 'Edit Scalability (ingest)', f'plots/ingestion_cpu_cycles_batch_{batch_number}.png')
+        plot_data(batch_number, thread_counts, avg_cpu_cycles_ingestion, 'Edit Scalability (ingest)', f'plots_after_prefaulting/ingestion_cpu_cycles_batch_{batch_number}.png')
         avg_cpu_cycles_algorithm = [average_cpu_cycles(batch_number, threads, n, extract_cpu_cycles_for_algorithm) for threads in thread_counts]
-        plot_data(batch_number, thread_counts, avg_cpu_cycles_algorithm, 'Edit Scalability (algorithm)', f'plots/algorithm_cpu_cycles_batch_{batch_number}.png')
+        plot_data(batch_number, thread_counts, avg_cpu_cycles_algorithm, 'Edit Scalability (algorithm)', f'plots_after_prefaulting/algorithm_cpu_cycles_batch_{batch_number}.png')
 
 if __name__ == "__main__":
     n = 1
