@@ -125,6 +125,8 @@ RUN pip3 install compdb pre-commit cpplint "clang-format>=12.0.1"
 
 RUN echo "export SRC_DIR=${SRC_DIR}" >> /home/${UNAME}/.profile
 RUN echo "export BUILD_DIR=${BUILD_DIR}" >> /home/${UNAME}/.profile
+RUN echo "touch ${SRC_DIR}/env-docker.sh" >> /home/${UNAME}/.profile
+RUN echo "bash ${SRC_DIR}/env-docker.sh" >> /home/${UNAME}/.profile
 
 RUN echo "PATH=/home/${UNAME}/.local/bin/:\$PATH" >> /home/${UNAME}/.zshenv
 WORKDIR ${SRC_DIR}

@@ -3,3 +3,4 @@ build*/
 data
 .ccache
 tmp*/
+env-docker.sh
