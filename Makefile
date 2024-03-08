@@ -29,6 +29,9 @@ GALOIS_EXTRA_CXX_FLAGS ?= ""
 # Developer variables that should be set as env vars in startup files like .profile
 GALOIS_CONTAINER_MOUNTS ?=
 GALOIS_CONTAINER_ENV ?=
+GALOIS_CONTAINER_FLAGS ?=
+GALOIS_BUILD_TOOL ?= 'Unix Makefiles'
+GALOIS_CCACHE_DIR ?= ${SRC_DIR}/.ccache
 
 dependencies: dependencies-asdf
 
@@ -84,13 +87,16 @@ docker-image:
 docker-image-dependencies:
 	@mkdir -p build
 	@mkdir -p data
+	@mkdir -p .ccache
 
 .PHONY: docker
 docker:
 	@docker --context ${CONTAINER_CONTEXT} run --rm \
 	-v ${SRC_DIR}/:${CONTAINER_SRC_DIR} \
+	-v ${GALOIS_CCACHE_DIR}/:/home/${UNAME}/.ccache \
 	${GALOIS_CONTAINER_MOUNTS} \
 	${GALOIS_CONTAINER_ENV} \
+	${GALOIS_CONTAINER_FLAGS} \
 	--privileged \
 	--workdir=${CONTAINER_WORKDIR} \
 	${CONTAINER_OPTS} \
@@ -104,6 +110,7 @@ cmake:
 	@cmake \
   -S ${SRC_DIR} \
   -B ${BUILD_DIR} \
+	-G ${GALOIS_BUILD_TOOL} \
   -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
 	-DCMAKE_CXX_FLAGS=${GALOIS_EXTRA_CXX_FLAGS} \
   -DCMAKE_INSTALL_PREFIX=/opt/galois \

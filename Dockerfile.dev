@@ -40,6 +40,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update && \
   apt install -y \
   ${COMPILER}=${GCC_VERSION}* \
+  ccache \
   build-essential \
   make \
   libboost-all-dev \
@@ -57,6 +58,7 @@ RUN apt update && \
   python3-pip \
   libfmt-dev \
   libzstd-dev \
+  unzip \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
@@ -65,7 +67,7 @@ COPY --from=sonar /usr/local/sonar-scanner-*-linux /usr/local/sonar-scanner-linu
 RUN for exe in /usr/local/sonar-scanner-linux/bin/*; do ln -s ${exe} /usr/local/bin/$(basename "${exe}"); done
 COPY --from=sonar /sonar/sonar.sh /sonar/sonar.sh
 
-# CMake
+# CMake and build optimization packages
 RUN apt-get update -y \
   &&  apt install -y ca-certificates gpg wget \
   &&  wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null \
@@ -75,10 +77,15 @@ RUN apt-get update -y \
   &&  apt-get install -y kitware-archive-keyring \
   &&  apt-get update -y \
   &&  apt-get install -y cmake cmake-curses-gui \
-  &&  apt-get purge -y gpg wget \
+  &&  apt-get purge -y gpg \
   &&  apt-get autoremove -y \
   &&  apt-get clean -y \
   &&  rm -rf /var/lib/apt/lists/*
+
+ENV NINJA_BUILD_VERSION=1.11.1
+RUN wget https://github.com/ninja-build/ninja/releases/download/v${NINJA_BUILD_VERSION}/ninja-linux.zip -P /tmp && \
+  unzip /tmp/ninja-linux.zip -d /usr/bin && \
+  rm /tmp/ninja-linux.zip
 
 ARG IS_CI=true
 
@@ -118,6 +125,8 @@ RUN pip3 install compdb pre-commit cpplint "clang-format>=12.0.1"
 
 RUN echo "export SRC_DIR=${SRC_DIR}" >> /home/${UNAME}/.profile
 RUN echo "export BUILD_DIR=${BUILD_DIR}" >> /home/${UNAME}/.profile
+RUN echo "touch ${SRC_DIR}/env-docker.sh" >> /home/${UNAME}/.profile
+RUN echo "bash ${SRC_DIR}/env-docker.sh" >> /home/${UNAME}/.profile
 
 RUN echo "PATH=/home/${UNAME}/.local/bin/:\$PATH" >> /home/${UNAME}/.zshenv
 WORKDIR ${SRC_DIR}

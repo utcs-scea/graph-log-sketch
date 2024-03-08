@@ -95,3 +95,12 @@ make hooks
 # run pre-commit on repo once
 make pre-commit
 ```
+
+### [ninja](https://ninja-build.org/)
+
+Developers can use Ninja instead of Make to build by adding the following to the
+git ignored file `env-docker.sh` in the source tree root.
+
+```shell
+export GALOIS_BUILD_TOOL=Ninja
+```
