@@ -7,6 +7,7 @@
 #include <sstream>
 #include <utility>
 #include <vector>
+#include <unordered_map>
 
 #include <boost/program_options.hpp>
 
@@ -165,7 +166,7 @@ int main(int argc, char const* argv[]) {
      */
 
     // parse the insertions
-    std::vector<std::pair<uint64_t, std::vector<uint64_t>>> insertions;
+    std::unordered_map<uint64_t, std::vector<uint64_t>> insertions;
 
     std::string batch_raw;
     while (std::getline(*in, batch_raw)) {
@@ -184,8 +185,6 @@ int main(int argc, char const* argv[]) {
         break;
 #endif
 
-      std::vector<uint64_t> dsts;
-      dsts.reserve(1);
       while (!batch.eof()) {
         uint64_t tmp;
         batch >> tmp;
@@ -193,15 +192,8 @@ int main(int argc, char const* argv[]) {
         if (!validate_vertex(tmp))
           continue;
 #endif
-        dsts.emplace_back(tmp);
+        insertions[src].emplace_back(tmp);
       }
-
-#ifndef NDEBUG
-      if (dsts.empty())
-        throw std::runtime_error("operation must include destination edges");
-#endif
-
-      insertions.emplace_back(src, std::move(dsts));
     }
 
     // execute the insertions
