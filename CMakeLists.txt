@@ -54,6 +54,9 @@ set(BUILD_TESTING OFF)
 add_subdirectory(galois EXCLUDE_FROM_ALL)
 set(BUILD_TESTING "${BUILD_TESTING_SAVED}")
 
+set(PHMAP_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/galois/external/parallel-hashmap)
+set(PCG_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/galois/external/pcg-cpp/include)
+
 add_subdirectory(microbench)
 
 # tests
