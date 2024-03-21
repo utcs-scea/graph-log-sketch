@@ -15,9 +15,10 @@
 #include "scea/algo/nop.hpp"
 #include "scea/graph/lscsr.hpp"
 #include "scea/graph/morph.hpp"
+#include "scea/graph/adj.hpp"
 #include "scea/perf.hpp"
 
-enum GraphType { lscsr, morph };
+enum GraphType { lscsr, morph, adj };
 enum AlgoName { nop, sssp_bfs };
 
 std::istream& operator>>(std::istream& in, GraphType& type) {
@@ -28,6 +29,8 @@ std::istream& operator>>(std::istream& in, GraphType& type) {
     type = lscsr;
   } else if (name == "morph") {
     type = morph;
+  } else if (name == "adj") {
+    type = adj;
   } else {
     // Handle invalid input (throw exception, print error message, etc.)
     in.setstate(std::ios_base::failbit);
@@ -111,6 +114,10 @@ int main(int argc, char const* argv[]) {
   }
   case GraphType::morph: {
     graph = std::make_unique<scea::graph::MorphGraph>(num_vertices);
+    break;
+  }
+  case GraphType::adj: {
+    graph = std::make_unique<scea::graph::AdjGraph>(num_vertices);
     break;
   }
   default:
