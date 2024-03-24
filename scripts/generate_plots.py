@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 def run_command(batch_number, ingest_threads, algo_threads, graph_type):
-    command = f"./build/microbench/edit-scalability --algo=nop --algo-threads={algo_threads} --graph={graph_type} --ingest-threads={ingest_threads} --num-vertices=124836180 --input-file=/var/local/graphs/inputs/friendster_batched_10.el"
+    command = f"./build/microbench/edit-scalability --algo=bfs --bfs-src=101 --algo-threads={algo_threads} --graph={graph_type} --ingest-threads={ingest_threads} --num-vertices=124836180 --input-file=/var/local/graphs/inputs/friendster_batched_10.el"
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Command failed with error: {result.stderr}")
@@ -61,15 +61,42 @@ def plot_comparison_data(batch_number, thread_counts, avg_cpu_cycles_data_lscsr,
         print("No valid data to plot.")
 
 
+def plot_stacked_comparison_data(batch_number, thread_counts, ingestion_data, algorithm_data, title, filename):
+    plt.figure(figsize=(10, 6))
+    positions = np.arange(len(thread_counts))
+
+    ingestion_lscsr, ingestion_morph = zip(*ingestion_data)
+    algorithm_lscsr, algorithm_morph = zip(*algorithm_data)
+
+    plt.bar(positions - 0.2, ingestion_lscsr, width=0.4, label='Ingestion (lscsr)', color='skyblue')
+    plt.bar(positions - 0.2, algorithm_lscsr, width=0.4, bottom=ingestion_lscsr, label='Algorithm (lscsr)', color='orange')
+
+    plt.bar(positions + 0.2, ingestion_morph, width=0.4, label='Ingestion (morph)', color='lightgreen')
+    plt.bar(positions + 0.2, algorithm_morph, width=0.4, bottom=ingestion_morph, label='Algorithm (morph)', color='red')
+
+    plt.title(f"{title} Comparison (Batch {batch_number})")
+    plt.xlabel('Number of Threads')
+    plt.ylabel('Average CPU Cycles')
+    plt.xticks(positions, labels=[str(tc) for tc in thread_counts])
+    plt.legend()
+    plt.savefig(filename, bbox_inches='tight')
+    plt.close()
+    print(f"Stacked bar chart saved to '{filename}'")
+
 def main(n, batch_numbers):
     thread_counts = [1, 2, 4, 8]
     for batch_number in batch_numbers:
-        avg_cpu_cycles_ingestion_lscsr = [average_cpu_cycles(batch_number, threads, n, extract_cpu_cycles_for_ingestion, 'lscsr') for threads in thread_counts]
-        avg_cpu_cycles_ingestion_morph = [average_cpu_cycles(batch_number, threads, n, extract_cpu_cycles_for_ingestion, 'morph') for threads in thread_counts]
-        plot_comparison_data(batch_number, thread_counts, avg_cpu_cycles_ingestion_lscsr, avg_cpu_cycles_ingestion_morph, 'Edit Scalability (ingest)', f'comparison_plots/ingestion_cpu_cycles_batch_{batch_number}.png')
-        avg_cpu_cycles_algorithm_lscsr = [average_cpu_cycles(batch_number, threads, n, extract_cpu_cycles_for_algorithm, 'lscsr') for threads in thread_counts]
-        avg_cpu_cycles_algorithm_morph = [average_cpu_cycles(batch_number, threads, n, extract_cpu_cycles_for_algorithm, 'morph') for threads in thread_counts]
-        plot_comparison_data(batch_number, thread_counts, avg_cpu_cycles_algorithm_lscsr, avg_cpu_cycles_algorithm_morph, 'Edit Scalability (algorithm)', f'comparison_plots/algorithm_cpu_cycles_batch_{batch_number}.png')
+        avg_cpu_cycles_data = []
+        for threads in thread_counts:
+            avg_cpu_cycles_ingestion_lscsr = average_cpu_cycles(batch_number, threads, n, extract_cpu_cycles_for_ingestion, 'lscsr')
+            avg_cpu_cycles_ingestion_morph = average_cpu_cycles(batch_number, threads, n, extract_cpu_cycles_for_ingestion, 'morph')
+            avg_cpu_cycles_algorithm_lscsr = average_cpu_cycles(batch_number, threads, n, extract_cpu_cycles_for_algorithm, 'lscsr')
+            avg_cpu_cycles_algorithm_morph = average_cpu_cycles(batch_number, threads, n, extract_cpu_cycles_for_algorithm, 'morph')
+
+            avg_cpu_cycles_data.append(((avg_cpu_cycles_ingestion_lscsr, avg_cpu_cycles_ingestion_morph), (avg_cpu_cycles_algorithm_lscsr, avg_cpu_cycles_algorithm_morph)))
+
+        ingestion_data, algorithm_data = zip(*avg_cpu_cycles_data)
+        plot_stacked_comparison_data(batch_number, thread_counts, ingestion_data, algorithm_data, 'Edit Scalability', f'stacked_plots/stacked_cpu_cycles_batch_{batch_number}.png')
 
 if __name__ == "__main__":
     n = 1

@@ -8,6 +8,9 @@ from collections import defaultdict
 def group_edges_by_source(lines):
     grouped_edges = defaultdict(list)
     for line in lines:
+        # Skip lines that start with #
+        if line.strip().startswith('#'):
+            continue
         parts = line.strip().split()
         if len(parts) < 2:
             continue
