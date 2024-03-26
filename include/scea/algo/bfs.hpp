@@ -26,14 +26,10 @@ public:
     auto currSt = std::make_unique<Cont>();
     auto nextSt = std::make_unique<Cont>();
 
-    galois::LargeArray<std::atomic_bool> visited;
-    visited.create(g.size(), false);
-
     galois::LargeArray<uint64_t> shortest_path;
     shortest_path.create(g.size(), std::numeric_limits<uint64_t>::max());
 
     nextSt->push(src);
-    shortest_path[src] = 0U;
 
     uint64_t level = 0U;
 
@@ -44,15 +40,15 @@ public:
       galois::do_all(
           galois::iterate(*currSt),
           [&](uint64_t const& vertex) {
-            if (visited[vertex].exchange(true, std::memory_order_seq_cst))
-              return;
+            if (shortest_path[vertex] < std::numeric_limits<uint64_t>::max())
+              return; // already visited
 
+            // no sync needed since all threads would write the same level
             shortest_path[vertex] = level;
 
             // not previously visited, add all edges
             g.for_each_edge(vertex, [&](uint64_t const& neighbor) {
-              if (!visited[neighbor].load(std::memory_order_relaxed))
-                nextSt->push(neighbor);
+              nextSt->push(neighbor);
             });
           },
           galois::steal());
