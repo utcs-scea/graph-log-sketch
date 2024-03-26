@@ -17,7 +17,7 @@
 #include "scea/graph/morph.hpp"
 #include "scea/graph/adj.hpp"
 #include "scea/graph/csr.hpp"
-#include "scea/perf.hpp"
+#include "scea/stats.hpp"
 
 enum GraphType { lscsr, morph, adj, lccsr };
 enum AlgoName { nop, sssp_bfs };
