@@ -96,3 +96,6 @@ def main():
 
 if __name__ == "__main__":
    main()
+
+# add galois lc_csr
+# instruction counts
