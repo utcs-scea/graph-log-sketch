@@ -26,8 +26,9 @@ public:
     auto currSt = std::make_unique<Cont>();
     auto nextSt = std::make_unique<Cont>();
 
+    constexpr uint64_t UNVISITED = std::numeric_limits<uint64_t>::max();
     galois::LargeArray<uint64_t> shortest_path;
-    shortest_path.create(g.size(), std::numeric_limits<uint64_t>::max());
+    shortest_path.create(g.size(), UNVISITED);
 
     nextSt->push(src);
 
@@ -40,7 +41,7 @@ public:
       galois::do_all(
           galois::iterate(*currSt),
           [&](uint64_t const& vertex) {
-            if (shortest_path[vertex] < std::numeric_limits<uint64_t>::max())
+            if (shortest_path[vertex] != UNVISITED)
               return; // already visited
 
             // no sync needed since all threads would write the same level
@@ -48,7 +49,9 @@ public:
 
             // not previously visited, add all edges
             g.for_each_edge(vertex, [&](uint64_t const& neighbor) {
-              nextSt->push(neighbor);
+              // neighbor might be added multiple times, but that's fine
+              if (shortest_path[neighbor] == UNVISITED)
+                nextSt->push(neighbor);
             });
           },
           galois::steal());
