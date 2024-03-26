@@ -42,6 +42,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
+# parallel-hashmap dependency
+include_directories(${CMAKE_CURRENT_LIST_DIR}/galois/external/parallel-hashmap)
+
 # MPI Dependency
 find_package(MPI REQUIRED)
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})

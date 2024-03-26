@@ -30,11 +30,9 @@ public:
 
   uint64_t size() noexcept override { return graph.size(); }
 
-  int add_edges(uint64_t src, const std::vector<uint64_t> dsts) override {
+  void add_edges(uint64_t src, const std::vector<uint64_t> dsts) override {
     for (auto dst : dsts)
       graph.addEdge(vertices[src], vertices[dst]);
-
-    return 0;
   }
 
   void for_each_edge(uint64_t src,

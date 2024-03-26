@@ -22,9 +22,8 @@ public:
 
   uint64_t size() noexcept override { return edges.size(); }
 
-  int add_edges(uint64_t src, const std::vector<uint64_t> dsts) override {
+  void add_edges(uint64_t src, const std::vector<uint64_t> dsts) override {
     std::copy(dsts.begin(), dsts.end(), std::back_inserter(edges[src]));
-    return 0;
   }
 
   void for_each_edge(uint64_t src,
