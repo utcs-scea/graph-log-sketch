@@ -26,14 +26,11 @@ public:
     auto currSt = std::make_unique<Cont>();
     auto nextSt = std::make_unique<Cont>();
 
-    galois::LargeArray<std::atomic_bool> visited;
-    visited.create(g.size(), false);
-
+    constexpr uint64_t UNVISITED = std::numeric_limits<uint64_t>::max();
     galois::LargeArray<uint64_t> shortest_path;
-    shortest_path.create(g.size(), std::numeric_limits<uint64_t>::max());
+    shortest_path.create(g.size(), UNVISITED);
 
     nextSt->push(src);
-    shortest_path[src] = 0U;
 
     uint64_t level = 0U;
 
@@ -44,14 +41,16 @@ public:
       galois::do_all(
           galois::iterate(*currSt),
           [&](uint64_t const& vertex) {
-            if (visited[vertex].exchange(true, std::memory_order_seq_cst))
-              return;
+            if (shortest_path[vertex] != UNVISITED)
+              return; // already visited
 
+            // no sync needed since all threads would write the same level
             shortest_path[vertex] = level;
 
             // not previously visited, add all edges
             g.for_each_edge(vertex, [&](uint64_t const& neighbor) {
-              if (!visited[neighbor].load(std::memory_order_relaxed))
+              // neighbor might be added multiple times, but that's fine
+              if (shortest_path[neighbor] == UNVISITED)
                 nextSt->push(neighbor);
             });
           },
