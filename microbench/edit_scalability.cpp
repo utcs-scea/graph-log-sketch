@@ -11,6 +11,7 @@
 
 #include <boost/program_options.hpp>
 
+#include "scea/algo/pr.hpp"
 #include "scea/algo/bfs.hpp"
 #include "scea/algo/nop.hpp"
 #include "scea/graph/lscsr.hpp"
