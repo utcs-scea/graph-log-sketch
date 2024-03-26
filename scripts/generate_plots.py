@@ -6,61 +6,96 @@ import re
 import matplotlib.pyplot as plt
 import numpy as np
 
-def run_command(batch_number, ingest_threads, algo_threads):
-    command = f"./build/microbench/edit-scalability --algo=nop --algo-threads={algo_threads} --graph=lscsr --ingest-threads={ingest_threads} --num-vertices=65608366 --input-file=/var/local/graphs/inputs/friendster_batched_10.el"
-    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"Command failed with error: {result.stderr}")
-        return None
-    return result.stdout
 
-def extract_cpu_cycles_for_ingestion(batch_number, output):
-    cpu_cycles_match = re.search(rf'Benchmark results for Ingestion for Batch {batch_number}:.*?CPU Cycles: (\d+)', output, re.DOTALL)
-    return int(cpu_cycles_match.group(1)) if cpu_cycles_match else None
+def run_benchmark(threads, graph):
+   command = f"./build/microbench/edit-scalability --algo=bfs --bfs-src=101 --algo-threads={threads} --graph={graph} --ingest-threads={threads} --num-vertices=124836180 --input-file=/var/local/graphs/friendster_batched_100.txt"
 
-def extract_cpu_cycles_for_algorithm(batch_number, output):
-    cpu_cycles_match = re.search(rf'Benchmark results for Algorithm for Batch {batch_number}:.*?CPU Cycles: (\d+)', output, re.DOTALL)
-    return int(cpu_cycles_match.group(1)) if cpu_cycles_match else None
+   process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+   stdout, stderr = process.communicate()
 
-def average_cpu_cycles(batch_number, threads, n, func):
-    total_cpu_cycles = 0
-    for _ in range(n):
-        output = run_command(batch_number, threads if func == extract_cpu_cycles_for_ingestion else 1,
-                             1 if func == extract_cpu_cycles_for_ingestion else threads)
-        if output:
-            cpu_cycles = func(batch_number, output)
-            if cpu_cycles is not None:
-                total_cpu_cycles += cpu_cycles
-            else:
-                print("Failed to extract CPU cycles from command output.")
-                return None
-        else:
-            return None
-    return total_cpu_cycles / n
+   output = stdout.decode()
 
-def plot_data(batch_number, thread_counts, avg_cpu_cycles_data, title, filename):
-    plt.figure(figsize=(10, 6))
+   ingestion_pattern = re.compile(r"Benchmark results for Ingestion for Batch (\d+):.*?Duration: (\d+) nanoseconds", re.DOTALL)
+   algorithm_pattern = re.compile(r"Benchmark results for Algorithm for Batch (\d+):.*?Duration: (\d+) nanoseconds", re.DOTALL)
+
+   ingestion_durations = {}
+   algorithm_durations = {}
+
+   ingestion_matches = re.findall(ingestion_pattern, output)
+   algorithm_matches = re.findall(algorithm_pattern, output)
+
+   for batch, duration in ingestion_matches:
+       ingestion_durations[int(batch)] = int(duration)
+
+   for batch, duration in algorithm_matches:
+       algorithm_durations[int(batch)] = int(duration)
+
+   return ingestion_durations, algorithm_durations
+
+def plot_batch_durations(results, batches):
+    plt.rcParams.update({'font.size': 14, 'legend.fontsize': 12})
+
+    n_graph_types = len(results)
+    graph_types = list(results.keys())
+    thread_counts = list(results[graph_types[0]].keys())
     width = 0.35
-    positions = range(len(thread_counts))
-    plt.bar(positions, avg_cpu_cycles_data, width=width, tick_label=[str(tc) for tc in thread_counts])
-    plt.title(f"{title} (Batch {batch_number})")
-    plt.xlabel('Number of Threads')
-    plt.ylabel('Average CPU Cycles')
-    plt.xticks(positions, labels=[str(tc) for tc in thread_counts])
-    plt.savefig(filename, bbox_inches='tight')
-    plt.close()
-    print(f"Bar chart saved to '{filename}'")
+    colors = ['skyblue', 'orange', 'lightgreen', 'purple']
+    thread_spacing = 0.5
+    batch_spacing = 1
 
-def main(n, batch_numbers):
-    thread_counts = [1, 2, 4, 8]
-    for batch_number in batch_numbers:
-        avg_cpu_cycles_ingestion = [average_cpu_cycles(batch_number, threads, n, extract_cpu_cycles_for_ingestion) for threads in thread_counts]
-        plot_data(batch_number, thread_counts, avg_cpu_cycles_ingestion, 'Edit Scalability (ingest)', f'plots_after_prefaulting/ingestion_cpu_cycles_batch_{batch_number}.png')
-        avg_cpu_cycles_algorithm = [average_cpu_cycles(batch_number, threads, n, extract_cpu_cycles_for_algorithm) for threads in thread_counts]
-        plot_data(batch_number, thread_counts, avg_cpu_cycles_algorithm, 'Edit Scalability (algorithm)', f'plots_after_prefaulting/algorithm_cpu_cycles_batch_{batch_number}.png')
+    fig, ax = plt.subplots(figsize=(14, 8))
+    all_positions = []
+
+    current_position = 0
+    for batch in batches:
+        for thread_count in thread_counts:
+            positions_within_group = []
+            for i, graph_type in enumerate(graph_types):
+                pos = current_position + i * width
+                positions_within_group.append(pos)
+
+                ingestion_duration = results[graph_type][thread_count]['ingestion'].get(batch, 0)
+                algorithm_duration = results[graph_type][thread_count]['algorithm'].get(batch, 0)
+
+                ax.bar(pos, ingestion_duration, width, color=colors[i*2], label=f'Ingestion {graph_type}' if batch == batches[0] and thread_count == thread_counts[0] else "")
+                ax.bar(pos, algorithm_duration, width, bottom=ingestion_duration, color=colors[i*2 + 1], label=f'Algorithm {graph_type}' if batch == batches[0] and thread_count == thread_counts[0] else "")
+
+            all_positions.extend(positions_within_group)
+            current_position += (n_graph_types * width) + thread_spacing
+
+        current_position += batch_spacing
+
+    tick_positions = [np.mean(all_positions[i:i+n_graph_types]) for i in range(0, len(all_positions), n_graph_types)]
+
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels([f'({batch}, {thread})' for batch in batches for thread in thread_counts])
+
+    ax.set_xlabel('(Batch Number, Number of Threads)')
+    ax.set_ylabel('Duration (nanoseconds)')
+    ax.set_title('Edit Scalability Benchmark')
+    ax.legend(loc='upper left', bbox_to_anchor=(1, 1), ncol=1)
+
+    plt.tight_layout()
+    plt.savefig('plots/edit_scalability.png')
+
+def main():
+   graph_types = ['lscsr', 'adj']
+   thread_counts = [1, 2, 4, 8, 16, 32]
+   results = {}
+
+   for graph in graph_types:
+       results[graph] = {}
+       for threads in thread_counts:
+           ingestion_durations, algorithm_durations = run_benchmark(threads, graph)
+           results[graph][threads] = {
+               'ingestion': ingestion_durations,
+               'algorithm': algorithm_durations
+           }
+
+   plot_batch_durations (results, [80, 81, 82, 83, 84, 85, 86, 87, 88, 89])
 
 if __name__ == "__main__":
-    n = 1
-    num_batches = 10
-    batch_numbers = np.arange(num_batches)
-    main(n, batch_numbers)
+   main()
+
+# add galois lc_csr
+# instruction counts
