@@ -11,14 +11,16 @@
 
 #include <boost/program_options.hpp>
 
+#include "scea/algo/pr.hpp"
 #include "scea/algo/bfs.hpp"
 #include "scea/algo/nop.hpp"
 #include "scea/graph/lscsr.hpp"
 #include "scea/graph/morph.hpp"
 #include "scea/graph/adj.hpp"
+#include "scea/graph/csr.hpp"
 #include "scea/perf.hpp"
 
-enum GraphType { lscsr, morph, adj };
+enum GraphType { lscsr, morph, adj, lccsr };
 enum AlgoName { nop, sssp_bfs };
 
 std::istream& operator>>(std::istream& in, GraphType& type) {
@@ -27,6 +29,8 @@ std::istream& operator>>(std::istream& in, GraphType& type) {
 
   if (name == "lscsr") {
     type = lscsr;
+  } else if (name == "lccsr") {
+    type = lccsr;
   } else if (name == "morph") {
     type = morph;
   } else if (name == "adj") {
@@ -110,6 +114,10 @@ int main(int argc, char const* argv[]) {
   switch (graph_type) {
   case GraphType::lscsr: {
     graph = std::make_unique<scea::graph::LS_CSR>(num_vertices);
+    break;
+  }
+  case GraphType::lccsr: {
+    graph = std::make_unique<scea::graph::LC_CSR>(num_vertices);
     break;
   }
   case GraphType::morph: {
@@ -213,6 +221,12 @@ int main(int argc, char const* argv[]) {
           [&](std::pair<uint64_t, std::vector<uint64_t>> const& operation) {
             graph->add_edges(operation.first, operation.second);
           });
+    }
+
+    {
+      BENCHMARK_SCOPE("Post-ingest for Batch " + std::to_string(batch));
+
+      graph->post_ingest();
     }
 
     // execute the algorithm

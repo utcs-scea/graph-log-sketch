@@ -35,6 +35,8 @@ public:
       graph.addEdge(vertices[src], vertices[dst]);
   }
 
+  void post_ingest() override {}
+
   void for_each_edge(uint64_t src,
                      std::function<void(uint64_t const&)> callback) override {
     for (auto const& edge : graph.edges(vertices[src]))
