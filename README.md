@@ -44,6 +44,29 @@ specific versions for environmental consistency.
 These tools are defined in `.tool-versions`.
 Run `make dependencies` to initialize a new environment.
 
+### [pre-commit](https://pre-commit.com)
+
+A left shifting tool to consistently run a set of checks on the code repo.
+Our checks enforce syntax validations and formatting.
+We encourage contributors to use pre-commit hooks.
+
+```shell
+# install all pre-commit hooks
+make hooks
+
+# run pre-commit on repo once
+make pre-commit
+```
+
+### [ninja](https://ninja-build.org/)
+
+Developers can use Ninja instead of Make to build by adding the following to the
+git ignored file `env-docker.sh` in the source tree root.
+
+```shell
+export GALOIS_BUILD_TOOL=Ninja
+```
+
 ## Workload Format
 
 A workload is a text file comprising batched updates and algorithm execution points.
@@ -155,29 +178,6 @@ will the partitioning policy look different for these scenarios?)
 2. Edits - efficient method to figure which edit corresponds to which host
     * Edits to existing vertices
     * Adding new vertices (which host gets the ownership of the new vertex)
-
-### [pre-commit](https://pre-commit.com)
-
-A left shifting tool to consistently run a set of checks on the code repo.
-Our checks enforce syntax validations and formatting.
-We encourage contributors to use pre-commit hooks.
-
-```shell
-# install all pre-commit hooks
-make hooks
-
-# run pre-commit on repo once
-make pre-commit
-```
-
-### [ninja](https://ninja-build.org/)
-
-Developers can use Ninja instead of Make to build by adding the following to the
-git ignored file `env-docker.sh` in the source tree root.
-
-```shell
-export GALOIS_BUILD_TOOL=Ninja
-```
 
 ## Baselines
 
