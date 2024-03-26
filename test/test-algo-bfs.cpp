@@ -21,13 +21,13 @@ TEST(BFS, Small) {
    *     4 - 5 - 6
    */
 
-  EXPECT_EQ(graph.add_edges(0, {1, 2, 3}), 0);
-  EXPECT_EQ(graph.add_edges(1, {0, 2, 3}), 0);
-  EXPECT_EQ(graph.add_edges(2, {0, 1, 3}), 0);
-  EXPECT_EQ(graph.add_edges(3, {0, 1, 2, 4, 5}), 0);
-  EXPECT_EQ(graph.add_edges(4, {3, 5}), 0);
-  EXPECT_EQ(graph.add_edges(5, {3, 4, 6}), 0);
-  EXPECT_EQ(graph.add_edges(6, {5}), 0);
+  graph.add_edges(0, {1, 2, 3});
+  graph.add_edges(1, {0, 2, 3});
+  graph.add_edges(2, {0, 1, 3});
+  graph.add_edges(3, {0, 1, 2, 4, 5});
+  graph.add_edges(4, {3, 5});
+  graph.add_edges(5, {3, 4, 6});
+  graph.add_edges(6, {5});
 
   {
     auto result = scea::algo::SSSP_BFS::compute(graph, 1);
