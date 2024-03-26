@@ -26,6 +26,8 @@ public:
     std::copy(dsts.begin(), dsts.end(), std::back_inserter(edges[src]));
   }
 
+  void post_ingest() override {}
+
   void for_each_edge(uint64_t src,
                      std::function<void(uint64_t const&)> callback) override {
     for (auto const& dst : edges[src])
