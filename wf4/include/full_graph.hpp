@@ -10,13 +10,14 @@
 #include "galois/graphs/CuSPPartitioner.h"
 #include "galois/graphs/GenericPartitioners.h"
 #include "galois/graphs/GluonSubstrate.h"
-#include "scea/schema/schema.h"
+#include "galois/wmd/WMDPartitioner.h"
+#include "galois/wmd/graphTypes.h"
 
 namespace wf4 {
 
 class FullNetworkNode;
 class FullNetworkEdge;
-typedef scea::graph::MutableGraph<FullNetworkNode, FullNetworkEdge, OECPolicy>
+typedef galois::graphs::WMDGraph<FullNetworkNode, FullNetworkEdge, OECPolicy>
     FullNetworkGraph;
 
 class FullNetworkEdge {
@@ -44,22 +45,23 @@ public:
       topic = std::stoull(tokens[3]);
     }
   }
-  FullNetworkEdge(gls::wmd::TYPES type_, const std::vector<std::string>& tokens)
+  FullNetworkEdge(agile::workflow1::TYPES type_,
+                  const std::vector<std::string>& tokens)
       : type(type_) {
     src                     = std::stoull(tokens[0]);
     dst                     = std::stoull(tokens[1]);
     const uint64_t half_max = std::numeric_limits<uint64_t>::max() / 2;
 
-    if (type == gls::wmd::TYPES::USES) {
-      src_type = gls::wmd::TYPES::PERSON;
-      dst_type = gls::wmd::TYPES::DEVICE;
+    if (type == agile::workflow1::TYPES::USES) {
+      src_type = agile::workflow1::TYPES::PERSON;
+      dst_type = agile::workflow1::TYPES::DEVICE;
       dst      = half_max + (dst % half_max);
-    } else if (type == gls::wmd::TYPES::FRIEND) {
-      src_type = gls::wmd::TYPES::PERSON;
-      dst_type = gls::wmd::TYPES::PERSON;
-    } else if (type == gls::wmd::TYPES::COMMUNICATION) {
-      src_type = gls::wmd::TYPES::DEVICE;
-      dst_type = gls::wmd::TYPES::DEVICE;
+    } else if (type == agile::workflow1::TYPES::FRIEND) {
+      src_type = agile::workflow1::TYPES::PERSON;
+      dst_type = agile::workflow1::TYPES::PERSON;
+    } else if (type == agile::workflow1::TYPES::COMMUNICATION) {
+      src_type = agile::workflow1::TYPES::DEVICE;
+      dst_type = agile::workflow1::TYPES::DEVICE;
       src      = half_max + (src % half_max);
       dst      = half_max + (dst % half_max);
 
@@ -78,9 +80,9 @@ public:
   time_t date_;
   double amount_;
   double weight_;
-  gls::wmd::TYPES type     = gls::wmd::TYPES::SALE;
-  gls::wmd::TYPES src_type = gls::wmd::TYPES::PERSON;
-  gls::wmd::TYPES dst_type = gls::wmd::TYPES::PERSON;
+  agile::workflow1::TYPES type     = agile::workflow1::TYPES::SALE;
+  agile::workflow1::TYPES src_type = agile::workflow1::TYPES::PERSON;
+  agile::workflow1::TYPES dst_type = agile::workflow1::TYPES::PERSON;
   uint64_t src;
   uint64_t dst;
   uint64_t src_glbid = std::numeric_limits<uint64_t>::max();
@@ -102,8 +104,9 @@ public:
 struct FullNetworkNode {
 public:
   FullNetworkNode() = default;
-  FullNetworkNode(uint64_t id_, uint64_t, gls::wmd::TYPES type)
-      : id(id_), sold_(0), bought_(0), desired_(0), type_(type) {}
+  FullNetworkNode(uint64_t id_, uint64_t glbid_, agile::workflow1::TYPES type)
+      : id(id_), glbid(glbid_), sold_(0), bought_(0), desired_(0), type_(type) {
+  }
   explicit FullNetworkNode(uint64_t id_)
       : id(id_), sold_(0), bought_(0), desired_(0) {}
 
@@ -115,6 +118,7 @@ public:
   }
 
   uint64_t id;
+  uint64_t glbid;
   galois::CopyableAtomic<uint64_t>
       frequency_; // number of occurrences in Reverse Reachable Sets
   galois::CopyableAtomic<double> sold_; // amount of coffee sold
@@ -122,7 +126,7 @@ public:
       bought_;     // amount of coffee bought  (>= coffee sold)
   double desired_; // amount of coffee desired (>= coffee bought)
 
-  gls::wmd::TYPES type_;
+  agile::workflow1::TYPES type_;
   uint64_t extra_data;
 };
 

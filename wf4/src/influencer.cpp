@@ -262,27 +262,29 @@ void wf4::internal::PartialReachableSet::serialize(
   for (wf4::GlobalNodeID gid : frontier) {
     data[offset++] = gid;
   }
-  buf.insert(std::reinterpret_cast<uint8_t*>(&data[0]),
-             length * sizeof(uint64_t));
+  buf.insert(reinterpret_cast<uint8_t*>(&data[0]), length * sizeof(uint64_t));
 }
 
 void wf4::internal::PartialReachableSet::deserialize(
     galois::runtime::DeSerializeBuffer& buf) {
-  size_t initial_offset = buf.getOffset();
-  uint64_t* data =
-      std::reinterpret_cast<uint64_t*>(&(buf.getVec().data()[initial_offset]));
-  uint64_t offset         = 0;
-  id                      = data[offset++];
-  owner_host              = data[offset++];
-  uint64_t reachable_size = data[offset++];
-  uint64_t frontier_size  = data[offset++];
+  buf.extract(reinterpret_cast<uint8_t*>(&id), sizeof(id));
+  buf.extract(reinterpret_cast<uint8_t*>(&owner_host), sizeof(owner_host));
+  uint64_t reachable_size;
+  uint64_t frontier_size;
+  buf.extract(reinterpret_cast<uint8_t*>(&reachable_size),
+              sizeof(reachable_size));
+  buf.extract(reinterpret_cast<uint8_t*>(&frontier_size),
+              sizeof(frontier_size));
   for (uint64_t i = 0; i < reachable_size; i++) {
-    partial_reachable_set.emplace(data[offset++]);
+    wf4::GlobalNodeID elt;
+    buf.extract(reinterpret_cast<uint8_t*>(&elt), sizeof(elt));
+    partial_reachable_set.emplace(elt);
   }
   for (uint64_t i = 0; i < frontier_size; i++) {
-    frontier.emplace(data[offset++]);
+    wf4::GlobalNodeID elt;
+    buf.extract(reinterpret_cast<uint8_t*>(&elt), sizeof(elt));
+    frontier.emplace(elt);
   }
-  buf.setOffset(initial_offset + (offset * sizeof(uint64_t)));
 }
 
 void wf4::internal::FillNodeValues(wf4::NetworkGraph& graph,
@@ -292,9 +294,9 @@ void wf4::internal::FillNodeValues(wf4::NetworkGraph& graph,
     graph.getData(node).id       = edge.src;
     graph.getData(graph.getEdgeDst(node_edge)).id = edge.dst;
 
-    if (edge.type == gls::wmd::TYPES::SALE) {
+    if (edge.type == agile::workflow1::TYPES::SALE) {
       galois::atomicAdd(graph.getData(node).sold_, edge.amount_);
-    } else if (edge.type == gls::wmd::TYPES::PURCHASE) {
+    } else if (edge.type == agile::workflow1::TYPES::PURCHASE) {
       galois::atomicAdd(graph.getData(node).bought_, edge.amount_);
       graph.getData(node).desired_ += edge.amount_;
     }
@@ -316,10 +318,10 @@ void wf4::internal::CalculateEdgeProbability(
   for (const auto& node_edge : graph.edges(node)) {
     auto& edge = graph.getEdgeData(node_edge);
     total_sales += edge.amount_;
-    if (edge.type == gls::wmd::TYPES::SALE && amount_sold > 0) {
+    if (edge.type == agile::workflow1::TYPES::SALE && amount_sold > 0) {
       edge.weight_ = edge.amount_ / amount_sold;
       total_edge_weights += edge.weight_;
-    } else if (edge.type == gls::wmd::TYPES::PURCHASE) {
+    } else if (edge.type == agile::workflow1::TYPES::PURCHASE) {
       auto dst_sold = graph.getData(graph.getEdgeDst(node_edge)).sold_;
       if (dst_sold > 0) {
         edge.weight_ = edge.amount_ / dst_sold;
@@ -527,14 +529,14 @@ void wf4::internal::RemoveNodesFromRemotes(
     if (send_buffer.size() == 0) {
       send_buffer.push('a');
     }
-    net.sendTagged(h, REMOVE_RRR_SETS, send_buffer);
+    net.sendTagged(h, REMOVE_RRR_SETS, std::move(send_buffer));
   }
 
   // recv node range from other hosts
   for (uint32_t h = 0; h < num_hosts - 1; h++) {
-    decltype(net.recieveTagged(REMOVE_RRR_SETS, nullptr)) p;
+    decltype(net.recieveTagged(REMOVE_RRR_SETS)) p;
     do {
-      p = net.recieveTagged(REMOVE_RRR_SETS, nullptr);
+      p = net.recieveTagged(REMOVE_RRR_SETS);
     } while (!p);
     uint32_t sending_host         = p->first;
     nodes_to_remove[sending_host] = std::move(p->second);
@@ -545,11 +547,9 @@ void wf4::internal::RemoveNodesFromRemotes(
     if (buf.size() < 16) {
       continue;
     }
-    size_t initial_offset = buf.getOffset();
-    uint64_t* data        = std::reinterpret_cast<uint64_t*>(
-        &(buf.getVec().data()[initial_offset]));
-    uint64_t size = data[0];
-    data          = &data[1];
+    uint64_t* data = reinterpret_cast<uint64_t*>(buf.data());
+    uint64_t size  = data[0];
+    data           = &data[1];
     galois::do_all(
         galois::iterate((uint64_t)0, size),
         [&](uint64_t i) {
@@ -603,14 +603,14 @@ wf4::internal::ExchangePartialSets(
     if (send_buffer.size() == 0) {
       send_buffer.push('a');
     }
-    net.sendTagged(h, EXCHANGE_PARTIAL_SETS, send_buffer);
+    net.sendTagged(h, EXCHANGE_PARTIAL_SETS, std::move(send_buffer));
   }
 
   // recv node range from other hosts
   for (uint32_t h = 0; h < num_hosts - 1; h++) {
-    decltype(net.recieveTagged(EXCHANGE_PARTIAL_SETS, nullptr)) p;
+    decltype(net.recieveTagged(EXCHANGE_PARTIAL_SETS)) p;
     do {
-      p = net.recieveTagged(EXCHANGE_PARTIAL_SETS, nullptr);
+      p = net.recieveTagged(EXCHANGE_PARTIAL_SETS);
     } while (!p);
     uint32_t sending_host           = p->first;
     host_partial_sets[sending_host] = std::move(p->second);
@@ -621,7 +621,7 @@ wf4::internal::ExchangePartialSets(
     if (buf.size() < 16) {
       continue;
     }
-    while (buf.getOffset() < buf.size()) {
+    while (buf.size() > 0) {
       PartialReachableSet set;
       set.deserialize(buf);
       local_partial_sets.emplace_back(set);
@@ -652,14 +652,14 @@ wf4::internal::ExchangeMostInfluentialNodes(
     }
     galois::runtime::SendBuffer send_buffer;
     galois::runtime::gSerialize(send_buffer, local_max);
-    net.sendTagged(h, EXCHANGE_INFLUENTIAL_NODES, send_buffer);
+    net.sendTagged(h, EXCHANGE_INFLUENTIAL_NODES, std::move(send_buffer));
   }
 
   // recv node range from other hosts
   for (uint32_t h = 0; h < num_hosts - 1; h++) {
-    decltype(net.recieveTagged(EXCHANGE_INFLUENTIAL_NODES, nullptr)) p;
+    decltype(net.recieveTagged(EXCHANGE_INFLUENTIAL_NODES)) p;
     do {
-      p = net.recieveTagged(EXCHANGE_INFLUENTIAL_NODES, nullptr);
+      p = net.recieveTagged(EXCHANGE_INFLUENTIAL_NODES);
     } while (!p);
     uint32_t sending_host = p->first;
 
@@ -682,6 +682,6 @@ void wf4::internal::SerializeMap(
     data[offset++] = update.first;
     data[offset++] = update.second;
   }
-  buf.insert(std::reinterpret_cast<uint8_t*>(&data), length * sizeof(uint64_t));
+  buf.insert(reinterpret_cast<uint8_t*>(&data), length * sizeof(uint64_t));
   updates.clear();
 }

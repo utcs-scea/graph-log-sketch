@@ -10,5 +10,5 @@ set(sources
 
 add_executable(wf4)
 target_sources(wf4 PRIVATE ${sources})
-target_include_directories(wf4 PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include ${PHMAP_DIRECTORY} ${PCG_DIRECTORY}/include ${graph-log-sketch_SOURCE_DIR}/include)
-target_link_libraries(wf4 PRIVATE Galois::cusp Galois::dist_async Galois::gluon LLVMSupport)
+target_include_directories(wf4 PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include ${PHMAP_DIRECTORY} ${PCG_DIRECTORY} ${graph-log-sketch_SOURCE_DIR}/include)
+target_link_libraries(wf4 PRIVATE Galois::cusp Galois::dist_async Galois::gluon Galois::wmd)

@@ -44,6 +44,7 @@ if(PROJECT_IS_TOP_LEVEL)
 endif()
 
 set(GALOIS_ENABLE_DIST ON CACHE BOOL "" FORCE)
+set(GALOIS_ENABLE_WMD ON)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -69,6 +70,7 @@ set(PCG_DIRECTORY ${Galois_SOURCE_DIR}/external/pcg-cpp/include)
 
 add_subdirectory(microbench)
 add_subdirectory(scripts)
+add_subdirectory(wf4)
 
 # tests
 option(BUILD_TESTING "Build tests." ON)

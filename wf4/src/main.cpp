@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 // Copyright (c) 2023. University of Texas at Austin. All rights reserved.
 
-#include <llvm/Support/CommandLine.h>
-
 #include <iostream>
 
 #include "galois/DistGalois.h"
@@ -11,58 +9,124 @@
 #include "influencer.hpp"
 #include "quiesce.hpp"
 
-namespace cll = llvm::cl;
-
 static const char* name = "Network of Networks";
-
-static const cll::opt<uint64_t> num_threads("t", cll::desc("<num threads>"),
-                                            cll::init(16));
-
-static const cll::opt<uint64_t> k("k", cll::desc("<num influential nodes>"),
-                                  cll::init(100));
-
-static const cll::opt<uint64_t> seed("seed", cll::desc("<seed>"),
-                                     cll::init(98011089));
-
-static const cll::opt<uint64_t> rrr("rrr", cll::desc("<num rrr sets>"),
-                                    cll::init(100000));
-
-static const cll::opt<uint64_t>
-    epochs("epochs", cll::desc("<num epochs to generate rrr sets>"),
-           cll::init(100));
-
-static const cll::opt<std::string>
-    input_directory("input-dir", cll::desc("<input directory with all 5 csvs>"),
-                    cll::init(""));
-
-static const cll::opt<std::string>
-    commercial_input_file("commercial-file",
-                          cll::desc("<commercial input file>"), cll::init(""));
-static const cll::opt<std::string>
-    cyber_input_file("cyber-file", cll::desc("<cyber input file>"),
-                     cll::init(""));
-static const cll::opt<std::string>
-    social_input_file("social-file", cll::desc("<social input file>"),
-                      cll::init(""));
-static const cll::opt<std::string>
-    uses_input_file("uses-file", cll::desc("<uses input file>"), cll::init(""));
-static const cll::opt<std::string>
-    nodes_input_file("nodes-file", cll::desc("<nodes input file>"),
-                     cll::init(""));
-
-static const cll::opt<std::string> graph_name("name", cll::desc("<graph name>"),
-                                              cll::init("commercial"));
-
-static const cll::opt<uint64_t> influential_node_threshold(
-    "influential-threshold",
-    cll::desc(
-        "<debug argument for verifying correctness on artificial graphs>"),
-    cll::init(0));
 
 galois::DynamicBitSet bitset_bought_;
 galois::DynamicBitSet bitset_sold_;
 
 namespace {
+
+void printUsageExit(char* argv0) {
+  std::printf("Usage: %s "
+              "[-t <num threads>] "
+              "[-k <num-influential-nodes>] "
+              "[-r <number-reverse-reachable-sets>] "
+              "[-s <random-seed>] "
+              "[-e <num epochs to generate rrr sets>] "
+              "[-d <input directory with all 5 csvs>] "
+              "[-c <commercial-path>] "
+              "[-y <cyber-path>] "
+              "[-o <social-path>] "
+              "[-u <uses-path>] "
+              "[-n <nodes-path>]\n",
+              argv0);
+  std::exit(EXIT_FAILURE);
+}
+
+struct ProgramOptions {
+  ProgramOptions() = default;
+
+  void Parse(int argc, char** argv) {
+    // Other libraries may have called getopt before, so we reset optind for
+    // correctness
+    optind = 0;
+
+    int opt;
+    std::string file;
+    while ((opt = getopt(argc, argv, "t:k:r:s:e:d:c:y:o:u:n:")) != -1) {
+      switch (opt) {
+      case 't':
+        num_threads = strtoull(optarg, nullptr, 10);
+        break;
+      case 'k':
+        k = strtoull(optarg, nullptr, 10);
+        break;
+      case 'r':
+        rrr = strtoull(optarg, nullptr, 10);
+        break;
+      case 's':
+        seed = strtoull(optarg, nullptr, 10);
+        break;
+      case 'e':
+        epochs = strtoull(optarg, nullptr, 10);
+        break;
+      case 'd':
+        file            = std::string(optarg);
+        input_directory = file;
+        break;
+      case 'c':
+        file                  = std::string(optarg);
+        commercial_input_file = file;
+        break;
+      case 'y':
+        file             = std::string(optarg);
+        cyber_input_file = file;
+        break;
+      case 'o':
+        file              = std::string(optarg);
+        social_input_file = file;
+        break;
+      case 'u':
+        file            = std::string(optarg);
+        uses_input_file = file;
+        break;
+      case 'n':
+        file             = std::string(optarg);
+        nodes_input_file = file;
+        break;
+      default:
+        printUsageExit(argv[0]);
+        exit(-1);
+      }
+    }
+    if (!Verify()) {
+      printUsageExit(argv[0]);
+      exit(-1);
+    }
+  }
+
+  bool Verify() {
+    if (k <= 0) {
+      return false;
+    }
+    if (rrr <= 0) {
+      return false;
+    }
+    if (input_directory.empty() && commercial_input_file.empty() &&
+        cyber_input_file.empty() && social_input_file.empty() &&
+        uses_input_file.empty() && nodes_input_file.empty()) {
+      return false;
+    }
+    return true;
+  }
+
+  uint64_t num_threads = 16;
+  uint64_t k           = 100;
+  uint64_t rrr         = 100000;
+  uint64_t seed        = 98011089;
+  uint64_t epochs      = 100;
+
+  std::string input_directory;
+
+  std::string commercial_input_file;
+  std::string cyber_input_file;
+  std::string social_input_file;
+  std::string uses_input_file;
+  std::string nodes_input_file;
+
+  // debug argument for verifying correctness on artificial graphs, unused
+  uint64_t influential_node_threshold = 0;
+} typedef ProgramOptions;
 
 template <typename T>
 uint64_t countEdges(T& graph) {
@@ -75,7 +139,7 @@ uint64_t countEdges(T& graph) {
     bool owned = graph.isOwned(graph.getGID(src));
     owned      = graph.isLocal(graph.getGID(src));
     auto& node = graph.getData(src);
-    if (node.type_ == gls::wmd::TYPES::PERSON) {
+    if (node.type_ == agile::workflow1::TYPES::PERSON) {
       // person_nodes++;
     }
     // node.id = 1;
@@ -95,12 +159,12 @@ uint64_t countEdges(T& graph) {
         owned         = graph.isOwned(gid);
         owned         = graph.isLocal(gid);
         auto dst_node = graph.getData(dst_lid);
-        if (data.type == gls::wmd::TYPES::SALE ||
-            data.type == gls::wmd::TYPES::PURCHASE) {
+        if (data.type == agile::workflow1::TYPES::SALE ||
+            data.type == agile::workflow1::TYPES::PURCHASE) {
           if (data.topic = 8486 && data.amount_ > 0) {
             trading_edges++;
 
-            if (node.type_ == gls::wmd::TYPES::PERSON) {
+            if (node.type_ == agile::workflow1::TYPES::PERSON) {
               has_valid_edges = true;
               trading_person_edges++;
             }
@@ -155,38 +219,48 @@ void printGraphStatisticsDebug(T& graph) {
 } // end namespace
 
 int main(int argc, char* argv[]) {
-  cll::ParseCommandLineOptions(argc, argv);
+  ProgramOptions program_options;
+  program_options.Parse(argc, argv);
   galois::DistMemSys G;
-  galois::setActiveThreads(num_threads);
+  galois::setActiveThreads(program_options.num_threads);
   auto& net = galois::runtime::getSystemNetworkInterface();
 
-  wf4::InputFiles input_files(input_directory, commercial_input_file,
-                              cyber_input_file, social_input_file,
-                              uses_input_file, nodes_input_file);
+  wf4::InputFiles input_files(
+      program_options.input_directory, program_options.commercial_input_file,
+      program_options.cyber_input_file, program_options.social_input_file,
+      program_options.uses_input_file, program_options.nodes_input_file);
   if (net.ID == 0) {
     input_files.Print();
   }
 
+  std::cout << "REA0" << std::endl;
   std::unique_ptr<wf4::FullNetworkGraph> full_graph =
       wf4::ImportData(input_files);
+  galois::runtime::getHostBarrier().wait();
+  std::cout << "REA1 " << full_graph->size() << std::endl;
   printGraphStatisticsDebug(*full_graph);
+  std::cout << "REA2" << std::endl;
   std::unique_ptr<wf4::NetworkGraph> projected_graph =
       wf4::ProjectGraph(std::move(full_graph));
+  std::cout << "REA3" << std::endl;
   std::unique_ptr<galois::graphs::GluonSubstrate<wf4::NetworkGraph>>
       sync_substrate =
           std::make_unique<galois::graphs::GluonSubstrate<wf4::NetworkGraph>>(
               *projected_graph, net.ID, net.Num,
               projected_graph->isTransposed(),
               projected_graph->cartesianGrid());
+  std::cout << "REA4" << std::endl;
 
   // printGraphStatisticsDebug(*projected_graph);
 
   wf4::CalculateEdgeProbabilities(*projected_graph, *sync_substrate);
   wf4::ReverseReachableSet reachability_sets =
-      wf4::GetRandomReverseReachableSets(*projected_graph, rrr, seed, epochs);
-  std::vector<wf4::GlobalNodeID> influencers =
-      wf4::GetInfluentialNodes(*projected_graph, std::move(reachability_sets),
-                               k, influential_node_threshold);
+      wf4::GetRandomReverseReachableSets(*projected_graph, program_options.rrr,
+                                         program_options.seed,
+                                         program_options.epochs);
+  std::vector<wf4::GlobalNodeID> influencers = wf4::GetInfluentialNodes(
+      *projected_graph, std::move(reachability_sets), program_options.k,
+      program_options.influential_node_threshold);
 
   wf4::CancelNodes(*projected_graph, *sync_substrate, influencers);
   wf4::QuiesceGraph(*projected_graph, *sync_substrate);
