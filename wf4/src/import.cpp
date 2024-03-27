@@ -10,6 +10,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "galois/wmd/schema.h"
+
 std::unique_ptr<wf4::FullNetworkGraph>
 wf4::ImportData(const InputFiles& input_files) {
   std::unique_ptr<FullNetworkGraph> full_graph =
@@ -22,9 +24,9 @@ std::unique_ptr<wf4::NetworkGraph>
 wf4::ProjectGraph(std::unique_ptr<wf4::FullNetworkGraph> full_graph) {
   internal::NetworkGraphProjection projection;
   (void)projection;
-  std::unique_ptr<NetworkGraph> projected_graph = nullptr;
-  //    full_graph->Project<NetworkGraph, internal::NetworkGraphProjection>(
-  //        projection);
+  std::unique_ptr<NetworkGraph> projected_graph =
+      full_graph->Project<NetworkGraph, internal::NetworkGraphProjection>(
+          projection);
   return projected_graph;
 }
 
@@ -44,22 +46,22 @@ wf4::internal::ImportGraph(const wf4::InputFiles& input_files) {
       std::make_unique<SocialParser>(input_files.social_files));
   parsers.emplace_back(std::make_unique<UsesParser>(input_files.uses_files));
   parsers.emplace_back(std::make_unique<NodeParser>(input_files.nodes_files));
-  std::unique_ptr<FullNetworkGraph> g = nullptr;
-  //    std::make_unique<FullNetworkGraph>(parsers, net.ID, net.Num);
+  std::unique_ptr<FullNetworkGraph> g =
+      std::make_unique<FullNetworkGraph>(parsers, net.ID, net.Num);
   galois::runtime::getHostBarrier().wait();
   return g;
 }
 
 bool wf4::internal::NetworkGraphProjection::KeepNode(
     wf4::FullNetworkGraph& graph, wf4::FullNetworkGraph::GraphNode node) {
-  return graph.getData(node).type_ == gls::wmd::TYPES::PERSON;
+  return graph.getData(node).type_ == agile::workflow1::TYPES::PERSON;
 }
 
 bool wf4::internal::NetworkGraphProjection::KeepEdge(
     wf4::FullNetworkGraph& graph, const wf4::FullNetworkEdge& edge,
     wf4::FullNetworkGraph::GraphNode, wf4::FullNetworkGraph::GraphNode dst) {
-  return (edge.type == gls::wmd::TYPES::PURCHASE ||
-          edge.type == gls::wmd::TYPES::SALE) &&
+  return (edge.type == agile::workflow1::TYPES::PURCHASE ||
+          edge.type == agile::workflow1::TYPES::SALE) &&
          edge.topic == 8486 && edge.amount_ > 0 && KeepNode(graph, dst);
 }
 
@@ -81,7 +83,7 @@ wf4::internal::CyberParser::ParseLine(char* line, uint64_t lineLength) {
 
   std::vector<wf4::FullNetworkEdge> edges;
   edges.emplace_back(
-      wf4::FullNetworkEdge(gls::wmd::TYPES::COMMUNICATION, tokens));
+      wf4::FullNetworkEdge(agile::workflow1::TYPES::COMMUNICATION, tokens));
 
   return galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode,
                                               wf4::FullNetworkEdge>(edges);
@@ -93,7 +95,8 @@ wf4::internal::SocialParser::ParseLine(char* line, uint64_t lineLength) {
       this->SplitLine(line, lineLength, ',', csv_fields_);
 
   std::vector<wf4::FullNetworkEdge> edges;
-  edges.emplace_back(wf4::FullNetworkEdge(gls::wmd::TYPES::FRIEND, tokens));
+  edges.emplace_back(
+      wf4::FullNetworkEdge(agile::workflow1::TYPES::FRIEND, tokens));
 
   return galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode,
                                               wf4::FullNetworkEdge>(edges);
@@ -105,7 +108,8 @@ wf4::internal::UsesParser::ParseLine(char* line, uint64_t lineLength) {
       this->SplitLine(line, lineLength, ',', csv_fields_);
 
   std::vector<wf4::FullNetworkEdge> edges;
-  edges.emplace_back(wf4::FullNetworkEdge(gls::wmd::TYPES::USES, tokens));
+  edges.emplace_back(
+      wf4::FullNetworkEdge(agile::workflow1::TYPES::USES, tokens));
 
   return galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode,
                                               wf4::FullNetworkEdge>(edges);
@@ -118,11 +122,11 @@ wf4::internal::NodeParser::ParseLine(char* line, uint64_t lineLength) {
 
   galois::graphs::ParsedUID uid =
       shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
-  gls::wmd::TYPES type = gls::wmd::TYPES::PERSON;
+  agile::workflow1::TYPES type = agile::workflow1::TYPES::PERSON;
   if (tokens[0] == "Device") {
     const uint64_t half_max = std::numeric_limits<uint64_t>::max() / 2;
     uid                     = half_max + (uid % half_max);
-    type                    = gls::wmd::TYPES::DEVICE;
+    type                    = agile::workflow1::TYPES::DEVICE;
   }
   wf4::FullNetworkNode node(uid, 0, type);
 

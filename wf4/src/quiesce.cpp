@@ -22,7 +22,7 @@ void dumpUpdates(wf4::NetworkGraph& graph, wf4::GlobalNodeID node) {
     std::cout << "EDGE: SRC_UID: " << data.src << ", DST_UID: " << data.dst
               << ", DST_GID: " << data.dst_glbid << ", Local: "
               << graph.isOwned(graph.getGID(graph.getEdgeDst(edge)))
-              << ", Sale: " << (data.type == gls::wmd::TYPES::SALE)
+              << ", Sale: " << (data.type == agile::workflow1::TYPES::SALE)
               << ", Amount: " << data.amount_
               << ", Bought: " << graph.getData(graph.getEdgeDst(edge)).bought_
               << ", Sold: " << graph.getData(graph.getEdgeDst(edge)).sold_
@@ -133,12 +133,10 @@ wf4::internal::IncomingEdges::IncomingEdges(
   if (buffer_.size() < 16) {
     empty = true;
   } else {
-    empty                 = false;
-    size_t initial_offset = buffer_.getOffset();
-    uint64_t* data        = std::reinterpret_cast<uint64_t*>(
-        &(buffer_.getVec().data()[initial_offset]));
-    num_edges = data[0];
-    edges     = std::reinterpret_cast<ProposedEdge*>(&data[1]);
+    empty          = false;
+    uint64_t* data = reinterpret_cast<uint64_t*>(buffer_.data());
+    num_edges      = data[0];
+    edges          = reinterpret_cast<ProposedEdge*>(&data[1]);
   }
 }
 
@@ -155,7 +153,7 @@ void wf4::internal::CancelNode(wf4::NetworkGraph& graph,
 
   for (auto& edge : graph.edges(node)) {
     wf4::NetworkEdge edge_data = graph.getEdgeData(edge);
-    if (edge_data.type == gls::wmd::TYPES::SALE) {
+    if (edge_data.type == agile::workflow1::TYPES::SALE) {
       wf4::NetworkGraph::GraphNode dst_node = graph.getEdgeDst(edge);
       // if destination is a mirror set it to 0 and subtract
       if (!graph.isOwned(graph.getGID(dst_node))) {
@@ -167,7 +165,7 @@ void wf4::internal::CancelNode(wf4::NetworkGraph& graph,
 
       // TODO(Patrick)
       // graph.removeEdge(node, out_edge);
-    } else if (edge_data.type == gls::wmd::TYPES::PURCHASE) {
+    } else if (edge_data.type == agile::workflow1::TYPES::PURCHASE) {
       wf4::NetworkGraph::GraphNode src_node = graph.getEdgeDst(edge);
       // if source is a mirror set it to 0 and subtract
       if (!graph.isOwned(graph.getGID(src_node))) {
@@ -196,7 +194,7 @@ void wf4::internal::TryQuiesceNode(
       return;
     }
     wf4::NetworkEdge edge_data = graph.getEdgeData(in_edge);
-    if (edge_data.type != gls::wmd::TYPES::PURCHASE) {
+    if (edge_data.type != agile::workflow1::TYPES::PURCHASE) {
       continue;
     }
     wf4::NetworkGraph::GraphNode seller_node = graph.getEdgeDst(in_edge);
@@ -336,14 +334,14 @@ std::vector<wf4::internal::IncomingEdges> wf4::internal::SendNewEdges(
     if (send_buffer.size() == 0) {
       send_buffer.push('a');
     }
-    net.sendTagged(h, SEND_NEW_EDGES, send_buffer);
+    net.sendTagged(h, SEND_NEW_EDGES, std::move(send_buffer));
   }
 
   // recv node range from other hosts
   for (uint32_t h = 0; h < num_hosts - 1; h++) {
-    decltype(net.recieveTagged(SEND_NEW_EDGES, nullptr)) p;
+    decltype(net.recieveTagged(SEND_NEW_EDGES)) p;
     do {
-      p = net.recieveTagged(SEND_NEW_EDGES, nullptr);
+      p = net.recieveTagged(SEND_NEW_EDGES);
     } while (!p);
     uint32_t sending_host        = p->first;
     incoming_edges[sending_host] = IncomingEdges(std::move(p->second));
@@ -365,6 +363,6 @@ void wf4::internal::SerializeSet(
     data[offset++] = edge.dst;
     data[offset++] = edge.weight;
   }
-  buf.insert(std::reinterpret_cast<uint8_t*>(&data), length * sizeof(uint64_t));
+  buf.insert(reinterpret_cast<uint8_t*>(&data), length * sizeof(uint64_t));
   edges.clear();
 }

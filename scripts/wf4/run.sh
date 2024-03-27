@@ -7,7 +7,7 @@ TACC="${TACC:-}"
 HOST_THREADS="${HOST_THREADS:-32}"
 
 HOSTS="${HOSTS:-1}"
-PROCS="${PROCS:-1}"
+PROCS="${PROCS:-4}"
 TIME="${TIME:-0:15:00}"
 QUEUE="${QUEUE:-normal}"
 BUILD="${BUILD:-build}"
@@ -59,14 +59,12 @@ module purge
 
 export OMP_NUM_THREADS=${THREADS}
 
-ibrun -- ${BUILD}/wf4/wf4 -t=${THREADS} -k=${K} --input-dir=${GRAPH_DIR} \
-  --epochs=${EPOCHS} --name=${GRAPH_NAME} --rrr=${RRR_SETS} --seed=${SEED} \
-  --influential-threshold=${INFLUENTIAL_THRESHOLD}
+ibrun -- ${BUILD}/wf4/wf4 -t ${THREADS} -k ${K} -d ${GRAPH_DIR} \
+  -e ${EPOCHS} -r ${RRR_SETS} -s ${SEED}
 
 EOT
 else
 	mpirun -np ${PROCS} --bind-to ${BIND} --cpus-per-rank ${THREADS} --use-hwthread-cpus --tag-output \
-		--allow-run-as-root -- ${BUILD}/wf4/wf4 -t=${THREADS} -k=${K} --input-dir=${GRAPH_DIR} \
-		--epochs=${EPOCHS} --name=${GRAPH_NAME} --rrr=${RRR_SETS} --seed=${SEED} \
-		--influential-threshold=${INFLUENTIAL_THRESHOLD} | tee ${OUTF}
+		-- ${BUILD}/wf4/wf4 -t ${THREADS} -k ${K} -d ${GRAPH_DIR} \
+		-e ${EPOCHS} -r ${RRR_SETS} -s ${SEED} | tee ${OUTF}
 fi

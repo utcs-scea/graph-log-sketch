@@ -16,6 +16,8 @@
 #include "galois/graphs/GenericPartitioners.h"
 #include "galois/graphs/GluonSubstrate.h"
 #include "galois/runtime/SyncStructures.h"
+#include "galois/wmd/WMDPartitioner.h"
+#include "galois/wmd/graphTypes.h"
 
 class NodeData;
 
@@ -66,9 +68,9 @@ public:
   time_t date_;
   double amount_;
   double weight_;
-  gls::wmd::TYPES type     = gls::wmd::TYPES::SALE;
-  gls::wmd::TYPES src_type = gls::wmd::TYPES::PERSON;
-  gls::wmd::TYPES dst_type = gls::wmd::TYPES::PERSON;
+  agile::workflow1::TYPES type     = agile::workflow1::TYPES::SALE;
+  agile::workflow1::TYPES src_type = agile::workflow1::TYPES::PERSON;
+  agile::workflow1::TYPES dst_type = agile::workflow1::TYPES::PERSON;
   uint64_t src;
   uint64_t dst;
   uint64_t src_glbid = std::numeric_limits<uint64_t>::max();
@@ -133,7 +135,7 @@ struct InputFiles {
 struct NodeData {
 public:
   NodeData() = default;
-  NodeData(uint64_t id_, uint64_t, gls::wmd::TYPES)
+  NodeData(uint64_t id_, uint64_t, agile::workflow1::TYPES)
       : id(id_), sold_(0), bought_(0), desired_(0) {}
   explicit NodeData(uint64_t id_)
       : id(id_), sold_(0), bought_(0), desired_(0) {}
