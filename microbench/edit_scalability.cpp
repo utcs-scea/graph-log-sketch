@@ -13,6 +13,7 @@
 
 #include "scea/algo/bfs.hpp"
 #include "scea/algo/nop.hpp"
+#include "scea/algo/tc.hpp"
 #include "scea/graph/lscsr.hpp"
 #include "scea/graph/morph.hpp"
 #include "scea/graph/adj.hpp"
@@ -20,7 +21,7 @@
 #include "scea/stats.hpp"
 
 enum GraphType { lscsr, morph, adj, lccsr };
-enum AlgoName { nop, sssp_bfs };
+enum AlgoName { nop, sssp_bfs, tc };
 
 std::istream& operator>>(std::istream& in, GraphType& type) {
   std::string name;
@@ -50,6 +51,8 @@ std::istream& operator>>(std::istream& in, AlgoName& name) {
     name = nop;
   } else if (type == "bfs") {
     name = sssp_bfs;
+  } else if (type == "tc") {
+    name = tc;
   } else {
     // Handle invalid input (throw exception, print error message, etc.)
     in.setstate(std::ios_base::failbit);
@@ -139,6 +142,10 @@ int main(int argc, char const* argv[]) {
   }
   case AlgoName::sssp_bfs: {
     algo = std::make_unique<scea::algo::SSSP_BFS>(vm["bfs-src"].as<uint64_t>());
+    break;
+  }
+  case AlgoName::tc: {
+    algo = std::make_unique<scea::algo::TriangleCounting>();
     break;
   }
   default:
