@@ -102,6 +102,7 @@ RUN if [ "${IS_CI}" != "true" ] ; then \
   doxygen \
   texlive-latex-extra \
   texlive-font-utils \
+  gcovr \
   &&  apt clean \
   &&  update-locale; fi
 
@@ -121,12 +122,12 @@ USER ${UNAME}
 WORKDIR /home/${UNAME}
 ENV BUILD_DIR=${BUILD_DIR}
 
-RUN pip3 install compdb pre-commit cpplint "clang-format>=12.0.1"
+RUN pip3 install compdb pre-commit cpplint "clang-format>=14.0.0,<17.0.0"
 
 RUN echo "export SRC_DIR=${SRC_DIR}" >> /home/${UNAME}/.profile
 RUN echo "export BUILD_DIR=${BUILD_DIR}" >> /home/${UNAME}/.profile
 RUN echo "touch ${SRC_DIR}/env-docker.sh" >> /home/${UNAME}/.profile
-RUN echo "bash ${SRC_DIR}/env-docker.sh" >> /home/${UNAME}/.profile
+RUN echo "source ${SRC_DIR}/env-docker.sh" >> /home/${UNAME}/.profile
 
 RUN echo "PATH=/home/${UNAME}/.local/bin/:\$PATH" >> /home/${UNAME}/.zshenv
 WORKDIR ${SRC_DIR}
