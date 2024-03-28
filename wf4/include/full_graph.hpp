@@ -104,11 +104,10 @@ public:
 struct FullNetworkNode {
 public:
   FullNetworkNode() = default;
-  FullNetworkNode(uint64_t id_, uint64_t glbid_, agile::workflow1::TYPES type)
-      : id(id_), glbid(glbid_), sold_(0), bought_(0), desired_(0), type_(type) {
-  }
+  FullNetworkNode(uint64_t id_, uint64_t, agile::workflow1::TYPES type)
+      : id(id_), glbid(id_), sold_(0), bought_(0), desired_(0), type_(type) {}
   explicit FullNetworkNode(uint64_t id_)
-      : id(id_), sold_(0), bought_(0), desired_(0) {}
+      : id(id_), glbid(id_), sold_(0), bought_(0), desired_(0) {}
 
   void serialize(galois::runtime::SerializeBuffer& buf) const {
     galois::runtime::gSerialize(buf, id, type_);

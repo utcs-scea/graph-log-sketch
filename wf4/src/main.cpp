@@ -233,23 +233,18 @@ int main(int argc, char* argv[]) {
     input_files.Print();
   }
 
-  std::cout << "REA0" << std::endl;
   std::unique_ptr<wf4::FullNetworkGraph> full_graph =
       wf4::ImportData(input_files);
   galois::runtime::getHostBarrier().wait();
-  std::cout << "REA1 " << full_graph->size() << std::endl;
   printGraphStatisticsDebug(*full_graph);
-  std::cout << "REA2" << std::endl;
   std::unique_ptr<wf4::NetworkGraph> projected_graph =
       wf4::ProjectGraph(std::move(full_graph));
-  std::cout << "REA3" << std::endl;
   std::unique_ptr<galois::graphs::GluonSubstrate<wf4::NetworkGraph>>
       sync_substrate =
           std::make_unique<galois::graphs::GluonSubstrate<wf4::NetworkGraph>>(
               *projected_graph, net.ID, net.Num,
               projected_graph->isTransposed(),
               projected_graph->cartesianGrid());
-  std::cout << "REA4" << std::endl;
 
   // printGraphStatisticsDebug(*projected_graph);
 
