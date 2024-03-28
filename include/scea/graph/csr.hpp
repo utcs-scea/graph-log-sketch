@@ -29,11 +29,12 @@ public:
 
   void add_edges(uint64_t src, const std::vector<uint64_t> dsts) override {
     std::copy(dsts.begin(), dsts.end(), std::back_inserter(m_adj[src]));
+    num_edges.fetch_add(dsts.size(), std::memory_order_relaxed);
   }
 
   void post_ingest() override {
     m_graph = std::make_unique<GraphTy>(
-        m_adj.size(), num_edges.load(),
+        m_adj.size(), num_edges.load(std::memory_order_acquire),
         [&](size_t const& src) { return m_adj[src].size(); },
         [&](size_t const& src, size_t const& idx) { return m_adj[src][idx]; },
         [&](size_t const& src, size_t const& idx) { return 0; });
