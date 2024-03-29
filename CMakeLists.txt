@@ -10,6 +10,13 @@ project(
     LANGUAGES     C CXX
 )
 
+if(PROJECT_IS_TOP_LEVEL)
+    set(CMAKE_CXX_FLAGS_COVERAGE "-g -O0 --coverage -fprofile-abs-path")
+    set(CMAKE_EXE_LINKER_FLAGS_COVERAGE "--coverage")
+    set(CMAKE_SHARED_LINKER_FLAGS_COVERAGE "--coverage")
+    set(CMAKE_MODULE_LINKER_FLAGS_COVERAGE "--coverage")
+endif()
+
 # helper functions
 include(cmake/GaloisCompilerOptions.cmake)
 
@@ -37,6 +44,7 @@ if(PROJECT_IS_TOP_LEVEL)
 endif()
 
 set(GALOIS_ENABLE_DIST ON CACHE BOOL "" FORCE)
+set(GALOIS_ENABLE_WMD ON)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -57,11 +65,12 @@ set(BUILD_TESTING OFF)
 add_subdirectory(galois EXCLUDE_FROM_ALL)
 set(BUILD_TESTING "${BUILD_TESTING_SAVED}")
 
-set(PHMAP_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/galois/external/parallel-hashmap)
-set(PCG_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/galois/external/pcg-cpp/include)
+set(PHMAP_DIRECTORY ${Galois_SOURCE_DIR}/external/parallel-hashmap)
+set(PCG_DIRECTORY ${Galois_SOURCE_DIR}/external/pcg-cpp/include)
 
 add_subdirectory(microbench)
 add_subdirectory(scripts)
+add_subdirectory(wf4)
 
 # tests
 option(BUILD_TESTING "Build tests." ON)
