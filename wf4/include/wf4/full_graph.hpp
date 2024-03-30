@@ -25,6 +25,12 @@ public:
   FullNetworkEdge() = default;
   FullNetworkEdge(time_t date, double amount)
       : date_(date), amount_(amount), weight_(0) {}
+  FullNetworkEdge(uint64_t src_, uint64_t dst_, agile::workflow1::TYPES type_,
+                  agile::workflow1::TYPES src_type_,
+                  agile::workflow1::TYPES dst_type_, double amount,
+                  uint64_t topic_)
+      : amount_(amount), type(type_), src_type(src_type_), dst_type(dst_type_),
+        src(src_), dst(dst_), src_glbid(src_), dst_glbid(dst_), topic(topic_) {}
   explicit FullNetworkEdge(const std::vector<std::string>& tokens) {
     double amount_sold = 0;
     if (tokens[7].size() > 0) {
@@ -88,7 +94,7 @@ public:
   uint64_t src_glbid = std::numeric_limits<uint64_t>::max();
   uint64_t dst_glbid = std::numeric_limits<uint64_t>::max();
 
-  uint64_t topic;
+  uint64_t topic = 0;
 
   uint64_t epoch_time;
   uint64_t duration;
@@ -105,6 +111,8 @@ struct FullNetworkNode {
 public:
   FullNetworkNode() = default;
   FullNetworkNode(uint64_t id_, uint64_t, agile::workflow1::TYPES type)
+      : id(id_), glbid(id_), sold_(0), bought_(0), desired_(0), type_(type) {}
+  FullNetworkNode(uint64_t id_, agile::workflow1::TYPES type)
       : id(id_), glbid(id_), sold_(0), bought_(0), desired_(0), type_(type) {}
   explicit FullNetworkNode(uint64_t id_)
       : id(id_), glbid(id_), sold_(0), bought_(0), desired_(0) {}

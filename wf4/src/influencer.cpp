@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 // Copyright (c) 2023. University of Texas at Austin. All rights reserved.
 
-#include "influencer.hpp"
+#include "wf4/influencer.hpp"
 
 #include <queue>
 #include <random>

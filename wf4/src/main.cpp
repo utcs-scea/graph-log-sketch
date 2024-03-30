@@ -5,9 +5,9 @@
 
 #include "galois/DistGalois.h"
 #include "galois/runtime/DataCommMode.h"
-#include "import.hpp"
-#include "influencer.hpp"
-#include "quiesce.hpp"
+#include "wf4/import.hpp"
+#include "wf4/influencer.hpp"
+#include "wf4/quiesce.hpp"
 
 static const char* name = "Network of Networks";
 

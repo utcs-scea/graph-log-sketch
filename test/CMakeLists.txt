@@ -12,3 +12,5 @@ target_include_directories(tc-test PRIVATE ${graph-log-sketch_SOURCE_DIR}/includ
 galois_add_test(bc-test test-algo-bc.cpp)
 target_link_libraries(bc-test PRIVATE Galois::shmem)
 target_include_directories(bc-test PRIVATE ${graph-log-sketch_SOURCE_DIR}/include)
+
+add_subdirectory(wf4)

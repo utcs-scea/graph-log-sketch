@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 // Copyright (c) 2023. University of Texas at Austin. All rights reserved.
 
-#include "quiesce.hpp"
+#include "wf4/quiesce.hpp"
 
 #include "galois/AtomicHelpers.h"
 
