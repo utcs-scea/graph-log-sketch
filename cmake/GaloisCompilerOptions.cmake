@@ -3,8 +3,6 @@
 
 include_guard()
 
-option(GALOIS_WERROR "Make all warnings into errors." ON)
-
 # Default compiler options for targets
 function(galois_compiler_options TARGET)
     set_target_properties(${TARGET}
@@ -25,12 +23,12 @@ endfunction()
 function(galois_compiler_warnings TARGET)
     target_compile_options(${TARGET} PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
-        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic $<$<BOOL:${GALOIS_WERROR}>:-Werror>>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic>
     )
 endfunction()
 
 function(galois_add_executable TARGET)
     add_executable(${TARGET} ${ARGN})
-    #galois_compiler_warnings(${TARGET})
+    galois_compiler_warnings(${TARGET})
     galois_compiler_options(${TARGET})
 endfunction()

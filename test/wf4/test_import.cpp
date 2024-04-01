@@ -238,19 +238,19 @@ TEST(Import, Parse) {
   galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode,
                                        wf4::FullNetworkEdge>
       result;
-  result = commercial_parser.ParseLine(reinterpret_cast<char*>(invalid),
+  result = commercial_parser.ParseLine(const_cast<char*>(invalid),
                                        std::strlen(invalid));
   EXPECT_EQ(result.isEdge, false);
 
-  result = commercial_parser.ParseLine(reinterpret_cast<char*>(sale),
-                                       std::strlen(sale));
+  result =
+      commercial_parser.ParseLine(const_cast<char*>(sale), std::strlen(sale));
   checkParsedEdge(result,
                   wf4::FullNetworkEdge(1552474UL, 1928788UL,
                                        agile::workflow1::TYPES::SALE,
                                        agile::workflow1::TYPES::PERSON,
                                        agile::workflow1::TYPES::PERSON, 0, 0),
                   agile::workflow1::TYPES::PURCHASE, 2);
-  result = commercial_parser.ParseLine(reinterpret_cast<char*>(weighted_sale),
+  result = commercial_parser.ParseLine(const_cast<char*>(weighted_sale),
                                        std::strlen(weighted_sale));
   checkParsedEdge(result,
                   wf4::FullNetworkEdge(299156UL, 458364UL,
@@ -259,7 +259,7 @@ TEST(Import, Parse) {
                                        agile::workflow1::TYPES::PERSON,
                                        3.0366367403882406, 8486),
                   agile::workflow1::TYPES::PURCHASE, 2);
-  result = cyber_parser.ParseLine(reinterpret_cast<char*>(communication),
+  result = cyber_parser.ParseLine(const_cast<char*>(communication),
                                   std::strlen(communication));
   checkParsedEdge(result,
                   wf4::FullNetworkEdge(half_max + 0UL, half_max + 217661UL,
@@ -267,7 +267,7 @@ TEST(Import, Parse) {
                                        agile::workflow1::TYPES::DEVICE,
                                        agile::workflow1::TYPES::DEVICE, 0, 0),
                   agile::workflow1::TYPES::NONE, 1);
-  result = social_parser.ParseLine(reinterpret_cast<char*>(friend_edge),
+  result = social_parser.ParseLine(const_cast<char*>(friend_edge),
                                    std::strlen(friend_edge));
   checkParsedEdge(result,
                   wf4::FullNetworkEdge(5UL, 679697UL,
@@ -275,8 +275,7 @@ TEST(Import, Parse) {
                                        agile::workflow1::TYPES::PERSON,
                                        agile::workflow1::TYPES::PERSON, 0, 0),
                   agile::workflow1::TYPES::NONE, 1);
-  result =
-      uses_parser.ParseLine(reinterpret_cast<char*>(uses), std::strlen(uses));
+  result = uses_parser.ParseLine(const_cast<char*>(uses), std::strlen(uses));
   checkParsedEdge(result,
                   wf4::FullNetworkEdge(12UL, half_max + 311784UL,
                                        agile::workflow1::TYPES::USES,
