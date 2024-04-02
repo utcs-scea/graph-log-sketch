@@ -80,7 +80,7 @@ def plot_batch_durations(results, batches, plot_ingestion, plot_algorithm):
     ax.legend(loc='upper left', bbox_to_anchor=(1, 1), ncol=1)
 
     plt.tight_layout()
-    plt.savefig('plots/edit_scalability_lccsr.png')
+    plt.savefig('plots/edit_scalability.png')
 
 def main():
     parser = argparse.ArgumentParser(description='Run and plot benchmark results based on command line flags.')
@@ -97,7 +97,7 @@ def main():
         return
 
     graph_types = ['lscsr', 'lccsr', 'adj']
-    thread_counts = [8, 16]
+    thread_counts = [1, 2, 4, 8, 16, 32]
     results = {}
 
     for graph in graph_types:
@@ -109,7 +109,7 @@ def main():
                 'algorithm': algorithm_durations
             }
 
-    plot_batch_durations(results, [0, 1], plot_ingestion, plot_algorithm)
+    plot_batch_durations(results, [20, 21, 22, 23, 24], plot_ingestion, plot_algorithm)
 
 if __name__ == "__main__":
    main()
