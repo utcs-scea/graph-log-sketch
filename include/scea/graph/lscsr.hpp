@@ -13,9 +13,11 @@ namespace scea::graph {
 class LS_CSR : public MutableGraph {
 private:
   galois::graphs::LS_LC_CSR_Graph<void, void> graph;
+  float const compact_threshold;
 
 public:
-  explicit LS_CSR(uint64_t num_vertices) : graph(num_vertices) {}
+  LS_CSR(uint64_t num_vertices, float compact_threshold)
+      : graph(num_vertices), compact_threshold(compact_threshold) {}
 
   virtual ~LS_CSR() {}
 
@@ -25,7 +27,13 @@ public:
     graph.addEdgesTopologyOnly(src, dsts);
   }
 
-  void post_ingest() override {}
+  void post_ingest() override {
+    float holes_usage  = graph.getLogHolesMemoryUsageBytes();
+    float memory_usage = graph.getMemoryUsageBytes();
+    if (memory_usage > 0.0 && holes_usage / memory_usage > compact_threshold) {
+      graph.compact();
+    }
+  }
 
   void for_each_edge(uint64_t src,
                      std::function<void(uint64_t const&)> callback) override {

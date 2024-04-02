@@ -76,6 +76,8 @@ int main(int argc, char const* argv[]) {
       ("graph,g", po::value<GraphType>()->default_value(lscsr),
        "Graph representation (lscsr: log-structured CSR, morph: Galois "
        "MorphGraph)") //
+      ("lscsr-compact-threshold", po::value<float>()->default_value(0.5),
+       "Threshold at which LS_CSR performs a compaction") //
       ("algo", po::value<AlgoName>()->default_value(nop),
        "Algorithm to run (nop: do nothing, bfs: compute "
        "single-source shortest path using BFS)") //
@@ -115,7 +117,8 @@ int main(int argc, char const* argv[]) {
   std::unique_ptr<scea::graph::MutableGraph> graph;
   switch (graph_type) {
   case GraphType::lscsr: {
-    graph = std::make_unique<scea::graph::LS_CSR>(num_vertices);
+    float thresh = vm["lscsr-compact-threshold"].as<float>();
+    graph        = std::make_unique<scea::graph::LS_CSR>(num_vertices, thresh);
     break;
   }
   case GraphType::lccsr: {
