@@ -58,7 +58,7 @@ find_package(MPI REQUIRED)
 include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 
 # Boost Dependency
-find_package(Boost 1.74 COMPONENTS program_options REQUIRED)
+find_package(Boost 1.72 COMPONENTS program_options REQUIRED)
 
 set(BUILD_TESTING_SAVED "${BUILD_TESTING}")
 set(BUILD_TESTING OFF)
