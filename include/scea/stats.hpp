@@ -137,15 +137,15 @@ public:
     uint64_t minorPageFaults = minorPageFaultsEvent.readValue();
     uint64_t majorPageFaults = majorPageFaultsEvent.readValue();
 
-    std::cout << "Benchmark results for " << scopeName << ":\n";
-    std::cout << "Duration: " << timer.getDurationNano() << " nanoseconds\n";
-    std::cout << "Max RSS: " << max_rss << " KB\n";
-    std::cout << "Cache Miss Rate: "
-              << (static_cast<double>(cacheMisses) / cacheReferences) * 100
-              << "%\n";
-    std::cout << "Instructions: " << instructions << "\n";
-    std::cout << "Minor Page Faults: " << minorPageFaults << "\n";
-    std::cout << "Major Page Faults: " << majorPageFaults << "\n";
+    std::cout << "Benchmark results for " << scopeName << ":" << std::endl //
+              << "Duration: " << timer.getDurationNano() << " nanoseconds"
+              << std::endl                                             //
+              << "Max RSS: " << max_rss << " KB" << std::endl          //
+              << "Cache Misses: " << cacheMisses << std::endl          //
+              << "Cache References: " << cacheReferences << std::endl  //
+              << "Instructions: " << instructions << std::endl         //
+              << "Minor Page Faults: " << minorPageFaults << std::endl //
+              << "Major Page Faults: " << majorPageFaults << std::endl;
   }
 };
 
