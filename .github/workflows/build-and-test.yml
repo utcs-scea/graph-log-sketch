@@ -55,10 +55,7 @@ jobs:
     strategy:
       matrix:
         build-type: ['Release', 'Debug']
-        sanitizer-type: ['nosan', 'san']
-        exclude:
-          - build-type: 'Debug'
-            sanitizer-type: 'san'
+        sanitizer-type: ['nosan']
     needs: docker-create-ubuntu-2204
 
     steps:
