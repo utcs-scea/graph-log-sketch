@@ -76,6 +76,15 @@ void wf4::CancelNodes(
                  Reduce_add_sold_, Bitset_sold_, async>(
       "Update sold values after cancellation");
   galois::runtime::getHostBarrier().wait();
+
+  // Required since repeated cancellations can give other cancelled nodes
+  // negative values
+  for (wf4::GlobalNodeID node_gid : nodes) {
+    if (!graph.isLocal(node_gid)) {
+      continue;
+    }
+    graph.getData(graph.getLID(node_gid)).Cancel();
+  }
 }
 
 void wf4::QuiesceGraph(
@@ -201,8 +210,8 @@ void wf4::internal::TryQuiesceNode(
     wf4::NetworkNode& seller_data            = graph.getData(seller_node);
 
     // TODO(Patrick) explore negative case more closely
-    double seller_surplus = seller_data.bought_ - seller_data.sold_;
-    double trade_delta    = std::min(needed, seller_surplus);
+    const double seller_surplus = seller_data.bought_ - seller_data.sold_;
+    const double trade_delta    = std::min(needed, seller_surplus);
     if (trade_delta <= 0) {
       continue;
     }
