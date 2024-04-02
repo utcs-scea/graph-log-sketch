@@ -5,10 +5,12 @@ import subprocess
 import re
 import matplotlib.pyplot as plt
 import numpy as np
+import csv
+import argparse
 
 
 def run_benchmark(threads, graph):
-   command = f"./build/microbench/edit-scalability --algo=bfs --bfs-src=101 --algo-threads={threads} --graph={graph} --ingest-threads={threads} --num-vertices=124836180 --input-file=/var/local/graphs/friendster_batched_100.txt"
+   command = f"./build/microbench/edit-scalability --algo=bfs --bfs-src=101 --algo-threads={threads} --graph={graph} --ingest-threads={threads} --num-vertices=124836180 --input-file=/var/local/graphs/friendster_batched_25.txt"
 
    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
    stdout, stderr = process.communicate()
@@ -32,14 +34,13 @@ def run_benchmark(threads, graph):
 
    return ingestion_durations, algorithm_durations
 
-def plot_batch_durations(results, batches):
+def plot_batch_durations(results, batches, plot_ingestion, plot_algorithm):
     plt.rcParams.update({'font.size': 14, 'legend.fontsize': 12})
-
     n_graph_types = len(results)
     graph_types = list(results.keys())
     thread_counts = list(results[graph_types[0]].keys())
     width = 0.35
-    colors = ['skyblue', 'orange', 'lightgreen', 'purple']
+    colors = ['skyblue', 'orange', 'lightgreen', 'purple', 'red', 'yellow']
     thread_spacing = 0.5
     batch_spacing = 1
 
@@ -54,11 +55,14 @@ def plot_batch_durations(results, batches):
                 pos = current_position + i * width
                 positions_within_group.append(pos)
 
-                ingestion_duration = results[graph_type][thread_count]['ingestion'].get(batch, 0)
-                algorithm_duration = results[graph_type][thread_count]['algorithm'].get(batch, 0)
+                if plot_ingestion:
+                    ingestion_duration = results[graph_type][thread_count]['ingestion'].get(batch, 0)
+                    ax.bar(pos, ingestion_duration, width, color=colors[i*2], label=f'Ingestion {graph_type}' if batch == batches[0] and thread_count == thread_counts[0] else "")
 
-                ax.bar(pos, ingestion_duration, width, color=colors[i*2], label=f'Ingestion {graph_type}' if batch == batches[0] and thread_count == thread_counts[0] else "")
-                ax.bar(pos, algorithm_duration, width, bottom=ingestion_duration, color=colors[i*2 + 1], label=f'Algorithm {graph_type}' if batch == batches[0] and thread_count == thread_counts[0] else "")
+                if plot_algorithm:
+                    algorithm_duration = results[graph_type][thread_count]['algorithm'].get(batch, 0)
+                    bottom = ingestion_duration if plot_ingestion else 0
+                    ax.bar(pos, algorithm_duration, width, bottom=bottom, color=colors[i*2 + 1], label=f'Algorithm {graph_type}' if batch == batches[0] and thread_count == thread_counts[0] else "")
 
             all_positions.extend(positions_within_group)
             current_position += (n_graph_types * width) + thread_spacing
@@ -68,9 +72,9 @@ def plot_batch_durations(results, batches):
     tick_positions = [np.mean(all_positions[i:i+n_graph_types]) for i in range(0, len(all_positions), n_graph_types)]
 
     ax.set_xticks(tick_positions)
-    ax.set_xticklabels([f'({batch}, {thread})' for batch in batches for thread in thread_counts])
+    ax.set_xticklabels([f'{thread}' for batch in batches for thread in thread_counts])
 
-    ax.set_xlabel('(Batch Number, Number of Threads)')
+    ax.set_xlabel('Number of Threads')
     ax.set_ylabel('Duration (nanoseconds)')
     ax.set_title('Edit Scalability Benchmark')
     ax.legend(loc='upper left', bbox_to_anchor=(1, 1), ncol=1)
@@ -79,23 +83,33 @@ def plot_batch_durations(results, batches):
     plt.savefig('plots/edit_scalability.png')
 
 def main():
-   graph_types = ['lscsr', 'adj']
-   thread_counts = [1, 2, 4, 8, 16, 32]
-   results = {}
+    parser = argparse.ArgumentParser(description='Run and plot benchmark results based on command line flags.')
+    parser.add_argument('--ingest', action='store_true', help='Plot ingestion durations.')
+    parser.add_argument('--algo', action='store_true', help='Plot algorithm durations.')
 
-   for graph in graph_types:
-       results[graph] = {}
-       for threads in thread_counts:
-           ingestion_durations, algorithm_durations = run_benchmark(threads, graph)
-           results[graph][threads] = {
-               'ingestion': ingestion_durations,
-               'algorithm': algorithm_durations
-           }
+    args = parser.parse_args()
 
-   plot_batch_durations (results, [80, 81, 82, 83, 84, 85, 86, 87, 88, 89])
+    plot_ingestion = args.ingest
+    plot_algorithm = args.algo
+
+    if not (plot_ingestion or plot_algorithm):
+        print("No plot flags provided. Use --ingest, --algo, or both.")
+        return
+
+    graph_types = ['lscsr', 'lccsr', 'adj']
+    thread_counts = [1, 2, 4, 8, 16, 32]
+    results = {}
+
+    for graph in graph_types:
+        results[graph] = {}
+        for threads in thread_counts:
+            ingestion_durations, algorithm_durations = run_benchmark(threads, graph)
+            results[graph][threads] = {
+                'ingestion': ingestion_durations,
+                'algorithm': algorithm_durations
+            }
+
+    plot_batch_durations(results, [20, 21, 22, 23, 24], plot_ingestion, plot_algorithm)
 
 if __name__ == "__main__":
    main()
-
-# add galois lc_csr
-# instruction counts
