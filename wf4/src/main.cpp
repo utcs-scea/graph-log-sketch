@@ -6,10 +6,8 @@
 #include "galois/DistGalois.h"
 #include "galois/runtime/DataCommMode.h"
 #include "wf4/import.hpp"
-#include "wf4/influencer.hpp"
+#include "wf4/influence_maximization.hpp"
 #include "wf4/quiesce.hpp"
-
-static const char* name = "Network of Networks";
 
 galois::DynamicBitSet bitset_bought_;
 galois::DynamicBitSet bitset_sold_;
@@ -161,7 +159,7 @@ uint64_t countEdges(T& graph) {
         auto dst_node = graph.getData(dst_lid);
         if (data.type == agile::workflow1::TYPES::SALE ||
             data.type == agile::workflow1::TYPES::PURCHASE) {
-          if (data.topic = 8486 && data.amount_ > 0) {
+          if (data.topic == 8486 && data.amount_ > 0) {
             trading_edges++;
 
             if (node.type_ == agile::workflow1::TYPES::PERSON) {
