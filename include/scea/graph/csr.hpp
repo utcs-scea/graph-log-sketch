@@ -45,6 +45,11 @@ public:
     for (auto const& edge : m_graph->edges(src))
       callback(m_graph->getEdgeDst(edge));
   }
+
+  void sort_edges(uint64_t src) override { m_graph->sortEdgesByDst(src); }
+  bool find_edge_sorted(uint64_t src, uint64_t dst) override {
+    return m_graph->findEdgeSortedByDst(src, dst) != m_graph->edge_end(src);
+  }
 };
 
 } // namespace scea::graph
