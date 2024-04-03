@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-2-Clause
 # Copyright (c) 2023. University of Texas at Austin. All rights reserved.
 
-GRAPH_PATH="${GRAPH_PATH:-$SCRATCH/graphs/friendster_batched_11.txt}"
+GRAPH_PATH="${GRAPH_PATH:-$SCRATCH/graphs/friendster_randomized_25.txt}"
 GRAPH_NUM_VERTICES="${GRAPH_NUM_VERTICES:-124836180}"
 
 # required sbatch parameters
@@ -17,8 +17,7 @@ HOSTS="${HOSTS:-1}"
 PROCS="${PROCS:-1}"
 TIME="${TIME:-1:00:00}"
 QUEUE="${QUEUE:-normal}"
-JOBS="${JOBS:-graph-log-sketch-run}"
-OUTS="${OUTS:-graph-log-sketch}"
+JOBS="${JOBS:-edit-scalability}"
 
 ENV=${WORK}/scea/graph-log-sketch/scripts/tacc_env.sh
 
@@ -42,11 +41,12 @@ echo $QUEUE
 echo $JOBN
 
 for algo in bfs tc; do
+	mkdir -p "${DATA}/$algo"
 	for nthreads in 8 16 32 64; do
 		for graph in lscsr lccsr adj; do
 			# JOBN should be parameterized with application parameters as well
 			# possibly time as well time prevent conflicts and overwriting
-			JOBN=${DATA}/${JOBS}_${HOSTS}_${PROCS}_t=${nthreads}_g=${graph}
+			JOBN=${DATA}/$algo/${JOBS}_t=${nthreads}_g=${graph}
 			echo "Submitting job: $JOBN"
 
 			# start of job that runs on the supercomputer
