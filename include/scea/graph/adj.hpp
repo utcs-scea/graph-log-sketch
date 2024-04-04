@@ -33,6 +33,14 @@ public:
     for (auto const& dst : edges[src])
       callback(dst);
   }
+
+  void sort_edges(uint64_t src) {
+    std::sort(edges[src].begin(), edges[src].end());
+  }
+
+  bool find_edge_sorted(uint64_t src, uint64_t dst) {
+    return std::binary_search(edges[src].begin(), edges[src].end(), dst);
+  }
 };
 
 } // namespace scea::graph
