@@ -76,7 +76,7 @@ int main(int argc, char const* argv[]) {
       ("graph,g", po::value<GraphType>()->default_value(lscsr),
        "Graph representation (lscsr: log-structured CSR, morph: Galois "
        "MorphGraph)") //
-      ("lscsr-compact-threshold", po::value<float>()->default_value(0.5),
+      ("lscsr-compact-threshold", po::value<float>()->default_value(0.1),
        "Threshold at which LS_CSR performs a compaction") //
       ("algo", po::value<AlgoName>()->default_value(nop),
        "Algorithm to run (nop: do nothing, bfs: compute "
