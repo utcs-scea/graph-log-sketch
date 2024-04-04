@@ -86,8 +86,8 @@ module load impi/19.0.9
 module load python3/3.9.7
 module load boost-mpi/1.72
 
-export LLVM_DIR="$SCRATCH/llvm-project/build/cmake/modules/CMakeFiles/"
-export fmt_DIR="$SCRATCH/fmt/build/"
+export LLVM_DIR="$WORK/llvm-project/build/cmake/modules/CMakeFiles/"
+export fmt_DIR="$WORK/fmt/build/"
 ```
 
 ## Building Dependencies
@@ -104,16 +104,10 @@ files then you need to clone and download your dependencies manually.  For
 Galois you need [llvm](https://github.com/llvm/llvm-project) and
 [fmt](https://github.com/fmtlib/fmt).
 
-*Note:* `llvm` is a very heavyweight library that will take hours to pull
-and build.  Galois really only uses this library for parsing arguments in
-programs and it would probably be faster to remove Galois' dependency on
-`llvm` and instead use `boost` to parse arguments than to build `llvm`.
-But it is easier to just build `llvm` and burn a few hours.
-
 The following will build `fmt` properly:
 
 ```shell
-cd $SCRATCH
+cd $WORK
 git clone https://github.com/fmtlib/fmt
 cd fmt
 cmake -B build
@@ -121,19 +115,18 @@ cd build
 make -j4
 ```
 
-If you are still reading this I can see you decided to build `llvm` anyways,
-all I can say is good luck. `llvm` needs to be built with certain `cmake`
-flags in order to work with Galois, the following sequence will build `llvm`
-properly:
+`llvm` needs to be built with certain `cmake` flags in order to work with
+Galois, the following sequence will build `llvm` properly:
 
 ```shell
-cd $SCRATCH
+idev -m 120 # enter an interactive dev machine to use more threads
+cd $WORK
 git clone https://github.com/llvm/llvm-project
 cd llvm-project
 cmake -S llvm -B build -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_RTTI=ON \
   -DLLVM_ENABLE_ZSTD=OFF -DLLVM_ENABLE_ZLIB=OFF -DLLVM_ENABLE_TERMINFO=OFF
 cd build
-make -j4
+make -j
 ```
 
 ## Building Galois
@@ -142,7 +135,7 @@ After you have built Galois' dependencies the process is more familiar.
 
 The important bits are to set env vars to tell `cmake` where to find your
 prebuilt dependencies.  For example:
-`export LLVM_DIR="$SCRATCH/llvm-project/build/cmake/modules/CMakeFiles/"`.
+`export LLVM_DIR="$WORK/llvm-project/build/cmake/modules/CMakeFiles/"`.
 It is recommended to define the env vars as part of your TACC environment
 script for ease of use.
 
@@ -151,10 +144,11 @@ version or compiler, then `cmake` will cache this choice.  In order to rebuild
 with a different library version or compiler you must remove the file
 `build/CMakeCache.txt` and then rebuild with the proper settings.
 
+<!-- note: meyer did not have this issue: -->
 Another caviat is with `llvm`: my builds were unable to find the header files
 for `llvm` despite `cmake` finding the dependency.  In order to resolve this
 I used the following `cmake` hack to include them directly:
-`target_include_directories(<exe> PRIVATE $SCRATCH/llvm-project/llvm/include)`.
+`target_include_directories(<exe> PRIVATE $WORK/llvm-project/llvm/include)`.
 Note that this does not break builds for different machines since `cmake` will
 simply ignore paths that do not exist on the current filesystem.
 
