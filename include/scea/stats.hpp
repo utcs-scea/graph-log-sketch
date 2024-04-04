@@ -90,6 +90,8 @@ private:
   PerfEvent cacheMissesEvent;
   PerfEvent cacheReferencesEvent;
   PerfEvent instructionsEvent;
+  PerfEvent minorPageFaultsEvent;
+  PerfEvent majorPageFaultsEvent;
   std::string scopeName;
 
   static uint64_t getMaxRSS() {
@@ -108,11 +110,15 @@ public:
         cacheMissesEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES),
         cacheReferencesEvent(PERF_TYPE_HARDWARE,
                              PERF_COUNT_HW_CACHE_REFERENCES),
-        instructionsEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS) {
+        instructionsEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS),
+        minorPageFaultsEvent(PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS_MIN),
+        majorPageFaultsEvent(PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS_MAJ) {
     timer.start();
     cacheMissesEvent.start();
     cacheReferencesEvent.start();
     instructionsEvent.start();
+    minorPageFaultsEvent.start();
+    majorPageFaultsEvent.start();
   }
 
   ~ScopeBenchmarker() {
@@ -120,11 +126,15 @@ public:
     cacheMissesEvent.stop();
     cacheReferencesEvent.stop();
     instructionsEvent.stop();
+    minorPageFaultsEvent.stop();
+    majorPageFaultsEvent.stop();
 
     uint64_t cacheMisses     = cacheMissesEvent.readValue();
     uint64_t cacheReferences = cacheReferencesEvent.readValue();
     uint64_t instructions    = instructionsEvent.readValue();
     uint64_t max_rss         = getMaxRSS();
+    uint64_t minorPageFaults = minorPageFaultsEvent.readValue();
+    uint64_t majorPageFaults = majorPageFaultsEvent.readValue();
 
     std::cout << "Benchmark results for " << scopeName << ":\n";
     std::cout << "Duration: " << timer.getDurationNano() << " nanoseconds\n";
@@ -133,6 +143,8 @@ public:
               << (static_cast<double>(cacheMisses) / cacheReferences) * 100
               << "%\n";
     std::cout << "Instructions: " << instructions << "\n";
+    std::cout << "Minor Page Faults: " << minorPageFaults << "\n";
+    std::cout << "Major Page Faults: " << majorPageFaults << "\n";
   }
 };
 
