@@ -40,6 +40,12 @@ public:
     for (auto const& edge : graph.edges(src))
       callback(graph.getEdgeDst(edge));
   }
+
+  void sort_edges(uint64_t src) override { graph.sortEdges(src); }
+
+  bool find_edge_sorted(uint64_t src, uint64_t dst) override {
+    return graph.findEdgeSorted(src, dst);
+  }
 };
 
 } // namespace scea::graph

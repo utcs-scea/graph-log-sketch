@@ -42,6 +42,15 @@ public:
     for (auto const& edge : graph.edges(vertices[src]))
       callback(graph.getData(graph.getEdgeDst(edge)));
   }
+
+  void sort_edges(uint64_t src) override {
+    graph.sortEdgesByDst(vertices[src]);
+  }
+
+  bool find_edge_sorted(uint64_t src, uint64_t dst) override {
+    return graph.findEdgeSortedByDst(vertices[src], vertices[dst]) !=
+           graph.edge_end(vertices[src]);
+  }
 };
 
 } // namespace scea::graph
