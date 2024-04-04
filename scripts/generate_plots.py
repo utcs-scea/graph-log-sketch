@@ -80,7 +80,48 @@ def plot_batch_durations(results, batches, plot_ingestion, plot_algorithm):
     ax.legend(loc='upper left', bbox_to_anchor=(1, 1), ncol=1)
 
     plt.tight_layout()
-    plt.savefig('plots/edit_scalability.png')
+    plt.savefig('plots/edit_scalability_from_csv.png')
+
+def save_to_csv(results, filepath):
+    with open(filepath, 'w', newline='') as csvfile:
+        fieldnames = ['Graph Type', 'Thread Count', 'Batch', 'Ingestion Duration', 'Algorithm Duration']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for graph_type, threads_data in results.items():
+            for thread_count, data in threads_data.items():
+                ingestion_durations = data['ingestion']
+                algorithm_durations = data['algorithm']
+                for batch, ingestion_duration in ingestion_durations.items():
+                    algorithm_duration = algorithm_durations.get(batch, 0)
+                    writer.writerow({
+                        'Graph Type': graph_type,
+                        'Thread Count': thread_count,
+                        'Batch': batch,
+                        'Ingestion Duration': ingestion_duration,
+                        'Algorithm Duration': algorithm_duration
+                    })
+
+def load_from_csv(filepath):
+    results = {}
+    with open(filepath, 'r') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            graph_type = row['Graph Type']
+            thread_count = int(row['Thread Count'])
+            batch = int(row['Batch'])
+            ingestion_duration = int(row['Ingestion Duration'])
+            algorithm_duration = int(row['Algorithm Duration'])
+
+            if graph_type not in results:
+                results[graph_type] = {}
+            if thread_count not in results[graph_type]:
+                results[graph_type][thread_count] = {'ingestion': {}, 'algorithm': {}}
+
+            results[graph_type][thread_count]['ingestion'][batch] = ingestion_duration
+            results[graph_type][thread_count]['algorithm'][batch] = algorithm_duration
+
+    return results
 
 def main():
     parser = argparse.ArgumentParser(description='Run and plot benchmark results based on command line flags.')
@@ -97,7 +138,7 @@ def main():
         return
 
     graph_types = ['lscsr', 'lccsr', 'adj']
-    thread_counts = [1, 2, 4, 8, 16, 32]
+    thread_counts = [8, 16]
     results = {}
 
     for graph in graph_types:
@@ -109,7 +150,10 @@ def main():
                 'algorithm': algorithm_durations
             }
 
-    plot_batch_durations(results, [20, 21, 22, 23, 24], plot_ingestion, plot_algorithm)
+    save_to_csv(results, 'trial.csv')
+    new_results = load_from_csv('trial.csv')
+
+    plot_batch_durations(new_results, [0, 1], plot_ingestion, plot_algorithm)
 
 if __name__ == "__main__":
    main()
