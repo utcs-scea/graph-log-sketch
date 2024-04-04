@@ -149,7 +149,7 @@ def main():
                 'ingestion': ingestion_durations,
                 'algorithm': algorithm_durations
             }
-    
+
     save_to_csv(results, 'trial.csv')
     new_results = load_from_csv('trial.csv')
 
