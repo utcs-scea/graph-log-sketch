@@ -112,7 +112,8 @@ public:
                              PERF_COUNT_HW_CACHE_REFERENCES),
         instructionsEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS),
         minorPageFaultsEvent(PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS_MIN),
-        majorPageFaultsEvent(PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS_MAJ) {
+        majorPageFaultsEvent(PERF_TYPE_SOFTWARE,
+                             PERF_COUNT_SW_PAGE_FAULTS_MAJ) {
     timer.start();
     cacheMissesEvent.start();
     cacheReferencesEvent.start();
