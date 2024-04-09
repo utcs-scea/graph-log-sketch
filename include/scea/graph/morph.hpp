@@ -31,7 +31,8 @@ public:
   uint64_t size() noexcept override { return graph.size(); }
 
   uint64_t get_out_degree(uint64_t src) override {
-    return graph.getDegree(vertices[src]);
+    return std::distance(graph.edge_begin(vertices[src]),
+                         graph.edge_end(vertices[src]));
   }
 
   void add_edges(uint64_t src, const std::vector<uint64_t> dsts) override {
