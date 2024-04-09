@@ -27,10 +27,11 @@ public:
       bfsShortestPaths(g, s, predecessors, shortestPathCount, distance);
 
       std::vector<double> dependency(g.size(), 0.0);
-      
+
       for (int i = g.size() - 1; i >= 0; --i) {
         for (uint64_t pred : predecessors[i]) {
-          double ratio = (double)shortestPathCount[pred] / shortestPathCount[i];
+          double ratio = static_cast<double>(shortestPathCount[pred] /
+                                             shortestPathCount[i]);
           dependency[pred] += (1 + dependency[i]) * ratio;
         }
         if (i != s) {
@@ -48,11 +49,12 @@ public:
                                std::vector<int>& distance) {
     std::queue<uint64_t> q;
     q.push(s);
-    distance[s] = 0;
+    distance[s]          = 0;
     shortestPathCount[s] = 1;
 
     while (!q.empty()) {
-      uint64_t u = q.front(); q.pop();
+      uint64_t u = q.front();
+      q.pop();
       g.for_each_edge(u, [&](uint64_t v) {
         if (distance[v] == std::numeric_limits<int>::max()) {
           q.push(v);
@@ -66,9 +68,7 @@ public:
     }
   }
 
-  void operator()(scea::graph::MutableGraph& g) override {
-    compute(g);
-  }
+  void operator()(scea::graph::MutableGraph& g) override { compute(g); }
 };
 
 } // namespace scea::algo
