@@ -38,8 +38,11 @@ public:
         galois::steal());
 
     for (int iter = 0; iter < MAX_ITERATIONS; ++iter) {
-      std::for_each(newRank.begin(), newRank.end(),
-                    [](std::atomic<double>& n) { n.store(0.0); });
+      galois::do_all(
+          galois::iterate(size_t(0), newRank.size()),
+          [&](size_t i) { newRank[i].store(0.0, std::memory_order_relaxed); },
+          galois::no_stats(), galois::loopname("ResetNewRank"),
+          galois::steal());
 
       galois::do_all(
           galois::iterate(0ul, numNodes),
