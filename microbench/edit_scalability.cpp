@@ -14,6 +14,8 @@
 #include "scea/algo/bfs.hpp"
 #include "scea/algo/nop.hpp"
 #include "scea/algo/tc.hpp"
+#include "scea/algo/pr.hpp"
+#include "scea/algo/bc.hpp"
 #include "scea/graph/lscsr.hpp"
 #include "scea/graph/morph.hpp"
 #include "scea/graph/adj.hpp"
@@ -21,7 +23,7 @@
 #include "scea/stats.hpp"
 
 enum GraphType { lscsr, morph, adj, lccsr };
-enum AlgoName { nop, sssp_bfs, tc };
+enum AlgoName { nop, sssp_bfs, tc, pr, bc };
 
 std::istream& operator>>(std::istream& in, GraphType& type) {
   std::string name;
@@ -53,6 +55,10 @@ std::istream& operator>>(std::istream& in, AlgoName& name) {
     name = sssp_bfs;
   } else if (type == "tc") {
     name = tc;
+  } else if (type == "pr") {
+    name = pr;
+  } else if (type == "bc") {
+    name = bc;
   } else {
     // Handle invalid input (throw exception, print error message, etc.)
     in.setstate(std::ios_base::failbit);
@@ -149,6 +155,14 @@ int main(int argc, char const* argv[]) {
   }
   case AlgoName::tc: {
     algo = std::make_unique<scea::algo::TriangleCounting>();
+    break;
+  }
+  case AlgoName::pr: {
+    algo = std::make_unique<scea::algo::PageRank>();
+    break;
+  }
+  case AlgoName::bc: {
+    algo = std::make_unique<scea::algo::BetweennessCentrality>();
     break;
   }
   default:
