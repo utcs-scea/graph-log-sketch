@@ -15,7 +15,8 @@ namespace scea::graph {
 
 class LC_CSR : public MutableGraph {
 private:
-  using GraphTy = galois::graphs::LC_CSR_64_Graph<void, void>;
+  using GraphTy =
+      galois::graphs::LC_CSR_64_Graph<void, void>::with_no_lockable<true>::type;
   std::vector<std::vector<uint64_t>> m_adj;
   std::unique_ptr<GraphTy> m_graph;
   std::atomic<size_t> num_edges = ATOMIC_VAR_INIT(0);
@@ -47,6 +48,7 @@ public:
   }
 
   void sort_edges(uint64_t src) override { m_graph->sortEdgesByDst(src); }
+
   bool find_edge_sorted(uint64_t src, uint64_t dst) override {
     return m_graph->findEdgeSortedByDst(src, dst) != m_graph->edge_end(src);
   }
