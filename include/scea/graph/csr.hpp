@@ -28,6 +28,8 @@ public:
 
   uint64_t size() noexcept override { return m_adj.size(); }
 
+  void get_out_degree(uint64_t src) override { return m_graph->getDegree(src); }
+
   void add_edges(uint64_t src, const std::vector<uint64_t> dsts) override {
     std::copy(dsts.begin(), dsts.end(), std::back_inserter(m_adj[src]));
     num_edges.fetch_add(dsts.size(), std::memory_order_relaxed);
