@@ -27,15 +27,6 @@ public:
     const uint64_t numNodes = g.size();
     std::vector<std::atomic<double>> newRank(numNodes);
     std::vector<double> rank(numNodes, 1.0 / numNodes);
-    std::vector<unsigned> out_degrees(numNodes, 0);
-
-    galois::do_all(
-        galois::iterate(0ul, numNodes),
-        [&](uint64_t i) {
-          g.for_each_edge(i, [&](uint64_t const&) { out_degrees[i]++; });
-        },
-        galois::no_stats(), galois::loopname("ComputeOutDegrees"),
-        galois::steal());
 
     for (int iter = 0; iter < MAX_ITERATIONS; ++iter) {
       galois::do_all(
@@ -48,7 +39,7 @@ public:
           galois::iterate(0ul, numNodes),
           [&](uint64_t i) {
             g.for_each_edge(i, [&](uint64_t dst) {
-              galois::atomicAdd(newRank[dst], rank[i] / out_degrees[i]);
+              galois::atomicAdd(newRank[dst], rank[i] / g.get_out_degree(i));
             });
           },
           galois::no_stats(), galois::loopname("DistributeContributions"),
