@@ -22,6 +22,8 @@ public:
 
   uint64_t size() noexcept override { return edges.size(); }
 
+  uint64_t get_out_degree(uint64_t src) override { return edges[src].size(); }
+
   void add_edges(uint64_t src, const std::vector<uint64_t> dsts) override {
     std::copy(dsts.begin(), dsts.end(), std::back_inserter(edges[src]));
   }
