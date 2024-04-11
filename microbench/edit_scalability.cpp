@@ -122,7 +122,7 @@ int main(int argc, char const* argv[]) {
     algo = std::make_unique<scea::algo::TriangleCounting>();
   } else if (algo_name == "pr") {
     algo = std::make_unique<scea::algo::PageRank>();
-  } else if (algo_name == "bc {
+  } else if (algo_name == "bc") {
     auto const rseed   = vm["bc-rseed"].as<unsigned int>();
     auto const num_src = vm["bc-num-src"].as<uint64_t>();
     algo = std::make_unique<scea::algo::BetweennessCentrality>(num_vertices,
