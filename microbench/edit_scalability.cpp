@@ -25,8 +25,9 @@
 
 int main(int argc, char const* argv[]) {
   namespace po = boost::program_options;
-  po::options_description desc("Edit Scalability Benchmarking Suite");
-  desc.add_options()                                              //
+
+  po::options_description generic("Edit Scalability Benchmarking Suite");
+  generic.add_options()                                           //
       ("help,h", "Print help messages")                           //
       ("input-file", po::value<std::string>(), "Input file path") //
       ("ingest-threads", po::value<size_t>()->default_value(1),
@@ -43,22 +44,35 @@ int main(int argc, char const* argv[]) {
        "Threshold at which LS_CSR performs a compaction") //
       ("algo", po::value<std::string>()->default_value("nop"),
        "Algorithm to run (nop: do nothing, bfs: compute "
-       "single-source shortest path using BFS, tc: count triangles)") //
-      ("bfs-src", po::value<uint64_t>(), "Source vertex (for BFS algorithm)");
+       "single-source shortest path using BFS)");
+
+  po::options_description bfs_opts("Options for BFS");
+  bfs_opts.add_options() //
+      ("bfs-src", po::value<uint64_t>(), "Source vertex.");
+
+  po::options_description bc_opts("Options for Betweenness Centrality");
+  bc_opts.add_options() //
+      ("bc-rseed", po::value<unsigned int>()->default_value(0),
+       "Random seed for sampling source vertices (for BC algorithm)") //
+      ("bc-num-src", po::value<uint64_t>()->default_value(0),
+       "Number of source vertices (for BC algorithm); 0 uses all vertices.");
+
+  po::options_description cmdline_options;
+  cmdline_options.add(generic).add(bfs_opts).add(bc_opts);
 
   po::variables_map vm;
   try {
     // Parse command line arguments
-    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::store(
+        po::command_line_parser(argc, argv).options(cmdline_options).run(), vm);
     po::notify(vm);
   } catch (po::error& e) {
     std::cout << e.what() << std::endl;
-    std::cout << desc << std::endl;
   }
 
   // Check for help option
   if (vm.count("help")) {
-    std::cout << desc << std::endl;
+    std::cout << cmdline_options << std::endl;
     return 1;
   }
 
@@ -109,7 +123,10 @@ int main(int argc, char const* argv[]) {
   } else if (algo_name == "pr") {
     algo = std::make_unique<scea::algo::PageRank>();
   } else if (algo_name == "bc") {
-    algo = std::make_unique<scea::algo::BetweennessCentrality>();
+    auto const rseed   = vm["bc-rseed"].as<unsigned int>();
+    auto const num_src = vm["bc-num-src"].as<uint64_t>();
+    algo = std::make_unique<scea::algo::BetweennessCentrality>(num_vertices,
+                                                               rseed, num_src);
   } else {
     std::cerr << "unknown algorithm: " << algo_name << std::endl;
     return 1;
