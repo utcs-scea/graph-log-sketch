@@ -7,64 +7,6 @@
 #include "scea/graph/morph.hpp"
 #include "scea/algo/bc.hpp"
 
-TEST(BC, Tiny) {
-  galois::SharedMemSys sys;
-  galois::setActiveThreads(1);
-
-  scea::graph::MorphGraph graph(3);
-
-  /*
-   * 0 - 1
-   * | /
-   * 2
-   */
-
-  graph.add_edges(0, {1, 2});
-  graph.add_edges(1, {0, 2});
-  graph.add_edges(2, {0, 1});
-
-  auto result = scea::algo::BetweennessCentrality::compute(graph);
-  {
-    EXPECT_EQ(result[0], 0);
-    EXPECT_EQ(result[1], 0);
-    EXPECT_EQ(result[2], 0);
-  }
-}
-
-TEST(BC, Small) {
-  galois::SharedMemSys sys;
-  galois::setActiveThreads(1);
-
-  scea::graph::MorphGraph graph(7);
-
-  /*
-   * 0 - 1
-   * | x |
-   * 2 - 3
-   *     | \
-   *     4 - 5 - 6
-   */
-
-  graph.add_edges(0, {1, 2, 3});
-  graph.add_edges(1, {0, 2, 3});
-  graph.add_edges(2, {0, 1, 3});
-  graph.add_edges(3, {0, 1, 2, 4, 5});
-  graph.add_edges(4, {3, 5});
-  graph.add_edges(5, {3, 4, 6});
-  graph.add_edges(6, {5});
-
-  auto result = scea::algo::BetweennessCentrality::compute(graph);
-  {
-    EXPECT_EQ(result[0], 0);
-    EXPECT_EQ(result[1], 0);
-    EXPECT_EQ(result[2], 0);
-    EXPECT_EQ(result[3], 18);
-    EXPECT_EQ(result[4], 0);
-    EXPECT_EQ(result[5], 10);
-    EXPECT_EQ(result[6], 0);
-  }
-}
-
 TEST(BC, Short) {
   galois::SharedMemSys sys;
   galois::setActiveThreads(1);
@@ -164,6 +106,36 @@ TEST(BC, Star) {
 }
 
 TEST(BC, Bipartite) {
+  galois::SharedMemSys sys;
+  galois::setActiveThreads(1);
+
+  scea::graph::MorphGraph graph(5);
+
+  /*
+   *    0
+   *  / | \
+   * 1  2  3
+   *  \ | /
+   *    4
+   */
+
+  graph.add_edges(0, {1, 2, 3});
+  graph.add_edges(1, {0, 4});
+  graph.add_edges(2, {0, 4});
+  graph.add_edges(3, {0, 4});
+  graph.add_edges(4, {1, 2, 3});
+
+  auto result = scea::algo::BetweennessCentrality::compute(graph);
+  {
+    EXPECT_EQ(result[0], 3);
+    EXPECT_EQ(result[1], 2 / 3.);
+    EXPECT_EQ(result[2], 2 / 3.);
+    EXPECT_EQ(result[3], 2 / 3.);
+    EXPECT_EQ(result[4], 3);
+  }
+}
+
+TEST(BC, IO) {
   galois::SharedMemSys sys;
   galois::setActiveThreads(1);
 

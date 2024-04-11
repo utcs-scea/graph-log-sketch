@@ -87,6 +87,10 @@ int main(int argc, char const* argv[]) {
       ("algo", po::value<AlgoName>()->default_value(nop),
        "Algorithm to run (nop: do nothing, bfs: compute "
        "single-source shortest path using BFS)") //
+      ("bc-src-file", po::value<std::string>()->default_value(""),
+       "Source vertex file path (for BC algorithm)") //
+      ("bc-num-src", po::value<uint64_t>()->default_value(0),
+       "Number of source vertices (for BC algorithm)") //
       ("bfs-src", po::value<uint64_t>(), "Source vertex (for BFS algorithm)");
 
   po::variables_map vm;
@@ -162,7 +166,8 @@ int main(int argc, char const* argv[]) {
     break;
   }
   case AlgoName::bc: {
-    algo = std::make_unique<scea::algo::BetweennessCentrality>();
+    algo = std::make_unique<scea::algo::BetweennessCentrality>(
+        vm["bfs-num-src"].as<uint64_t>(), vm["bc-src-file"].as<std::string>());
     break;
   }
   default:

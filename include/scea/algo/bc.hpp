@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <queue>
+#include <string>
 #include <limits>
 
 #include "galois/AtomicHelpers.h"
@@ -12,6 +13,7 @@
 #include "galois/gstl.h"
 
 #include "algo_interface.hpp"
+#include "utils.hpp"
 
 namespace scea::algo {
 
@@ -21,10 +23,29 @@ class BetweennessCentrality : public Algo {
       std::numeric_limits<uint64_t>::max() / 4;
   constexpr static const unsigned LEVEL_CHUNK_SIZE = 256u;
 
-public:
-  BetweennessCentrality() = default;
+  uint64_t numOfSources;
+  std::string sourceFile;
 
-  static galois::LargeArray<double> compute(scea::graph::MutableGraph& g) {
+public:
+  BetweennessCentrality(uint64_t _numOfSources  = 0,
+                        std::string _sourceFile = "")
+      : numOfSources(_numOfSources), sourceFile(_sourceFile) {}
+
+  static galois::LargeArray<double> compute(scea::graph::MutableGraph& g,
+                                            uint64_t numOfSources  = 0,
+                                            std::string sourceFile = "") {
+    std::vector<size_t> sources;
+    if (numOfSources == 0) {
+      if (sourceFile == "") {
+        sources.resize(g.size());
+        std::iota(sources.begin(), sources.end(), 0);
+      } else {
+        sources = sampleFromFile(sourceFile);
+      }
+    } else {
+      sources = sampleGen(0, g.size(), numOfSources, sourceFile);
+    }
+
     galois::LargeArray<uint64_t> distance;
     galois::LargeArray<std::atomic<uint64_t>> shortestPathCount;
     galois::LargeArray<double> dependency;
@@ -34,7 +55,7 @@ public:
     dependency.create(g.size(), 0.0);
     centralityScores.create(g.size(), 0.0);
 
-    for (uint64_t s = 0; s < g.size(); ++s) {
+    for (uint64_t s : sources) {
       galois::do_all(
           galois::iterate(0ul, g.size()),
           [&](uint64_t n) {
@@ -139,7 +160,9 @@ public:
     return stackOfWorklists;
   }
 
-  void operator()(scea::graph::MutableGraph& g) override { compute(g); }
+  void operator()(scea::graph::MutableGraph& g) override {
+    compute(g, numOfSources, sourceFile);
+  }
 };
 
 class SerialBetweennessCentrality : public Algo {
