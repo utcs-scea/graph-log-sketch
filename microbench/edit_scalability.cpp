@@ -19,53 +19,9 @@
 #include "scea/graph/lscsr.hpp"
 #include "scea/graph/morph.hpp"
 #include "scea/graph/adj.hpp"
+#include "scea/graph/lccsr.hpp"
 #include "scea/graph/csr.hpp"
 #include "scea/stats.hpp"
-
-enum GraphType { lscsr, morph, adj, lccsr };
-enum AlgoName { nop, sssp_bfs, tc, pr, bc };
-
-std::istream& operator>>(std::istream& in, GraphType& type) {
-  std::string name;
-  in >> name;
-
-  if (name == "lscsr") {
-    type = lscsr;
-  } else if (name == "lccsr") {
-    type = lccsr;
-  } else if (name == "morph") {
-    type = morph;
-  } else if (name == "adj") {
-    type = adj;
-  } else {
-    // Handle invalid input (throw exception, print error message, etc.)
-    in.setstate(std::ios_base::failbit);
-  }
-
-  return in;
-}
-
-std::istream& operator>>(std::istream& in, AlgoName& name) {
-  std::string type;
-  in >> type;
-
-  if (type == "nop") {
-    name = nop;
-  } else if (type == "bfs") {
-    name = sssp_bfs;
-  } else if (type == "tc") {
-    name = tc;
-  } else if (type == "pr") {
-    name = pr;
-  } else if (type == "bc") {
-    name = bc;
-  } else {
-    // Handle invalid input (throw exception, print error message, etc.)
-    in.setstate(std::ios_base::failbit);
-  }
-
-  return in;
-}
 
 int main(int argc, char const* argv[]) {
   namespace po = boost::program_options;
@@ -79,14 +35,15 @@ int main(int argc, char const* argv[]) {
        "Number of threads for the algorithm") //
       ("num-vertices", po::value<uint64_t>()->required(),
        "Number of vertices in the graph") //
-      ("graph,g", po::value<GraphType>()->default_value(lscsr),
+      ("graph,g", po::value<std::string>()->default_value("lscsr"),
        "Graph representation (lscsr: log-structured CSR, morph: Galois "
-       "MorphGraph)") //
-      ("lscsr-compact-threshold", po::value<float>()->default_value(0.1),
+       "MorphGraph, lccsr: Galois CSR, csr: custom CSR, adj: adjacency "
+       "vector)") //
+      ("lscsr-compact-threshold", po::value<float>()->default_value(0.3),
        "Threshold at which LS_CSR performs a compaction") //
-      ("algo", po::value<AlgoName>()->default_value(nop),
+      ("algo", po::value<std::string>()->default_value("nop"),
        "Algorithm to run (nop: do nothing, bfs: compute "
-       "single-source shortest path using BFS)") //
+       "single-source shortest path using BFS, tc: count triangles)") //
       ("bfs-src", po::value<uint64_t>(), "Source vertex (for BFS algorithm)");
 
   po::variables_map vm;
@@ -109,64 +66,53 @@ int main(int argc, char const* argv[]) {
   size_t const ingest_threads       = vm["ingest-threads"].as<size_t>();
   size_t const algo_threads         = vm["algo-threads"].as<size_t>();
   uint64_t const num_vertices       = vm["num-vertices"].as<uint64_t>();
-  GraphType const graph_type        = vm["graph"].as<GraphType>();
-  AlgoName const algo_name          = vm["algo"].as<AlgoName>();
+  std::string const graph_type      = vm["graph"].as<std::string>();
+  std::string const algo_name       = vm["algo"].as<std::string>();
 
   galois::SharedMemSys sys;
 
   // validate args
-  if (ingest_threads == 0)
-    throw std::runtime_error("ingest threads must be greater than zero");
-  if (algo_threads == 0)
-    throw std::runtime_error("algo threads must be greater than zero");
+  if (ingest_threads == 0) {
+    std::cerr << "ingest threads must be greater than zero" << std::endl;
+    return 1;
+  }
+
+  if (algo_threads == 0) {
+    std::cerr << "algo threads must be greater than zero" << std::endl;
+    return 1;
+  }
 
   std::unique_ptr<scea::graph::MutableGraph> graph;
-  switch (graph_type) {
-  case GraphType::lscsr: {
+  if (graph_type == "lscsr") {
     float thresh = vm["lscsr-compact-threshold"].as<float>();
     graph        = std::make_unique<scea::graph::LS_CSR>(num_vertices, thresh);
-    break;
-  }
-  case GraphType::lccsr: {
+  } else if (graph_type == "lccsr") {
     graph = std::make_unique<scea::graph::LC_CSR>(num_vertices);
-    break;
-  }
-  case GraphType::morph: {
+  } else if (graph_type == "csr") {
+    graph = std::make_unique<scea::graph::CSR>(num_vertices);
+  } else if (graph_type == "morph") {
     graph = std::make_unique<scea::graph::MorphGraph>(num_vertices);
-    break;
-  }
-  case GraphType::adj: {
+  } else if (graph_type == "adj") {
     graph = std::make_unique<scea::graph::AdjGraph>(num_vertices);
-    break;
-  }
-  default:
-    throw std::runtime_error("unknown graph_type");
+  } else {
+    std::cerr << "unknown graph type: " << graph_type << std::endl;
+    return 1;
   }
 
   std::unique_ptr<scea::algo::Algo> algo;
-  switch (algo_name) {
-  case AlgoName::nop: {
+  if (algo_name == "nop") {
     algo = std::make_unique<scea::algo::Nop>();
-    break;
-  }
-  case AlgoName::sssp_bfs: {
+  } else if (algo_name == "bfs") {
     algo = std::make_unique<scea::algo::SSSP_BFS>(vm["bfs-src"].as<uint64_t>());
-    break;
-  }
-  case AlgoName::tc: {
+  } else if (algo_name == "tc") {
     algo = std::make_unique<scea::algo::TriangleCounting>();
-    break;
-  }
-  case AlgoName::pr: {
+  } else if (algo_name == "pr") {
     algo = std::make_unique<scea::algo::PageRank>();
-    break;
-  }
-  case AlgoName::bc: {
+  } else if (algo_name == "bc") {
     algo = std::make_unique<scea::algo::BetweennessCentrality>();
-    break;
-  }
-  default:
-    throw std::runtime_error("unknown algorithm");
+  } else {
+    std::cerr << "unknown algorithm: " << algo_name << std::endl;
+    return 1;
   }
 
   std::istream* in = &std::cin;
