@@ -7,13 +7,13 @@
 #include <queue>
 #include <string>
 #include <limits>
+#include <unordered_set>
 
 #include "galois/AtomicHelpers.h"
 #include "galois/LargeArray.h"
 #include "galois/gstl.h"
 
 #include "algo_interface.hpp"
-#include "utils.hpp"
 
 namespace scea::algo {
 
@@ -23,29 +23,23 @@ class BetweennessCentrality : public Algo {
       std::numeric_limits<uint64_t>::max() / 4;
   constexpr static const unsigned LEVEL_CHUNK_SIZE = 256u;
 
-  uint64_t numOfSources;
-  std::string sourceFile;
+  std::vector<uint64_t> sources; // empty if all vertices are sources
 
 public:
-  BetweennessCentrality(uint64_t _numOfSources  = 0,
-                        std::string _sourceFile = "")
-      : numOfSources(_numOfSources), sourceFile(_sourceFile) {}
+  BetweennessCentrality(uint64_t num_vertices, unsigned int rseed = 0,
+                        uint64_t num_src = 0) {
+    sources.resize(num_vertices);
+    std::iota(sources.begin(), sources.end(), 0);
 
-  static galois::LargeArray<double> compute(scea::graph::MutableGraph& g,
-                                            uint64_t numOfSources  = 0,
-                                            std::string sourceFile = "") {
-    std::vector<size_t> sources;
-    if (numOfSources == 0) {
-      if (sourceFile == "") {
-        sources.resize(g.size());
-        std::iota(sources.begin(), sources.end(), 0);
-      } else {
-        sources = sampleFromFile(sourceFile);
-      }
-    } else {
-      sources = sampleGen(0, g.size(), numOfSources, sourceFile);
+    if (num_src > 0 && num_src != num_vertices) {
+      std::mt19937 gen(rseed);
+      std::shuffle(sources.begin(), sources.end(), gen);
+      sources.resize(num_src);
     }
+  }
 
+  static galois::LargeArray<double>
+  compute(scea::graph::MutableGraph& g, std::vector<uint64_t> const& sources) {
     galois::LargeArray<uint64_t> distance;
     galois::LargeArray<std::atomic<uint64_t>> shortestPathCount;
     galois::LargeArray<double> dependency;
@@ -161,10 +155,11 @@ public:
   }
 
   void operator()(scea::graph::MutableGraph& g) override {
-    compute(g, numOfSources, sourceFile);
+    compute(g, sources);
   }
 };
 
+// note: currently unused, but maybe useful for testing?
 class SerialBetweennessCentrality : public Algo {
 public:
   SerialBetweennessCentrality() = default;
