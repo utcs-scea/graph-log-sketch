@@ -41,21 +41,20 @@ public:
       galois::do_all(
           galois::iterate(*currSt),
           [&](uint64_t const& vertex) {
-        if (shortest_path[vertex] != UNVISITED)
-          return; // already visited
+            if (shortest_path[vertex] != UNVISITED)
+              return; // already visited
 
-        // no sync needed since all threads would write the same level
-        shortest_path[vertex] = level;
+            // no sync needed since all threads would write the same level
+            shortest_path[vertex] = level;
 
-        // not previously visited, add all edges
-        g.for_each_edge(vertex, [&](uint64_t const& neighbor) {
-          // neighbor might be added multiple times, but that's fine
-          if (shortest_path[neighbor] == UNVISITED)
-            nextSt->push(neighbor);
-        });
+            // not previously visited, add all edges
+            g.for_each_edge(vertex, [&](uint64_t const& neighbor) {
+              // neighbor might be added multiple times, but that's fine
+              if (shortest_path[neighbor] == UNVISITED)
+                nextSt->push(neighbor);
+            });
           },
-          galois::steal(),
-          galois::loopname("SSSP_BFS");
+          galois::steal(), galois::loopname("SSSP_BFS"));
 
       ++level;
     }
