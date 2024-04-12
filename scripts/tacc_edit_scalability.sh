@@ -10,8 +10,9 @@
 ALGOS="${ALGOS:-bfs tc}"
 # BFS_SRC is the source vertex for BFS. Does nothing if BFS is not in ALGOS.
 BFS_SRC="${BFS_SRC:-101}"
+BC_NUM_SRC="${BC_NUM_SRC:-1024}"
 # THREADS is a list of thread counts to run.
-THREADS="${THREADS:-64 96 120}"
+THREADS="${THREADS:-64 96 128}"
 # GRAPHS is a list of graph representations to use.
 GRAPHS="${GRAPHS:-lscsr adj csr}"
 LSCSR_COMPACT_THRESHOLD="${LSCSR_COMPACT_THRESHOLD:-0.3}"
@@ -55,7 +56,7 @@ for a in $ALGOS; do
 
 			SRUN_CMD="srun --exclusive --mem=0"
 			TASKSET_CMD="taskset --cpu-list $CORES"
-			EDIT_SCALABILITY_CMD="${BUILD}/microbench/edit-scalability --algo $a --bfs-src $BFS_SRC --graph $g --lscsr-compact-threshold 0.3 --ingest-threads $t --algo-threads $t --input-file $WORKLOAD_FILE --num-vertices $WORKLOAD_NUM_VERTICES"
+			EDIT_SCALABILITY_CMD="${BUILD}/microbench/edit-scalability --algo $a --bfs-src $BFS_SRC --bc-num-src $BC_NUM_SRC --graph $g --lscsr-compact-threshold 0.3 --ingest-threads $t --algo-threads $t --input-file $WORKLOAD_FILE --num-vertices $WORKLOAD_NUM_VERTICES"
 
 			echo "Submitting job: $JOBN"
 
