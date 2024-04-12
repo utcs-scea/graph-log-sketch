@@ -54,7 +54,7 @@ public:
                 nextSt->push(neighbor);
             });
           },
-          galois::steal());
+          galois::steal(), galois::loopname("SSSP_BFS"));
 
       ++level;
     }

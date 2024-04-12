@@ -19,21 +19,23 @@ public:
   uint64_t compute(scea::graph::MutableGraph& g) {
     numTriangles.reset();
 
-    galois::do_all(galois::iterate((uint64_t)0, g.size()),
-                   [&](uint64_t const& v0) {
-                     g.sort_edges(v0);
-                     g.for_each_edge(v0, [&](uint64_t const& v1) {
-                       if (v0 >= v1)
-                         return;
-                       g.for_each_edge(v1, [&](uint64_t const& v2) {
-                         // Check (v0, v2) exists?
-                         if (v1 >= v2)
-                           return;
-                         if (g.find_edge_sorted(v0, v2))
-                           numTriangles += 1;
-                       });
-                     });
-                   });
+    galois::do_all(
+        galois::iterate((uint64_t)0, g.size()),
+        [&](uint64_t const& v0) {
+          g.sort_edges(v0);
+          g.for_each_edge(v0, [&](uint64_t const& v1) {
+            if (v0 >= v1)
+              return;
+            g.for_each_edge(v1, [&](uint64_t const& v2) {
+              // Check (v0, v2) exists?
+              if (v1 >= v2)
+                return;
+              if (g.find_edge_sorted(v0, v2))
+                numTriangles += 1;
+            });
+          });
+        },
+        galois::steal(), galois::loopname("TriangleCounting"));
 
     return numTriangles.reduce();
   }
