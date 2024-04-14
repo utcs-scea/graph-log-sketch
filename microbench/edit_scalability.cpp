@@ -206,7 +206,8 @@ int main(int argc, char const* argv[]) {
           galois::iterate(insertions.begin(), insertions.end()),
           [&](std::pair<uint64_t, std::vector<uint64_t>> const& operation) {
             graph->add_edges(operation.first, operation.second);
-          });
+          },
+          galois::steal(), galois::loopname("Ingestion"));
     }
 
     {
