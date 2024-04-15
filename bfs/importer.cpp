@@ -11,7 +11,7 @@ using DistLocalPtr =
     std::unique_ptr<galois::graphs::DistLocalGraph<NodeData, EdgeData>>;
 template <typename NodeTy, typename EdgeTy, typename NodeData, typename EdgeData, typename OECPolicy>
 DistLocalPtr<NodeData, EdgeData>
-distLocalGraphInitialization(std::string &inputFile) {
+distLocalGraphInitialization(std::string &inputFile, uint64_t numVertices) {
   using Graph =
     galois::graphs::WMDGraph<NodeTy, EdgeTy, NodeData, EdgeData, OECPolicy>;
   DistLocalPtr<NodeData, EdgeData> dg;
@@ -24,7 +24,7 @@ distLocalGraphInitialization(std::string &inputFile) {
       std::make_unique<galois::graphs::ELParser<NodeTy, EdgeTy>>(
           2, filenames));
   const auto& net = galois::runtime::getSystemNetworkInterface();
-  return std::make_unique<Graph>(parsers, net.ID, net.Num, true, false, 1021,
+  return std::make_unique<Graph>(parsers, net.ID, net.Num, true, false, numVertices,
                            galois::graphs::BALANCED_EDGES_OF_MASTERS);
 }
 

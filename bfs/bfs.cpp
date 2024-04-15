@@ -197,14 +197,50 @@ int main(int argc, char* argv[]) {
   if (argc > 2) {
     src_node = std::stoul(argv[2]);
   }
+  if(argc < 3) {
+    std::cerr << "Usage: " << argv[0] << " <filename> <src_node> <numVertices>\n";
+    return 1;
+  }
+
+  uint64_t numVertices = std::stoul(argv[3]);
+
   std::unique_ptr<Graph> hg;
   galois::DistMemSys G;
 
   hg = distLocalGraphInitialization<galois::graphs::ELVertex,
                                     galois::graphs::ELEdge, NodeData, void,
-                                    OECPolicy>(filename);
-
+                                    OECPolicy>(filename, numVertices);
   syncSubstrate = gluonInitialization<NodeData, void>(hg);
+
+  bitset_dist_current.resize(hg->size());
+
+  InitializeGraph::go((*hg));
+  galois::runtime::getHostBarrier().wait();
+
+  // accumulators for use in operators
+  galois::DGAccumulator<uint64_t> DGAccumulator_sum;
+  galois::DGReduceMax<uint32_t> m;
+  int numRuns = 1;
+
+  for (auto run = 0; run < numRuns; ++run) {
+    std::string timer_str("Timer_" + std::to_string(run));
+    galois::StatTimer StatTimer_main(timer_str.c_str(), "BFS");
+
+    StatTimer_main.start();
+    BFS<false>::go(*hg);
+    StatTimer_main.stop();
+
+    // sanity check
+    BFSSanityCheck::go(*hg, DGAccumulator_sum, m);
+
+    if ((run + 1) != numRuns) {
+        bitset_dist_current.reset();
+
+      (*syncSubstrate).set_num_run(run + 1);
+      InitializeGraph::go(*hg);
+      galois::runtime::getHostBarrier().wait();
+    }
+  }
 
   return 0;
 }
