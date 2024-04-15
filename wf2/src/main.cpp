@@ -44,6 +44,20 @@ int main(int argc, char* argv[]) {
   assert(g != nullptr);
   sync_substrate = std::make_unique<galois::graphs::GluonSubstrate<wf2::Graph>>(
       *g, net.ID, net.Num, g->isTransposed(), g->cartesianGrid());
+  galois::do_all(
+      galois::iterate(g->masterNodesRange().begin(),
+                      g->masterNodesRange().end()),
+      [&](const wf2::GlobalNodeID& lNode) {
+        auto& node           = g->getData(lNode);
+        const uint64_t gNode = g->getGID(lNode);
+
+        for (auto e : g->edges(lNode)) {
+          auto& edge_node = g->getData(g->getEdgeDst(e));
+          auto& edge_data = g->getEdgeData(e);
+          std::cout << node.id << " " << edge_node.id << std::endl;
+        }
+      },
+      galois::steal());
 
   return 0;
 }
