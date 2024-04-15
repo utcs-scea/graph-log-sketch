@@ -203,9 +203,9 @@ int main(int argc, char* argv[]) {
   }
 
   uint64_t numVertices = std::stoul(argv[3]);
+  galois::DistMemSys G;
 
   std::unique_ptr<Graph> hg;
-  galois::DistMemSys G;
 
   hg = distLocalGraphInitialization<galois::graphs::ELVertex,
                                     galois::graphs::ELEdge, NodeData, void,
