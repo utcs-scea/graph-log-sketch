@@ -30,10 +30,10 @@ def parse(log_path: str, algo: str):
    algorithm_matches = re.findall(algorithm_pattern, output)
 
    for batch, duration in ingestion_matches:
-       ingestion_durations[int(batch)] = int(duration)
+       ingestion_durations[int(batch)] = int(duration) / 1000000
 
    for batch, duration in algorithm_matches:
-       algorithm_durations[int(batch)] = int(duration)
+       algorithm_durations[int(batch)] = int(duration) / 1000000
 
    print(">> ingestion_durations:", ingestion_durations)
    print(">> algorithm_durations:", algorithm_durations)

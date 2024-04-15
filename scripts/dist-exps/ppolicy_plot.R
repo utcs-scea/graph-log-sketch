@@ -18,26 +18,29 @@ data_summary <- function(data, varname, groupnames) {
   return (data_sum)
 }
 
-data <- read.csv(args[1], header=T, fileEncoding="UTF-8-BOM")
-data <- data_summary(data, varname="Algorithm_Duration", groupnames=c("Graph_Type", "Hosts"))
-data$Graph_Type <- factor(data$Graph_Type, levels=c("adj", "lccsr", "lscsr"))
+num_hosts <- args[1]
+data <- read.csv(args[2], header=T, fileEncoding="UTF-8-BOM")
+data <- data %>% filter(data$Hosts == num_hosts)
+data <- data_summary(data, varname="Algorithm_Duration", groupnames=c("Policy", "Hosts", "HostID"))
+data$Policy <- factor(data$Policy, levels=c("oec", "divija", "cvc"))
 
-time_plot <- ggplot(data=data, aes(x=factor(Hosts), fill=factor(Graph_Type), y=Algorithm_Duration
+time_plot <- ggplot(data=data, aes(x=factor(Policy), fill=factor(HostID), y=Algorithm_Duration
 )) +
-  geom_bar(mapping=aes(x=factor(Hosts), fill=factor(Graph_Type), y=Algorithm_Duration),
+  geom_bar(mapping=aes(x=factor(Policy), fill=factor(HostID), y=Algorithm_Duration),
            position=position_dodge(), stat="identity") +
-  labs(fill="Graph Type", y="Execution time (s)", x="Number of Hosts")+
+  labs(fill="Policy", y="Execution time (s)", x="Number of Hosts")+
   theme(axis.title = element_text(color="black", size=20),
         axis.text.y = element_text(color="black", size=20),
-        axis.text.x = element_text(color="black", size=20),
+        axis.text.x = element_text(color="black", size=20, angle=90),
         axis.title.y = element_text(margin=margin(t=0, r=0, l=20, b=0), size=20),
         axis.title.x = element_text(margin=margin(t=20, r=0, l=0, b=0), size=20)) +
-  scale_fill_manual(values = c("adj"="#FF6600", "lccsr"="66", "lscsr"="blue")) +
+  #scale_fill_manual(values = c("oec"="#FF6600", "divija"="66", "cvc"="blue")) +
   geom_text(aes(label=sprintf("%1.2f", Algorithm_Duration)),
-  position=position_dodge(1), vjust=0) +
+            position=position_dodge(1), vjust=0) +
   #theme_minimal() +
   geom_errorbar(aes(ymin=Algorithm_Duration
                     -sd, ymax=Algorithm_Duration
                     +sd), width=.2, position=position_dodge(.9))
 
-ggsave(args[2], height=6, width=10)
+ggsave(args[3], height=6, width=6)
+
