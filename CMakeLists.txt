@@ -75,6 +75,7 @@ add_library(wf4-galois::wf4-galois ALIAS wf4-galois)
 add_subdirectory(microbench)
 add_subdirectory(scripts)
 add_subdirectory(wf4)
+add_subdirectory(wf2)
 
 # tests
 option(BUILD_TESTING "Build tests." ON)
