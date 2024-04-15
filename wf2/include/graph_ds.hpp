@@ -1,153 +1,233 @@
-#ifndef _WF2_GRAPH_HPP_
-#define _WF2_GRAPH_HPP_
+// SPDX-License-Identifier: BSD-2-Clause
+// Copyright (c) 2023. University of Texas at Austin. All rights reserved.
 
-#include "galois/wmd/graphTypes.h"
-#include "galois/wmd/schema.h"
+#ifndef GRAPH_LOG_SKETCH_WF2_INCLUDE_GRAPH_DS_HPP_
+#define GRAPH_LOG_SKETCH_WF2_INCLUDE_GRAPH_DS_HPP_
+
 #include <ctime>
+#include <vector>
+#include <utility>
 #include <cstdint>
 #include <limits>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
 
+#include "graph_ds.hpp"
+#include "galois/wmd/graphTypes.h"
+#include "galois/wmd/schema.h"
+#include "galois/wmd/WMDPartitioner.h"
+#include "galois/graphs/GenericPartitioners.h"
+
+#define DOUBLE shad::data_types::DOUBLE
+
 namespace wf2 {
 
-class PersonVertex {
+class BaseVertex {
 public:
-  uint64_t id;
-  uint64_t glbid;
-
-  PersonVertex () {
-    id    = 0;
-    glbid = 0;
-  }
-
-  PersonVertex (std::vector <std::string> & tokens) {
-    id    = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
-    glbid = 0;
-  }
-
-  uint64_t key() { return id; }
+  uint64_t token;
 };
 
-class ForumEventVertex {
+class PersonVertex : public BaseVertex {
 public:
-  uint64_t id;
+  time_t trans_date;
+
+  PersonVertex() { trans_date = shad::data_types::kNullValue<time_t>; }
+
+  explicit PersonVertex(std::vector<std::string>& tokens) {
+    token = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
+  }
+};
+
+class ForumEventVertex : public BaseVertex {
+public:
   uint64_t forum;
-  time_t   date;
-  uint64_t glbid;
+  time_t date;
 
-  ForumEventVertex () {
-    id    = 0;
-    forum = 0;
-    date  = 0;
-    glbid = 0;
+  ForumEventVertex() {
+    forum = shad::data_types::kNullValue<uint64_t>;
+    date  = shad::data_types::kNullValue<time_t>;
   }
 
-  ForumEventVertex (std::vector <std::string> & tokens) {
-    id    = shad::data_types::encode<uint64_t, std::string, UINT>  (tokens[4]);
-    forum = shad::data_types::encode<uint64_t, std::string, UINT>  (tokens[3]);
+  explicit ForumEventVertex(std::vector<std::string>& tokens) {
+    forum = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[3]);
     date  = shad::data_types::encode<time_t, std::string, USDATE>(tokens[7]);
-    glbid = 0;
+    token = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[4]);
   }
 
-  uint64_t key() { return id; }
+  // uint64_t key() { return id; }
 };
 
-class ForumVertex {
+class ForumVertex : public BaseVertex {
 public:
-  uint64_t id;
-  uint64_t glbid; 
+  ForumVertex() {}
 
-  ForumVertex () {
-    id    = 0;
-    glbid = 0;
+  explicit ForumVertex(std::vector<std::string>& tokens) {
+    token = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[3]);
   }
 
-  ForumVertex (std::vector <std::string> & tokens) {
-    id   = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[3]);
-    glbid = 0;
-  }
-
-  uint64_t key() { return id; }
+  // uint64_t key() { return id; }
 };
 
-class PublicationVertex {
+class PublicationVertex : public BaseVertex {
 public:
-  uint64_t id;
-  time_t   date;
-  uint64_t glbid;
+  time_t date;
 
-  PublicationVertex () {
-    id    = 0;
-    date  = 0;
-    glbid = 0;
-  }
+  PublicationVertex() { date = shad::data_types::kNullValue<time_t>; }
 
-  PublicationVertex (std::vector <std::string> & tokens) {
-    id    = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5]);
+  explicit PublicationVertex(std::vector<std::string>& tokens) {
     date  = shad::data_types::encode<time_t, std::string, USDATE>(tokens[7]);
-    glbid = 0;
+    token = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5]);
   }
 
-  uint64_t key() { return id; }
+  // uint64_t key() { return id; }
 };
 
-class TopicVertex {
+class TopicVertex : public BaseVertex {
 public:
-  uint64_t id;
-  double   lat;
-  double   lon;
-  uint64_t glbid;
+  double lat;
+  double lon;
 
-  TopicVertex () {
-    id    = 0;
-    lat   = 0;
-    lon   = 0;
-    glbid = 0;
+  TopicVertex() {
+    lat = shad::data_types::kNullValue<double>;
+    lon = shad::data_types::kNullValue<double>;
   }
 
-  TopicVertex (std::vector <std::string> & tokens) {
-    id    = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
+  explicit TopicVertex(std::vector<std::string>& tokens) {
     lat   = shad::data_types::encode<double, std::string, DOUBLE>(tokens[8]);
     lon   = shad::data_types::encode<double, std::string, DOUBLE>(tokens[9]);
-    glbid = 0;
+    token = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
   }
 
-  uint64_t key() { return id; }
+  // uint64_t key() { return id; }
 };
 
 class NoneVertex {
 public:
-  NoneVertex () {}
+  NoneVertex() {}
 };
 
+class Vertex {
+  union VertexUnion {
+    PersonVertex person;
+    ForumEventVertex forum_event;
+    ForumVertex forum;
+    PublicationVertex publication;
+    TopicVertex topic;
+    NoneVertex none;
+
+    VertexUnion() : none(NoneVertex()) {}
+    VertexUnion(PersonVertex& p) : person(p) {}
+    VertexUnion(ForumEventVertex& fe) : forum_event(fe) {}
+    VertexUnion(ForumVertex& f) : forum(f) {}
+    VertexUnion(PublicationVertex& pub) : publication(pub) {}
+    VertexUnion(TopicVertex& top) : topic(top) {}
+  };
+
+public:
+  uint64_t glbid;
+  uint64_t id;    // GlobalIDS: global id ... Vertices: vertex id
+  uint64_t edges; // number of edges
+  uint64_t start; // start index in compressed edge list
+  agile::workflow1::TYPES type;
+  VertexUnion v;
+
+  Vertex() {
+    id    = shad::data_types::kNullValue<uint64_t>;
+    edges = 0;
+    start = 0;
+    type  = agile::workflow1::TYPES::NONE;
+  }
+
+  Vertex(uint64_t id_, uint64_t edges_, agile::workflow1::TYPES type_) {
+    id    = id_;
+    edges = edges_;
+    start = 0;
+    type  = type_;
+  }
+
+  Vertex(uint64_t id_, uint64_t edges_, agile::workflow1::TYPES type_,
+         std::vector<std::string>& tokens) {
+    id    = id_;
+    edges = edges_;
+    start = 0;
+    type  = type_;
+
+    switch (type_) {
+    case agile::workflow1::TYPES::PERSON:
+      v.person = PersonVertex(tokens);
+      break;
+    case agile::workflow1::TYPES::FORUMEVENT:
+      v.forum_event = ForumEventVertex(tokens);
+      break;
+    case agile::workflow1::TYPES::FORUM:
+      v.forum = ForumVertex(tokens);
+      break;
+    case agile::workflow1::TYPES::PUBLICATION:
+      v.publication = PublicationVertex(tokens);
+      break;
+    case agile::workflow1::TYPES::TOPIC:
+      v.topic = TopicVertex(tokens);
+      break;
+    default:
+      v.none = NoneVertex();
+    }
+  }
+
+  Vertex(uint64_t id_, uint64_t edges_, agile::workflow1::TYPES type_,
+         PersonVertex& p)
+      : id(id_), edges(edges_), start(0), type(type_), v(p) {}
+  Vertex(uint64_t id_, uint64_t edges_, agile::workflow1::TYPES type_,
+         ForumVertex& p)
+      : id(id_), edges(edges_), start(0), type(type_), v(p) {}
+  Vertex(uint64_t id_, uint64_t edges_, agile::workflow1::TYPES type_,
+         ForumEventVertex& p)
+      : id(id_), edges(edges_), start(0), type(type_), v(p) {}
+  Vertex(uint64_t id_, uint64_t edges_, agile::workflow1::TYPES type_,
+         TopicVertex& p)
+      : id(id_), edges(edges_), start(0), type(type_), v(p) {}
+  Vertex(uint64_t id_, uint64_t edges_, agile::workflow1::TYPES type_,
+         PublicationVertex& p)
+      : id(id_), edges(edges_), start(0), type(type_), v(p) {}
+
+  uint64_t getToken() {
+    switch (type) {
+    case agile::workflow1::TYPES::PERSON:
+      return this->v.person.token;
+    case agile::workflow1::TYPES::FORUMEVENT:
+      return this->v.forum_event.token;
+    case agile::workflow1::TYPES::FORUM:
+      return this->v.forum.token;
+    case agile::workflow1::TYPES::PUBLICATION:
+      return this->v.publication.token;
+    case agile::workflow1::TYPES::TOPIC:
+      return this->v.topic.token;
+    }
+    return 0;
+  }
+
+  void set_id(uint64_t id_) { id = id_; }
+};
 
 class PurchaseEdge {
 public:
-  uint64_t buyer;            // vertex id
-  uint64_t seller;           // vertex id
+  uint64_t buyer;  // vertex id
+  uint64_t seller; // vertex id
   uint64_t product;
-  time_t   date;
-  agile::workflow1::TYPES    src_type;
-  agile::workflow1::TYPES    dst_type;
+  time_t date;
 
-  PurchaseEdge () {
-    buyer   = 0;
-    seller  = 0;
-    product = 0;
-    date    = 0;
-    src_type = agile::workflow1::TYPES::NONE;
-    dst_type = agile::workflow1::TYPES::NONE;
+  PurchaseEdge() {
+    buyer   = shad::data_types::kNullValue<uint64_t>;
+    seller  = shad::data_types::kNullValue<uint64_t>;
+    product = shad::data_types::kNullValue<uint64_t>;
+    date    = shad::data_types::kNullValue<time_t>;
   }
 
-  PurchaseEdge (std::vector <std::string> & tokens) {
-    buyer    = shad::data_types::encode<uint64_t, std::string, UINT>  (tokens[2]);
-    seller   = shad::data_types::encode<uint64_t, std::string, UINT>  (tokens[1]);
-    product  = shad::data_types::encode<uint64_t, std::string, UINT>  (tokens[6]);
-    date     = shad::data_types::encode<time_t, std::string, USDATE>(tokens[7]);
-    src_type = agile::workflow1::TYPES::PERSON;
-    dst_type = agile::workflow1::TYPES::PERSON;
+  explicit PurchaseEdge(std::vector<std::string>& tokens) {
+    buyer   = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[2]);
+    seller  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
+    product = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
+    date    = shad::data_types::encode<time_t, std::string, USDATE>(tokens[7]);
   }
 
   uint64_t key() { return buyer; }
@@ -157,29 +237,23 @@ public:
 
 class SaleEdge {
 public:
-  uint64_t seller;           // vertex id
-  uint64_t buyer;            // vertex id
+  uint64_t seller; // vertex id
+  uint64_t buyer;  // vertex id
   uint64_t product;
-  time_t   date;
-  agile::workflow1::TYPES    src_type;
-  agile::workflow1::TYPES    dst_type;
+  time_t date;
 
-  SaleEdge () {
-    seller   = 0;
-    buyer    = 0;
-    product  = 0;
-    date     = 0;
-    src_type = agile::workflow1::TYPES::NONE;
-    dst_type = agile::workflow1::TYPES::NONE;
+  SaleEdge() {
+    seller  = shad::data_types::kNullValue<uint64_t>;
+    buyer   = shad::data_types::kNullValue<uint64_t>;
+    product = shad::data_types::kNullValue<uint64_t>;
+    date    = shad::data_types::kNullValue<time_t>;
   }
 
-  SaleEdge (std::vector <std::string> & tokens) {
-    seller   = shad::data_types::encode<uint64_t, std::string, UINT>  (tokens[1]);
-    buyer    = shad::data_types::encode<uint64_t, std::string, UINT>  (tokens[2]);
-    product  = shad::data_types::encode<uint64_t, std::string, UINT>  (tokens[6]);
-    date     = shad::data_types::encode<time_t, std::string, USDATE>(tokens[7]);
-    src_type = agile::workflow1::TYPES::PERSON;
-    dst_type = agile::workflow1::TYPES::PERSON;
+  explicit SaleEdge(std::vector<std::string>& tokens) {
+    seller  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
+    buyer   = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[2]);
+    product = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
+    date    = shad::data_types::encode<time_t, std::string, USDATE>(tokens[7]);
   }
 
   uint64_t key() { return seller; }
@@ -189,30 +263,22 @@ public:
 
 class AuthorEdge {
 public:
-  uint64_t author;     // vertex id
-  uint64_t item;       // vertex id
-  agile::workflow1::TYPES    src_type;
-  agile::workflow1::TYPES    dst_type;
+  uint64_t author; // vertex id
+  uint64_t item;   // vertex id
 
-  AuthorEdge () {
-    author   = 0;
-    item     = 0;
-    src_type = agile::workflow1::TYPES::NONE;
-    dst_type = agile::workflow1::TYPES::NONE;
+  AuthorEdge() {
+    author = shad::data_types::kNullValue<uint64_t>;
+    item   = shad::data_types::kNullValue<uint64_t>;
   }
 
-  AuthorEdge (std::vector <std::string> & tokens) {
+  explicit AuthorEdge(std::vector<std::string>& tokens) {
     if (tokens[4] != "") {
-      author   = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
-      item     = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[4]);
-      src_type = agile::workflow1::TYPES::PERSON;
-      dst_type = agile::workflow1::TYPES::FORUMEVENT;
+      author = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
+      item   = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[4]);
     } else {
-      author   = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
-      item     = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5]);
-      src_type = agile::workflow1::TYPES::PERSON;
-      dst_type = agile::workflow1::TYPES::PUBLICATION;
-    } 
+      author = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
+      item   = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5]);
+    }
   }
 
   uint64_t key() { return author; }
@@ -222,23 +288,18 @@ public:
 
 class IncludesEdge {
 public:
-  uint64_t forum;            // vertex id
-  uint64_t forum_event;      // vertex id
-  agile::workflow1::TYPES    src_type;
-  agile::workflow1::TYPES    dst_type;
+  uint64_t forum;       // vertex id
+  uint64_t forum_event; // vertex id
 
-  IncludesEdge () {
-    forum       = 0;
-    forum_event = 0;
-    src_type    = agile::workflow1::TYPES::NONE;
-    dst_type    = agile::workflow1::TYPES::NONE;
+  IncludesEdge() {
+    forum       = shad::data_types::kNullValue<uint64_t>;
+    forum_event = shad::data_types::kNullValue<uint64_t>;
   }
 
-  IncludesEdge (std::vector <std::string> & tokens) {
-    forum       = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[3]);
-    forum_event = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[4]);
-    src_type    = agile::workflow1::TYPES::FORUM;
-    dst_type    = agile::workflow1::TYPES::FORUMEVENT;
+  explicit IncludesEdge(std::vector<std::string>& tokens) {
+    forum = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[3]);
+    forum_event =
+        shad::data_types::encode<uint64_t, std::string, UINT>(tokens[4]);
   }
 
   uint64_t key() { return forum; }
@@ -248,35 +309,25 @@ public:
 
 class HasTopicEdge {
 public:
-  uint64_t item;      // vertex id
-  uint64_t topic;     // vertex id
-  agile::workflow1::TYPES    src_type;
-  agile::workflow1::TYPES    dst_type;
+  uint64_t item;  // vertex id
+  uint64_t topic; // vertex id
 
-  HasTopicEdge () {
-    item     = 0;
-    topic    = 0;
-    src_type = agile::workflow1::TYPES::NONE;
-    dst_type = agile::workflow1::TYPES::NONE;
+  HasTopicEdge() {
+    item  = shad::data_types::kNullValue<uint64_t>;
+    topic = shad::data_types::kNullValue<uint64_t>;
   }
 
-  HasTopicEdge (std::vector <std::string> & tokens) {
+  explicit HasTopicEdge(std::vector<std::string>& tokens) {
     if (tokens[3] != "") {
-      item     = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[3]);
-      topic    = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
-      src_type = agile::workflow1::TYPES::FORUM;
-      dst_type = agile::workflow1::TYPES::TOPIC;
+      item  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[3]);
+      topic = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
     } else if (tokens[4] != "") {
-      item     = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[4]);
-      topic    = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
-      src_type = agile::workflow1::TYPES::FORUMEVENT;
-      dst_type = agile::workflow1::TYPES::TOPIC;
+      item  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[4]);
+      topic = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
     } else {
-      item     = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5]);
-      topic    = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
-      src_type = agile::workflow1::TYPES::PUBLICATION;
-      dst_type = agile::workflow1::TYPES::TOPIC;
-    } 
+      item  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5]);
+      topic = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
+    }
   }
 
   uint64_t key() { return item; }
@@ -286,23 +337,19 @@ public:
 
 class HasOrgEdge {
 public:
-  uint64_t publication;      // vertex id
-  uint64_t organization;     // vertex id
-  agile::workflow1::TYPES    src_type;
-  agile::workflow1::TYPES    dst_type;
+  uint64_t publication;  // vertex id
+  uint64_t organization; // vertex id
 
-  HasOrgEdge () {
-    publication  = 0;
-    organization = 0;
-    src_type     = agile::workflow1::TYPES::NONE;
-    dst_type     = agile::workflow1::TYPES::NONE;
+  HasOrgEdge() {
+    publication  = shad::data_types::kNullValue<uint64_t>;
+    organization = shad::data_types::kNullValue<uint64_t>;
   }
 
-  HasOrgEdge (std::vector <std::string> & tokens) {
-    publication  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5]);
-    organization = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
-    src_type     = agile::workflow1::TYPES::PUBLICATION;
-    dst_type     = agile::workflow1::TYPES::TOPIC;
+  explicit HasOrgEdge(std::vector<std::string>& tokens) {
+    publication =
+        shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5]);
+    organization =
+        shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
   }
 
   uint64_t key() { return publication; }
@@ -312,60 +359,10 @@ public:
 
 class NoneEdge {
 public:
-  NoneEdge () {}
+  NoneEdge() {}
 };
 
-
-struct Vertex {
-  union VertexUnion {
-    PersonVertex person;
-    ForumEventVertex forum_event;
-    ForumVertex forum;
-    PublicationVertex publication;
-    TopicVertex topic;
-    NoneVertex none;
-
-    VertexUnion () : none(NoneVertex()) {}
-    VertexUnion (PersonVertex& p) : person(p) {}
-    VertexUnion (ForumEventVertex& fe) : forum_event(fe) {}
-    VertexUnion (ForumVertex& f) : forum(f) {}
-    VertexUnion (PublicationVertex& pub) : publication(pub) {}
-    VertexUnion (TopicVertex& top) : topic(top) {}
-  };
-
-  agile::workflow1::TYPES v_type;
-  VertexUnion v;
-  std::uint64_t id;
-
-  Vertex () : v_type(agile::workflow1::TYPES::NONE) {}
-  Vertex (std::uint64_t uid, PersonVertex& p) : v_type(agile::workflow1::TYPES::PERSON), v(p) {id = uid;}
-  Vertex (std::uint64_t uid, ForumEventVertex& fe) : v_type(agile::workflow1::TYPES::FORUMEVENT), v(fe) {id = uid;}
-  Vertex (std::uint64_t uid, ForumVertex& f) : v_type(agile::workflow1::TYPES::FORUM), v(f) {id = uid;}
-  Vertex (std::uint64_t uid, PublicationVertex& pub) : v_type(agile::workflow1::TYPES::PUBLICATION), v(pub) {id = uid;}
-  Vertex (std::uint64_t uid, TopicVertex& top) : v_type(agile::workflow1::TYPES::TOPIC), v(top) {id = uid;}
-
-};
-
-template<typename T>
-T get_node_data(const Vertex& ver) { return T(); }
-
-template <>
-PersonVertex get_node_data(const Vertex& ver) { return ver.v.person; }
-
-template <>
-ForumVertex get_node_data(const Vertex& ver) { return ver.v.forum; }
-
-template <>
-ForumEventVertex get_node_data(const Vertex& ver) { return ver.v.forum_event; }
-
-template <>
-PublicationVertex get_node_data(const Vertex& ver) { return ver.v.publication; }
-
-template <>
-TopicVertex get_node_data(const Vertex& ver) { return ver.v.topic; }
-
-
-struct Edge {
+class Edge {
   union EdgeUnion {
     PurchaseEdge purchase;
     SaleEdge sale;
@@ -375,94 +372,157 @@ struct Edge {
     HasOrgEdge has_org;
     NoneEdge none;
 
-    EdgeUnion () : none(NoneEdge()) {}
-    EdgeUnion (PurchaseEdge& p) : purchase(p) {}
-    EdgeUnion (SaleEdge& s) : sale(s) {}
-    EdgeUnion (AuthorEdge& a) : author(a) {}
-    EdgeUnion (IncludesEdge& inc) : includes(inc) {}
-    EdgeUnion (HasTopicEdge& top) : has_topic(top) {}
-    EdgeUnion (HasOrgEdge& org) : has_org(org) {}
+    EdgeUnion() : none(NoneEdge()) {}
+    EdgeUnion(PurchaseEdge& p) : purchase(p) {}
+    EdgeUnion(SaleEdge& s) : sale(s) {}
+    EdgeUnion(AuthorEdge& a) : author(a) {}
+    EdgeUnion(IncludesEdge& inc) : includes(inc) {}
+    EdgeUnion(HasTopicEdge& top) : has_topic(top) {}
+    EdgeUnion(HasOrgEdge& org) : has_org(org) {}
   };
 
+public:
+  uint64_t src; // vertex id of src
+  uint64_t dst; // vertex id of dst
   agile::workflow1::TYPES type;
-  EdgeUnion e;
   agile::workflow1::TYPES src_type;
   agile::workflow1::TYPES dst_type;
-  std::uint64_t src;
-  std::uint64_t dst;
+  uint64_t src_glbid;
+  uint64_t dst_glbid;
+  EdgeUnion e;
 
-  Edge () : type(agile::workflow1::TYPES::NONE) {}
-  Edge (PurchaseEdge& p) : type(agile::workflow1::TYPES::PURCHASE), e(p) {
-    src = e.purchase.src();
-    src_type = e.purchase.src_type;
-    dst = e.purchase.dst();
-    dst_type = e.purchase.dst_type;
-  }
-  Edge (SaleEdge& s) : type(agile::workflow1::TYPES::SALE), e(s) {
-    src = e.sale.src();
-    src_type = e.sale.src_type;
-    dst = e.sale.dst();
-    dst_type = e.sale.dst_type;
-  }
-  Edge (AuthorEdge& a) : type(agile::workflow1::TYPES::AUTHOR), e(a) {
-    src = e.author.src();
-    src_type = e.author.src_type;
-    dst = e.author.dst();
-    dst_type = e.author.dst_type;
-  }
-  Edge (IncludesEdge& pub) : type(agile::workflow1::TYPES::INCLUDES), e(pub) {
-    src = e.includes.src();
-    src_type = e.includes.src_type;
-    dst = e.includes.dst();
-    dst_type = e.includes.dst_type;
-  }
-  Edge (HasTopicEdge& top) : type(agile::workflow1::TYPES::HASTOPIC), e(top) {
-    src = e.has_topic.src();
-    src_type = e.has_topic.src_type;
-    dst = e.has_topic.dst();
-    dst_type = e.has_topic.dst_type;
-  }
-  Edge (HasOrgEdge& org) : type(agile::workflow1::TYPES::HASORG), e(org) {
-    src = e.has_org.src();
-    src_type = e.has_org.src_type;
-    dst = e.has_org.dst();
-    dst_type = e.has_org.dst_type;
+  Edge() {
+    src       = shad::data_types::kNullValue<uint64_t>;
+    dst       = shad::data_types::kNullValue<uint64_t>;
+    type      = agile::workflow1::TYPES::NONE;
+    src_type  = agile::workflow1::TYPES::NONE;
+    dst_type  = agile::workflow1::TYPES::NONE;
+    src_glbid = shad::data_types::kNullValue<uint64_t>;
+    dst_glbid = shad::data_types::kNullValue<uint64_t>;
   }
 
+  explicit Edge(std::vector<std::string>& tokens) {
+    if (tokens[0] == "Sale") {
+      src  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
+      dst  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[2]);
+      type = agile::workflow1::TYPES::SALE;
+      src_type  = agile::workflow1::TYPES::PERSON;
+      dst_type  = agile::workflow1::TYPES::PERSON;
+      src_glbid = shad::data_types::kNullValue<uint64_t>;
+      dst_glbid = shad::data_types::kNullValue<uint64_t>;
+      e.sale    = SaleEdge(tokens);
+    } else if (tokens[0] == "Purchase") {
+      src  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
+      dst  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[2]);
+      type = agile::workflow1::TYPES::PURCHASE;
+      src_type   = agile::workflow1::TYPES::PERSON;
+      dst_type   = agile::workflow1::TYPES::PERSON;
+      src_glbid  = shad::data_types::kNullValue<uint64_t>;
+      dst_glbid  = shad::data_types::kNullValue<uint64_t>;
+      e.purchase = PurchaseEdge(tokens);
+    } else if (tokens[0] == "Author") {
+      src  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
+      type = agile::workflow1::TYPES::AUTHOR;
+      src_type  = agile::workflow1::TYPES::PERSON;
+      src_glbid = shad::data_types::kNullValue<uint64_t>;
+      dst_glbid = shad::data_types::kNullValue<uint64_t>;
+      if (tokens[3] != "")
+        dst = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[3]);
+      else if (tokens[4] != "")
+        dst = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[4]);
+      else if (tokens[5] != "")
+        dst = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5]);
+      if (tokens[3] != "")
+        dst_type = agile::workflow1::TYPES::FORUM;
+      else if (tokens[4] != "")
+        dst_type = agile::workflow1::TYPES::FORUMEVENT;
+      else if (tokens[5] != "")
+        dst_type = agile::workflow1::TYPES::PUBLICATION;
+      e.author = AuthorEdge(tokens);
+    } else if (tokens[0] == "Includes") {
+      src  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[3]);
+      dst  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[4]);
+      type = agile::workflow1::TYPES::INCLUDES;
+      src_type   = agile::workflow1::TYPES::FORUM;
+      dst_type   = agile::workflow1::TYPES::FORUMEVENT;
+      src_glbid  = shad::data_types::kNullValue<uint64_t>;
+      dst_glbid  = shad::data_types::kNullValue<uint64_t>;
+      e.includes = IncludesEdge(tokens);
+    } else if (tokens[0] == "HasTopic") {
+      dst  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
+      type = agile::workflow1::TYPES::HASTOPIC;
+      dst_type  = agile::workflow1::TYPES::TOPIC;
+      src_glbid = shad::data_types::kNullValue<uint64_t>;
+      dst_glbid = shad::data_types::kNullValue<uint64_t>;
+      if (tokens[3] != "")
+        src = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[3]);
+      else if (tokens[4] != "")
+        src = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[4]);
+      else if (tokens[5] != "")
+        src = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5]);
+      if (tokens[3] != "")
+        src_type = agile::workflow1::TYPES::FORUM;
+      else if (tokens[4] != "")
+        src_type = agile::workflow1::TYPES::FORUMEVENT;
+      else if (tokens[5] != "")
+        src_type = agile::workflow1::TYPES::PUBLICATION;
+      e.has_topic = HasTopicEdge(tokens);
+    } else if (tokens[0] == "HasOrg") {
+      src  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5]);
+      dst  = shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
+      type = agile::workflow1::TYPES::HASORG;
+      src_type  = agile::workflow1::TYPES::PUBLICATION;
+      dst_type  = agile::workflow1::TYPES::TOPIC;
+      src_glbid = shad::data_types::kNullValue<uint64_t>;
+      dst_glbid = shad::data_types::kNullValue<uint64_t>;
+      e.has_org = HasOrgEdge(tokens);
+    }
+  }
+  Edge(std::vector<std::string>& tokens, PurchaseEdge& p) : Edge(tokens) {
+    e.purchase = p;
+  }
+  Edge(std::vector<std::string>& tokens, SaleEdge& p) : Edge(tokens) {
+    e.sale = p;
+  }
+  Edge(std::vector<std::string>& tokens, AuthorEdge& p) : Edge(tokens) {
+    e.author = p;
+  }
+  Edge(std::vector<std::string>& tokens, IncludesEdge& p) : Edge(tokens) {
+    e.includes = p;
+  }
+  Edge(std::vector<std::string>& tokens, HasTopicEdge& p) : Edge(tokens) {
+    e.has_topic = p;
+  }
+  Edge(std::vector<std::string>& tokens, HasOrgEdge& p) : Edge(tokens) {
+    e.has_org = p;
+  }
+
+private:
+  friend class boost::serialization::access;
+
+  template <class Archive>
+  void serialize(Archive& ar, const unsigned int version) {
+    ar& src;
+    ar& dst;
+    ar& type;
+    ar& src_type;
+    ar& dst_type;
+    ar& src_glbid;
+    ar& dst_glbid;
+  }
 };
 
-template<typename T>
-T get_edge_data(const Edge& edge) { return T(); }
-
-template <>
-PurchaseEdge get_edge_data(const Edge& edge) { return edge.e.purchase; }
-
-template <>
-SaleEdge get_edge_data(const Edge& edge) { return edge.e.sale; }
-
-template <>
-AuthorEdge get_edge_data(const Edge& edge) { return edge.e.author; }
-
-template <>
-IncludesEdge get_edge_data(const Edge& edge) { return edge.e.includes; }
-
-template <>
-HasTopicEdge get_edge_data(const Edge& edge) { return edge.e.has_topic; }
-
-template <>
-HasOrgEdge get_edge_data(const Edge& edge) { return edge.e.has_org; }
-
-
 template <typename V, typename E>
-class Wf2WMDParser : public galois::graphs::FileParser<V,E> {
+class Wf2WMDParser : public galois::graphs::FileParser<V, E> {
 public:
-  Wf2WMDParser(std::vector<std::string> files) : csvFields_(10), files_(files) {}
+  explicit Wf2WMDParser(std::vector<std::string> files)
+      : csvFields_(10), files_(files) {}
   Wf2WMDParser(uint64_t csvFields, std::vector<std::string> files)
       : csvFields_(csvFields), files_(files) {}
 
-  virtual const std::vector<std::string>& GetFiles() override { return files_; }
-  virtual galois::graphs::ParsedGraphStructure<V, E> ParseLine(char* line,
-                                               uint64_t lineLength) override {
+  const std::vector<std::string>& GetFiles() override { return files_; }
+  galois::graphs::ParsedGraphStructure<V, E>
+  ParseLine(char* line, uint64_t lineLength) override {
     std::vector<std::string> tokens =
         this->SplitLine(line, lineLength, ',', csvFields_);
 
@@ -471,54 +531,54 @@ public:
           shad::data_types::encode<uint64_t, std::string, UINT>(tokens[1]);
       auto pv = PersonVertex(tokens);
       return galois::graphs::ParsedGraphStructure<V, E>(
-          V(uid, pv));
+          V(uid, 0, agile::workflow1::TYPES::PERSON, pv));
     } else if (tokens[0] == "ForumEvent") {
       galois::graphs::ParsedUID uid =
           shad::data_types::encode<uint64_t, std::string, UINT>(tokens[4]);
       auto fev = ForumEventVertex(tokens);
       return galois::graphs::ParsedGraphStructure<V, E>(
-          V(uid, fev));
+          V(uid, 0, agile::workflow1::TYPES::FORUMEVENT, fev));
     } else if (tokens[0] == "Forum") {
       galois::graphs::ParsedUID uid =
           shad::data_types::encode<uint64_t, std::string, UINT>(tokens[3]);
       auto fv = ForumVertex(tokens);
       return galois::graphs::ParsedGraphStructure<V, E>(
-          V(uid, fv));
+          V(uid, 0, agile::workflow1::TYPES::FORUM, fv));
     } else if (tokens[0] == "Publication") {
       galois::graphs::ParsedUID uid =
           shad::data_types::encode<uint64_t, std::string, UINT>(tokens[5]);
       auto pv = PublicationVertex(tokens);
       return galois::graphs::ParsedGraphStructure<V, E>(
-          V(uid, pv));
+          V(uid, 0, agile::workflow1::TYPES::PUBLICATION, pv));
     } else if (tokens[0] == "Topic") {
       galois::graphs::ParsedUID uid =
           shad::data_types::encode<uint64_t, std::string, UINT>(tokens[6]);
       auto tv = TopicVertex(tokens);
       return galois::graphs::ParsedGraphStructure<V, E>(
-          V(uid, tv));
+          V(uid, 0, agile::workflow1::TYPES::TOPIC, tv));
     } else { // edge type
       agile::workflow1::TYPES inverseEdgeType;
       E edge;
       if (tokens[0] == "Sale") {
         inverseEdgeType = agile::workflow1::TYPES::PURCHASE;
-        auto e = PurchaseEdge(tokens);
-        edge = E(e);
+        auto e          = PurchaseEdge(tokens);
+        edge            = E(tokens);
       } else if (tokens[0] == "Author") {
         inverseEdgeType = agile::workflow1::TYPES::WRITTENBY;
-        auto e = AuthorEdge(tokens);
-        edge = E(e);
+        auto e          = AuthorEdge(tokens);
+        edge            = E(tokens);
       } else if (tokens[0] == "Includes") {
         inverseEdgeType = agile::workflow1::TYPES::INCLUDEDIN;
-        auto e = IncludesEdge(tokens);
-        edge = E(e);
+        auto e          = IncludesEdge(tokens);
+        edge            = E(tokens);
       } else if (tokens[0] == "HasTopic") {
         inverseEdgeType = agile::workflow1::TYPES::TOPICIN;
-        auto e = HasTopicEdge(tokens);
-        edge = E(e);
+        auto e          = HasTopicEdge(tokens);
+        edge            = E(tokens);
       } else if (tokens[0] == "HasOrg") {
         inverseEdgeType = agile::workflow1::TYPES::ORGIN;
-        auto e = HasOrgEdge(tokens);
-        edge = E(e);
+        auto e          = HasOrgEdge(tokens);
+        edge            = E(tokens);
       } else {
         // skip nodes
         return galois::graphs::ParsedGraphStructure<V, E>();
@@ -537,190 +597,14 @@ public:
       return galois::graphs::ParsedGraphStructure<V, E>(edges);
     }
   }
+
 private:
   uint64_t csvFields_;
   std::vector<std::string> files_;
 };
-/*using LC_CSR_Graph = galois::graphs::LC_CSR_64_Graph<Vertex, Edge>::with_no_lockable<true>::type;
-using LS_LC_CSR_Graph = galois::graphs::LS_LC_CSR_64_Graph<Vertex, Edge>::with_no_lockable<true>::type;
 
-template<typename Graph>
-class WF2_Graph {
-  Graph* g;
-  std::unordered_map<uint64_t, uint64_t> id_to_node_index;
-
-  bool is_node(agile::workflow1::TYPES elem_t) {
-    switch (elem_t) {
-    case agile::workflow1::TYPES::PERSON:
-    case agile::workflow1::TYPES::FORUM:
-    case agile::workflow1::TYPES::FORUMEVENT:
-    case agile::workflow1::TYPES::PUBLICATION:
-    case agile::workflow1::TYPES::TOPIC:
-      return true;
-    default:
-      return false;
-    }
-  }
-
-  template<typename GraphElemType>
-  agile::workflow1::TYPES graph_type_enum() {
-    if (std::is_same<GraphElemType, PersonVertex>::value) {
-      return agile::workflow1::TYPES::PERSON;
-    } else if (std::is_same<GraphElemType, ForumVertex>::value) {
-      return agile::workflow1::TYPES::FORUM;
-    } else if (std::is_same<GraphElemType, ForumEventVertex>::value) {
-      return agile::workflow1::TYPES::FORUMEVENT;
-    } else if (std::is_same<GraphElemType, PublicationVertex>::value) {
-      return agile::workflow1::TYPES::PUBLICATION;
-    } else if (std::is_same<GraphElemType, TopicVertex>::value) {
-      return agile::workflow1::TYPES::TOPIC;
-    } else if (std::is_same<GraphElemType, PurchaseEdge>::value) {
-      return agile::workflow1::TYPES::PURCHASE;
-    } else if (std::is_same<GraphElemType, SaleEdge>::value) {
-      return agile::workflow1::TYPES::SALE;
-    } else if (std::is_same<GraphElemType, AuthorEdge>::value) {
-      return agile::workflow1::TYPES::AUTHOR;
-    } else if (std::is_same<GraphElemType, IncludesEdge>::value) {
-      return agile::workflow1::TYPES::INCLUDES;
-    } else if (std::is_same<GraphElemType, HasTopicEdge>::value) {
-      return agile::workflow1::TYPES::HASTOPIC;
-    } else if (std::is_same<GraphElemType, HasOrgEdge>::value) {
-      return agile::workflow1::TYPES::HASORG;
-    } else {
-      return agile::workflow1::TYPES::NONE;
-    }
-  }
-
-public:
-  WF2_Graph(Graph* g, std::unordered_map<uint64_t, uint64_t>& id_to_node_index) : g(g) {
-    this->id_to_node_index.swap(id_to_node_index);
-  }
-
-  template<typename NodeType>
-  bool lookup_node(uint64_t id, NodeType& node) {
-    if (id_to_node_index.find(id) != id_to_node_index.end()) {
-      auto node_data = g->getData(id_to_node_index[id]);
-      node = get_node_data<NodeType>(node_data); 
-      return true;
-    }
-
-    return false;
-  }
-
-  template<typename EdgeType>
-  EdgeType lookup_edge(uint64_t src_id, uint64_t dst_id) {
-    using GNode = typename Graph::GraphNode;
-    EdgeType edge_data;
-
-    galois::do_all(
-      galois::iterate(*g),
-      [&] (GNode n) {
-        for (auto e : g->edges(n)) {
-          auto& e_data = g->getEdgeData(e);
-          if (e_data.src() == src_id && e_data.dst() == dst_id) {
-            edge_data = get_edge_data<EdgeType>(e_data);
-          }
-        }
-      });
-
-    return edge_data;
-  }
-
-  template<typename GraphElemType, typename Op>
-  void do_all(agile::workflow1::TYPES ty, Op f) {
-    // execute f on each vertex/edge of type GraphElemType
-    using GNode = typename Graph::GraphNode;
-    if (is_node(ty)) { 
-      galois::do_all(
-        galois::iterate(*g),
-        [&] (GNode n) {
-          auto& n_data = g->getData(n);
-          if (n_data.v_type == ty) {
-            f(get_node_data<GraphElemType>(n_data));
-          }
-        });
-    } else {
-      galois::do_all(
-        galois::iterate(*g),
-        [&] (GNode n) {
-          for (auto e : g->edges(n)) {
-            auto& e_data = g->getEdgeData(e);
-            if (e_data.e_type == ty) {
-              f(get_edge_data<GraphElemType>(e_data));
-            }
-          }
-        });
-    }
-  }
-
-  template<typename NodeType, typename EdgeType, typename Op>
-  void iter_edges(agile::workflow1::TYPES node_ty, agile::workflow1::TYPES edge_ty, Op f) {
-    // call f on each vertex and its list of out-edges with type EdgeType 
-    using GNode = typename Graph::GraphNode; 
-    galois::do_all(
-      galois::iterate(*g),
-      [&] (GNode n) {
-        auto& n_data = g->getData(n);
-        if (n_data.v_type != node_ty) {
-          return;
-        }
-
-        std::vector<EdgeType> vec;
-        for (auto e : g->edges(n)) {
-          auto& e_data = g->getEdgeData(e);
-          if (e_data.e_type == edge_ty) {
-            vec.push_back(get_edge_data<EdgeType>(e_data));
-          }
-        }
-        
-        f(get_node_data<NodeType>(n_data), vec);
-      });
-  }
-
-  template<typename EdgeType, typename Op>
-  void iter_edges(agile::workflow1::TYPES edge_ty, Op f) {
-    // call f on each vertex and its list of out-edges with type EdgeType 
-    using GNode = typename Graph::GraphNode; 
-    galois::do_all(
-      galois::iterate(*g),
-      [&] (GNode n) {
-        auto& n_data = g->getData(n);
-        std::vector<EdgeType> vec;
-        for (auto e : g->edges(n)) {
-          auto& e_data = g->getEdgeData(e);
-          if (e_data.e_type == edge_ty) {
-            vec.push_back(get_edge_data<EdgeType>(e_data));
-          }
-        }
-        
-        f(n_data.id(), vec);
-      });
-  }
-
-  template<typename NodeType, typename EdgeType, typename Op>
-  void iter_edges(uint64_t id, agile::workflow1::TYPES node_ty, agile::workflow1::TYPES edge_ty, Op f) {
-    // call f on list of out-edges with type EdgeType of vertex with given id 
-    NodeType node;
-    std::vector<EdgeType> edges;
-    if (id_to_node_index.find(id) != id_to_node_index.end()) {
-      uint64_t n = id_to_node_index[id];
-      auto node_data = g->getData(n);
-      if (node_data.v_type != node_ty) return;
-
-      node = get_node_data<NodeType>(node_data);
-      for (auto e : g->edges(n)) {
-        auto& edge_data = g->getEdgeData(e);
-        if (edge_data.e_type == edge_ty) {
-          edges.push_back(get_edge_data<EdgeType>(edge_data));
-        }
-      }
-    }
-
-    f(node, edges);
-  }
-};*/
-
+typedef galois::graphs::WMDGraph<wf2::Vertex, wf2::Edge, OECPolicy> Graph;
 
 } // namespace wf2
 
-#endif
+#endif // GRAPH_LOG_SKETCH_WF2_INCLUDE_GRAPH_DS_HPP_

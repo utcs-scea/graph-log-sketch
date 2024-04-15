@@ -14,13 +14,15 @@
 #include "galois/runtime/GraphUpdateManager.h"
 #include "galois/graphs/GenericPartitioners.h"
 #include "graph_ds.hpp"
+#include "import.hpp"
 
-#define DBG_PRINT(x) {std::cout << "[WF2-DEBUG] " << x << std::endl;}
+#define DBG_PRINT(x)                                                           \
+  { std::cout << "[WF2-DEBUG] " << x << std::endl; }
 
-typedef galois::graphs::WMDGraph<wf2::Vertex, wf2::Edge, OECPolicy> Graph;
+wf2::Graph* g;
 
 int main(int argc, char* argv[]) {
-  if(argc < 2) {
+  if (argc < 2) {
     std::cerr << "Expected graph file name as argument\n";
     return 1;
   }
@@ -31,24 +33,12 @@ int main(int argc, char* argv[]) {
   auto& net = galois::runtime::getSystemNetworkInterface();
 
   if (net.ID == 0) {
-    DBG_PRINT("Num Hosts: " << net.Num << 
-                   ", Active Threads Per Hosts: " << galois::getActiveThreads() << 
-                   "\n");
+    DBG_PRINT("Num Hosts: " << net.Num << ", Active Threads Per Hosts: "
+                            << galois::getActiveThreads() << "\n");
   }
 
-  std::vector<std::string> filenames;
-  filenames.emplace_back(filename);
-  std::vector<std::unique_ptr<galois::graphs::FileParser<
-      wf2::Vertex, wf2::Edge>>>
-      parsers;
-  parsers.emplace_back(
-      std::make_unique<wf2::Wf2WMDParser<wf2::Vertex,
-                                                 wf2::Edge>>(
-          10, filenames));
-  Graph* graph = new Graph(parsers, net.ID, net.Num, true, false,
-                           galois::graphs::BALANCED_EDGES_OF_MASTERS);
-  assert(graph != nullptr);
-
+  g = wf2::ImportGraph(filename);
+  assert(g != nullptr);
 
   return 0;
 }

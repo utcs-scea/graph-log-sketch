@@ -3,6 +3,7 @@
 
 set(sources
         src/main.cpp
+        src/import.cpp
 )
 
 add_executable(wf2-exact)
