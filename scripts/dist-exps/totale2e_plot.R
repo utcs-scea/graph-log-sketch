@@ -26,7 +26,7 @@ time_plot <- ggplot(data=data, aes(x=factor(Hosts), fill=factor(Graph_Type), y=A
 )) +
   geom_bar(mapping=aes(x=factor(Hosts), fill=factor(Graph_Type), y=Algorithm_Duration),
            position=position_dodge(), stat="identity") +
-  labs(fill="Graph Type", y="Execution time (s)", x="Number of Hosts")+
+  labs(fill="Graph Type", y="End-To-End Execution time (s)", x="Number of Hosts")+
   theme(axis.title = element_text(color="black", size=20),
         axis.text.y = element_text(color="black", size=20),
         axis.text.x = element_text(color="black", size=20),

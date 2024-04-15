@@ -28,7 +28,7 @@ time_plot <- ggplot(data=data, aes(x=factor(Policy), fill=factor(HostID), y=Algo
 )) +
   geom_bar(mapping=aes(x=factor(Policy), fill=factor(HostID), y=Algorithm_Duration),
            position=position_dodge(), stat="identity") +
-  labs(fill="Policy", y="Execution time (s)", x="Number of Hosts")+
+  labs(fill="Number of Hosts", y="Total Computation Time (s)", x="Graph Partitioning Policies")+
   theme(axis.title = element_text(color="black", size=20),
         axis.text.y = element_text(color="black", size=20),
         axis.text.x = element_text(color="black", size=20, angle=90),
