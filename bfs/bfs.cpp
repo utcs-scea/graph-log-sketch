@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: BSD-2-Clause
+// Copyright (c) 2023. University of Texas at Austin. All rights reserved.
+
 #include <iostream>
 #include "importer.cpp"
 #include "galois/graphs/DistributedLocalGraph.h"
@@ -24,14 +27,17 @@ struct NodeData {
   uint32_t dist_current;
 };
 
-uint64_t src_node = 0;
+galois::DynamicBitSet bitset_dist_current;
+
+#include "bfs_pull_sync.hh"
+
+uint64_t src_node      = 0;
 uint64_t maxIterations = 1000;
 
 typedef galois::graphs::DistLocalGraph<NodeData, void> Graph;
 typedef typename Graph::GraphNode GNode;
 std::unique_ptr<galois::graphs::GluonSubstrate<Graph>> syncSubstrate;
 
-galois::DynamicBitSet bitset_dist_current;
 //#include "bfs_pull_sync.hh"
 
 /******************************************************************************/
@@ -43,15 +49,14 @@ struct InitializeGraph {
   uint64_t& local_src_node;
   Graph* graph;
 
-  InitializeGraph(uint64_t& _src_node, const uint32_t& _infinity,
-                  Graph* _graph)
+  InitializeGraph(uint64_t& _src_node, const uint32_t& _infinity, Graph* _graph)
       : local_infinity(_infinity), local_src_node(_src_node), graph(_graph) {}
 
   void static go(Graph& _graph) {
     const auto& allNodes = _graph.allNodesRange();
     galois::do_all(
-        galois::iterate(allNodes),
-        InitializeGraph(src_node, infinity, &_graph), galois::no_stats(),
+        galois::iterate(allNodes), InitializeGraph(src_node, infinity, &_graph),
+        galois::no_stats(),
         galois::loopname(
             syncSubstrate->get_run_identifier("InitializeGraph").c_str()));
   }
@@ -145,9 +150,9 @@ struct BFSSanityCheck {
     dgm.reset();
 
     galois::do_all(galois::iterate(_graph.masterNodesRange().begin(),
-                                     _graph.masterNodesRange().end()),
-                     BFSSanityCheck(infinity, &_graph, dgas, dgm),
-                     galois::no_stats(), galois::loopname("BFSSanityCheck"));
+                                   _graph.masterNodesRange().end()),
+                   BFSSanityCheck(infinity, &_graph, dgas, dgm),
+                   galois::no_stats(), galois::loopname("BFSSanityCheck"));
 
     uint64_t num_visited  = dgas.reduce();
     uint32_t max_distance = dgm.reduce();
@@ -189,12 +194,15 @@ std::vector<uint32_t> makeResultsCPU(std::unique_ptr<Graph>& hg) {
 int main(int argc, char* argv[]) {
 
   std::string filename = argv[1];
-  if(argc > 2) {
+  if (argc > 2) {
     src_node = std::stoul(argv[2]);
   }
   std::unique_ptr<Graph> hg;
+  galois::DistMemSys G;
 
-  hg = distLocalGraphInitialization<galois::graphs::ELVertex, galois::graphs::ELEdge, NodeData, void, OECPolicy>(filename);
+  hg = distLocalGraphInitialization<galois::graphs::ELVertex,
+                                    galois::graphs::ELEdge, NodeData, void,
+                                    OECPolicy>(filename);
 
   syncSubstrate = gluonInitialization<NodeData, void>(hg);
 
