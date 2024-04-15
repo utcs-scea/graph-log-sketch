@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 // Copyright (c) 2023. University of Texas at Austin. All rights reserved.
 
-#include "influencer.hpp"
+#include "wf4/influence_maximization.hpp"
 
 #include <queue>
 #include <random>
@@ -500,7 +500,7 @@ void wf4::internal::RemoveReachableSetsWithInfluentialNode(
       } else {
         remote_updates[graph.getHostID(reachable_node_gid)].try_emplace_l(
             reachable_node_gid, [&](map::value_type& p) { p.second++; },
-            (uint64_t)0); // may need to change to 1
+            (uint64_t)1);
       }
     }
     reachability_set.clear();
