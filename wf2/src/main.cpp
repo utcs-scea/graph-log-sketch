@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "galois/DistGalois.h"
+#include "galois/graphs/GluonSubstrate.h"
 #include "galois/runtime/DataCommMode.h"
 
 #include "galois/wmd/schema.h"
@@ -15,11 +16,13 @@
 #include "galois/graphs/GenericPartitioners.h"
 #include "graph_ds.hpp"
 #include "import.hpp"
+//#include "pattern.hpp"
 
 #define DBG_PRINT(x)                                                           \
   { std::cout << "[WF2-DEBUG] " << x << std::endl; }
 
 wf2::Graph* g;
+std::unique_ptr<galois::graphs::GluonSubstrate<wf2::Graph>> sync_substrate;
 
 int main(int argc, char* argv[]) {
   if (argc < 2) {
@@ -39,6 +42,8 @@ int main(int argc, char* argv[]) {
 
   g = wf2::ImportGraph(filename);
   assert(g != nullptr);
+  sync_substrate = std::make_unique<galois::graphs::GluonSubstrate<wf2::Graph>>(
+      *g, net.ID, net.Num, g->isTransposed(), g->cartesianGrid());
 
   return 0;
 }

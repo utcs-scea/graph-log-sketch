@@ -16,12 +16,14 @@
 #include "graph_ds.hpp"
 #include "galois/wmd/graphTypes.h"
 #include "galois/wmd/schema.h"
+#include "galois/wmd/graph.h"
 #include "galois/wmd/WMDPartitioner.h"
 #include "galois/graphs/GenericPartitioners.h"
 
 #define DOUBLE shad::data_types::DOUBLE
 
 namespace wf2 {
+using GlobalNodeID = uint64_t;
 
 class BaseVertex {
 public:
@@ -603,7 +605,9 @@ private:
   std::vector<std::string> files_;
 };
 
-typedef galois::graphs::WMDGraph<wf2::Vertex, wf2::Edge, OECPolicy> Graph;
+typedef galois::graphs::WMDGraph<agile::workflow1::Vertex,
+                                 agile::workflow1::Edge, OECPolicy>
+    Graph;
 
 } // namespace wf2
 
