@@ -419,7 +419,9 @@ int main(int argc, char* argv[]) {
         std::cout << std::endl;
       },
       galois::steal());
-    }    
+
+  
+    std::cout << "Doing BFS for round " << i << std::endl;
 
     galois::DGAccumulator<uint64_t> DGAccumulator_sum;
     galois::DGReduceMax<uint32_t> m;
@@ -448,7 +450,8 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << std::endl;
-  }
+
+    }
   
 
   return 0;
