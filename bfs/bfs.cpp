@@ -28,10 +28,12 @@ struct NodeData {
   uint32_t dist_old;
 
   NodeData() : dist_current(0), dist_old(0) {}
-  NodeData(uint32_t cur_dist, uint32_t old_dist) : dist_current(cur_dist), dist_old(old_dist) {}
+  NodeData(uint32_t cur_dist, uint32_t old_dist)
+      : dist_current(cur_dist), dist_old(old_dist) {}
 
   // Copy constructor
-  NodeData(const NodeData& other) : dist_current(other.dist_current.load()), dist_old(other.dist_old) {}
+  NodeData(const NodeData& other)
+      : dist_current(other.dist_current.load()), dist_old(other.dist_old) {}
 
   // Copy assignment operator
   NodeData& operator=(const NodeData& other) {
@@ -81,7 +83,6 @@ struct InitializeGraph {
         (graph->getGID(src) == local_src_node) ? 0 : local_infinity;
     sdata.dist_old =
         (graph->getGID(src) == local_src_node) ? 0 : local_infinity;
-    
   }
 };
 
@@ -101,10 +102,10 @@ struct FirstItr_BFS {
       __end   = 0;
     }
     syncSubstrate->set_num_round(0);
-      galois::do_all(
-          galois::iterate(__begin, __end), FirstItr_BFS{&_graph},
-          galois::no_stats(),
-          galois::loopname(syncSubstrate->get_run_identifier("BFS").c_str()));
+    galois::do_all(
+        galois::iterate(__begin, __end), FirstItr_BFS{&_graph},
+        galois::no_stats(),
+        galois::loopname(syncSubstrate->get_run_identifier("BFS").c_str()));
 
     syncSubstrate->sync<writeDestination, readSource, Reduce_min_dist_current,
                         Bitset_dist_current, async>("BFS");
@@ -162,11 +163,11 @@ struct BFS {
       syncSubstrate->set_num_round(_num_iterations);
       dga.reset();
       work_edges.reset();
-        galois::do_all(
-            galois::iterate(nodesWithEdges),
-            BFS(priority, &_graph, dga, work_edges), galois::steal(),
-            galois::no_stats(),
-            galois::loopname(syncSubstrate->get_run_identifier("BFS").c_str()));
+      galois::do_all(
+          galois::iterate(nodesWithEdges),
+          BFS(priority, &_graph, dga, work_edges), galois::steal(),
+          galois::no_stats(),
+          galois::loopname(syncSubstrate->get_run_identifier("BFS").c_str()));
       syncSubstrate->sync<writeDestination, readSource, Reduce_min_dist_current,
                           Bitset_dist_current, async>("BFS");
 
@@ -179,8 +180,7 @@ struct BFS {
              dga.reduce(syncSubstrate->get_run_identifier()));
 
     galois::runtime::reportStat_Tmax(
-        "BFS",
-        "NumIterations_" + std::to_string(syncSubstrate->get_run_num()),
+        "BFS", "NumIterations_" + std::to_string(syncSubstrate->get_run_num()),
         (unsigned long)_num_iterations);
   }
 
@@ -279,8 +279,9 @@ int main(int argc, char* argv[]) {
   if (argc > 2) {
     src_node = std::stoul(argv[2]);
   }
-  if(argc < 3) {
-    std::cerr << "Usage: " << argv[0] << " <filename> <src_node> <numVertices>\n";
+  if (argc < 3) {
+    std::cerr << "Usage: " << argv[0]
+              << " <filename> <src_node> <numVertices>\n";
     return 1;
   }
 
@@ -289,7 +290,7 @@ int main(int argc, char* argv[]) {
 
   std::unique_ptr<Graph> hg;
 
-  hg = distLocalGraphInitialization<galois::graphs::ELVertex,
+  hg            = distLocalGraphInitialization<galois::graphs::ELVertex,
                                     galois::graphs::ELEdge, NodeData, void,
                                     OECPolicy>(filename, numVertices);
   syncSubstrate = gluonInitialization<NodeData, void>(hg);
@@ -298,6 +299,16 @@ int main(int argc, char* argv[]) {
 
   InitializeGraph::go((*hg));
   galois::runtime::getHostBarrier().wait();
+
+  uint64_t src               = 4;
+  std::vector<uint64_t> dsts = {5};
+
+  hg->addEdgesTopologyOnly(src, dsts);
+
+  src  = 6;
+  dsts = {7};
+
+  hg->addEdgesTopologyOnly(src, dsts);
 
   // accumulators for use in operators
   galois::DGAccumulator<uint64_t> DGAccumulator_sum;
@@ -316,7 +327,7 @@ int main(int argc, char* argv[]) {
     BFSSanityCheck::go(*hg, DGAccumulator_sum, m);
 
     if ((run + 1) != numRuns) {
-        bitset_dist_current.reset();
+      bitset_dist_current.reset();
 
       (*syncSubstrate).set_num_run(run + 1);
       InitializeGraph::go(*hg);
