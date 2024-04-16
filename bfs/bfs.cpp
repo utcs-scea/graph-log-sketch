@@ -18,6 +18,7 @@
 #include "galois/DTerminationDetector.h"
 #include "galois/gstl.h"
 #include "galois/runtime/Tracer.h"
+#include "galois/runtime/GraphUpdateManager.h"
 
 #include <iostream>
 #include <limits>
