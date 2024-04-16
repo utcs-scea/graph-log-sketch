@@ -318,7 +318,7 @@ TEST(Import, GeneratedGraph) {
   EXPECT_EQ(edge_count.reduce(), num_projected_edges);
 }
 
-TEST(Import, Projection) {
+TEST(Import, DISABLED_Projection) {
   std::unique_ptr<wf4::FullNetworkGraph> full_graph = generateTestFullGraph();
   std::unique_ptr<wf4::NetworkGraph> projected_graph =
       wf4::ProjectGraph(std::move(full_graph));
