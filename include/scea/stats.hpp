@@ -86,13 +86,15 @@ public:
 
 class ScopeBenchmarker {
 private:
+  std::string scopeName;
   HighResTimer timer;
   PerfEvent cacheMissesEvent;
   PerfEvent cacheReferencesEvent;
   PerfEvent instructionsEvent;
   PerfEvent minorPageFaultsEvent;
   PerfEvent majorPageFaultsEvent;
-  std::string scopeName;
+  std::uint32_t hostID;
+  bool isDist = false;
 
   static uint64_t getMaxRSS() {
     struct rusage usage;
@@ -122,6 +124,17 @@ public:
     majorPageFaultsEvent.start();
   }
 
+  explicit ScopeBenchmarker(const std::string& name, std::uint32_t _hostID)
+      : scopeName(name),
+        cacheMissesEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES),
+        cacheReferencesEvent(PERF_TYPE_HARDWARE,
+                             PERF_COUNT_HW_CACHE_REFERENCES),
+        instructionsEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS),
+        minorPageFaultsEvent(PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS_MIN),
+        majorPageFaultsEvent(PERF_TYPE_SOFTWARE,
+                             PERF_COUNT_SW_PAGE_FAULTS_MAJ),
+        hostID(_hostID), isDist(true) {}
+
   ~ScopeBenchmarker() {
     timer.stop();
     cacheMissesEvent.stop();
@@ -137,16 +150,25 @@ public:
     uint64_t minorPageFaults = minorPageFaultsEvent.readValue();
     uint64_t majorPageFaults = majorPageFaultsEvent.readValue();
 
-    std::cout << "Benchmark results for " << scopeName << ":" << std::endl //
-              << "Duration: " << timer.getDurationNano() << " nanoseconds"
-              << std::endl                                             //
-              << "Max RSS: " << max_rss << " KB" << std::endl          //
-              << "Cache Misses: " << cacheMisses << std::endl          //
-              << "Cache References: " << cacheReferences << std::endl  //
-              << "Instructions: " << instructions << std::endl         //
-              << "Minor Page Faults: " << minorPageFaults << std::endl //
-              << "Major Page Faults: " << majorPageFaults << std::endl;
+    std::string output = "Benchmark results for " + scopeName + ":\n" +
+                         "Duration: " + std::to_string(timer.getDurationNano()) +
+                         " nanoseconds\n" +
+                         "Max RSS: " + std::to_string(max_rss) + " KB\n" +
+                         "Cache Misses: " + std::to_string(cacheMisses) + "\n" +
+                         "Cache References: " + std::to_string(cacheReferences) + "\n" +
+                         "Instructions: " + std::to_string(instructions) + "\n" +
+                         "Minor Page Faults: " + std::to_string(minorPageFaults) + "\n" +
+                         "Major Page Faults: " + std::to_string(majorPageFaults) + "\n";
+    if (isDist) {
+      std::string fname = "host"+std::to_string(hostID)+".stats";
+      std::ofstream fp(fname, std::ios::out);
+      fp << output;
+      fp.close();
+    } else {
+      std::cout << output;
+    }
   }
 };
 
 #define BENCHMARK_SCOPE(name) ScopeBenchmarker benchmarker##__LINE__(name)
+#define DIST_BENCHMARK_SCOPE(name, host_id) ScopeBenchmarker benchmarker##__LINE__(name, host_id)

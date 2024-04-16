@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include "../include/importer.cpp"
+#include "../include/scea/stats.hpp"
 #include "galois/graphs/DistributedLocalGraph.h"
 #include "galois/graphs/GluonSubstrate.h"
 #include "galois/wmd/WMDPartitioner.h"
@@ -311,6 +312,8 @@ int main(int argc, char* argv[]) {
 
   std::cout << std::endl;
 
+  {
+  DIST_BENCHMARK_SCOPE("bfs-pull", galois::runtime::getSystemNetworkInterface().ID);
   for (int i=0; i<num_batches; i++) {
     uint64_t src = srcs[i];
     std::vector<uint64_t> dsts = dsts_vec[i];
@@ -342,13 +345,11 @@ int main(int argc, char* argv[]) {
         std::cout << std::endl;
       },
       galois::steal());
-    
+    }    
 
     galois::DGAccumulator<uint64_t> DGAccumulator_sum;
     galois::DGReduceMax<uint32_t> m;
     int numRuns = 1;
-
-    std::cout << "Doing BFS for round " << i << std::endl;
 
     for (auto run = 0; run < numRuns; ++run) {
       std::string timer_str("Timer_" + std::to_string(run));
