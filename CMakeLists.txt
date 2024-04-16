@@ -71,6 +71,7 @@ set(PCG_DIRECTORY ${Galois_SOURCE_DIR}/external/pcg-cpp/include)
 add_subdirectory(microbench)
 add_subdirectory(scripts)
 add_subdirectory(bfs)
+add_subdirectory(pagerank)
 
 # tests
 option(BUILD_TESTING "Build tests." ON)

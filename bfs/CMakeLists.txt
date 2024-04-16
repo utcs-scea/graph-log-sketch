@@ -2,7 +2,6 @@
 # Copyright (c) 2023. University of Texas at Austin. All rights reserved.
 
 set(sources
-        importer.cpp
         bfs.cpp
 )
 

@@ -2,7 +2,7 @@
 // Copyright (c) 2023. University of Texas at Austin. All rights reserved.
 
 #include <iostream>
-#include "importer.cpp"
+#include "../include/importer.cpp"
 #include "galois/graphs/DistributedLocalGraph.h"
 #include "galois/graphs/GluonSubstrate.h"
 #include "galois/wmd/WMDPartitioner.h"
