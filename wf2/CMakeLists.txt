@@ -4,7 +4,7 @@
 set(sources
         src/main.cpp
         src/import.cpp
-        #src/pattern.cpp
+        src/pattern.cpp
 )
 
 add_executable(wf2-exact)
