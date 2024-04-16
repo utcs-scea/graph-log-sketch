@@ -22,6 +22,9 @@
 #include <iostream>
 #include <limits>
 #include <unordered_map>
+#include <string>
+#include <fstream>
+#include <sstream>
 
 const uint32_t infinity = std::numeric_limits<uint32_t>::max() / 4;
 
@@ -292,6 +295,16 @@ void resetNodeStates(Graph& _graph, GNode src_node) {
   );
 }
 
+void printUnorderedMap (std::unordered_map<uint64_t, std::vector<uint64_t>> &edits) {
+  for (const auto &pair : edits) {
+    std::cout << pair.first << " ";
+    for (auto dst : pair.second) {
+      std::cout << dst << " ";
+    }
+    std::cout << std::endl;
+  }
+}
+
 int main(int argc, char* argv[]) {
 
   std::string filename = argv[1];
@@ -322,7 +335,49 @@ int main(int argc, char* argv[]) {
   std::vector<uint64_t> srcs = {0, 1, 6, 8};
   std::vector<std::vector<uint64_t>> dsts_vec = {{1, 2, 3, 4}, {5, 6, 7}, {8, 9}, {10}};
 
-  int num_batches = srcs.size();
+  uint64_t num_batches = srcs.size();
+
+  std::string edits_file = "/home/agoel/graph-log-sketch/build/bfs/testGraph.el";
+  std::ifstream file(edits_file);
+
+  if (!file.is_open()) {
+      std::cerr << "Error opening file: " << filename << std::endl;
+      return 1;
+  }
+
+  std::unordered_map<uint64_t, std::vector<uint64_t>> edits;
+
+  std::string line;
+  while (getline(file, line)) {
+
+    if (line.empty()) {
+        std::cout << "Batch over." << std::endl;
+        printUnorderedMap(edits);
+        edits.clear();
+        continue;
+    }
+
+    std::istringstream iss(line);
+    uint64_t src, dst;
+
+    iss >> src;
+
+    std::vector<uint64_t> dsts;
+
+    while (iss >> dst) {
+      dsts.push_back(dst);
+    }
+
+    edits[src] = dsts;
+  }
+
+  if (!edits.empty()) {
+    std::cout << "\nBatch over." << std::endl;
+    printUnorderedMap(edits);
+    edits.clear();
+  }
+
+  file.close();
 
   for (int i=0; i<numVertices; i++) {
     hg->addVertexTopologyOnly(i);
