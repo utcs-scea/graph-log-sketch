@@ -24,7 +24,7 @@ for run in range(0, 3):
     for i in range(0, partitions):
       start = time.time()
       if i == 0:
-        graph = graph.add_vertices(graph_dir + "/nodes_" + str(i) + ".csv", label="src")
+        graph = graph.add_vertices(graph_dir + "/nodes.csv", label="src")
       graph = graph.add_edges(graph_dir + "/edges_" + str(i) + ".csv", label="_")
       end = time.time()
       print("Running on partition: " + str(i + 1) + "/" + str(partitions))
