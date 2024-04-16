@@ -24,7 +24,21 @@
 const uint32_t infinity = std::numeric_limits<uint32_t>::max() / 4;
 
 struct NodeData {
-  uint32_t dist_current;
+  std::atomic<uint32_t> dist_current;
+  uint32_t dist_old;
+
+  NodeData() : dist_current(0), dist_old(0) {}
+  NodeData(uint32_t cur_dist, uint32_t old_dist) : dist_current(cur_dist), dist_old(old_dist) {}
+
+  // Copy constructor
+  NodeData(const NodeData& other) : dist_current(other.dist_current.load()), dist_old(other.dist_old) {}
+
+  // Copy assignment operator
+  NodeData& operator=(const NodeData& other) {
+    dist_current.store(other.dist_current.load());
+    dist_old = other.dist_old;
+    return *this;
+  }
 };
 
 galois::DynamicBitSet bitset_dist_current;
@@ -65,62 +79,130 @@ struct InitializeGraph {
     NodeData& sdata = graph->getData(src);
     sdata.dist_current =
         (graph->getGID(src) == local_src_node) ? 0 : local_infinity;
+    sdata.dist_old =
+        (graph->getGID(src) == local_src_node) ? 0 : local_infinity;
+    
+  }
+};
+
+template <bool async>
+struct FirstItr_BFS {
+  Graph* graph;
+
+  FirstItr_BFS(Graph* _graph) : graph(_graph) {}
+
+  void static go(Graph& _graph) {
+    uint32_t __begin, __end;
+    if (_graph.isLocal(src_node)) {
+      __begin = _graph.getLID(src_node);
+      __end   = __begin + 1;
+    } else {
+      __begin = 0;
+      __end   = 0;
+    }
+    syncSubstrate->set_num_round(0);
+      galois::do_all(
+          galois::iterate(__begin, __end), FirstItr_BFS{&_graph},
+          galois::no_stats(),
+          galois::loopname(syncSubstrate->get_run_identifier("BFS").c_str()));
+
+    syncSubstrate->sync<writeDestination, readSource, Reduce_min_dist_current,
+                        Bitset_dist_current, async>("BFS");
+
+    galois::runtime::reportStat_Tsum(
+        "BFS", syncSubstrate->get_run_identifier("NumWorkItems"),
+        __end - __begin);
+  }
+
+  void operator()(GNode src) const {
+    NodeData& snode = graph->getData(src);
+    snode.dist_old  = snode.dist_current;
+
+    for (auto jj : graph->edges(src)) {
+      GNode dst         = graph->getEdgeDst(jj);
+      auto& dnode       = graph->getData(dst);
+      uint32_t new_dist = 1 + snode.dist_current;
+      uint32_t old_dist = galois::atomicMin(dnode.dist_current, new_dist);
+      if (old_dist > new_dist)
+        bitset_dist_current.set(dst);
+    }
   }
 };
 
 template <bool async>
 struct BFS {
+  uint32_t local_priority;
   Graph* graph;
   using DGTerminatorDetector =
       typename std::conditional<async, galois::DGTerminator<unsigned int>,
                                 galois::DGAccumulator<unsigned int>>::type;
+  using DGAccumulatorTy = galois::DGAccumulator<unsigned int>;
 
   DGTerminatorDetector& active_vertices;
+  DGAccumulatorTy& work_edges;
 
-  BFS(Graph* _graph, DGTerminatorDetector& _dga)
-      : graph(_graph), active_vertices(_dga) {}
+  BFS(uint32_t _local_priority, Graph* _graph, DGTerminatorDetector& _dga,
+      DGAccumulatorTy& _work_edges)
+      : local_priority(_local_priority), graph(_graph), active_vertices(_dga),
+        work_edges(_work_edges) {}
 
   void static go(Graph& _graph) {
-    unsigned _num_iterations = 0;
-    DGTerminatorDetector dga;
+    FirstItr_BFS<async>::go(_graph);
+
+    unsigned _num_iterations = 1;
 
     const auto& nodesWithEdges = _graph.allNodesWithEdgesRange();
+
+    uint32_t priority = std::numeric_limits<uint32_t>::max();
+    DGTerminatorDetector dga;
+    DGAccumulatorTy work_edges;
+
     do {
+
       syncSubstrate->set_num_round(_num_iterations);
       dga.reset();
-      galois::do_all(
-          galois::iterate(nodesWithEdges), BFS(&_graph, dga),
-          galois::no_stats(), galois::steal(),
-          galois::loopname(syncSubstrate->get_run_identifier("BFS").c_str()));
-      syncSubstrate->sync<writeSource, readDestination, Reduce_min_dist_current,
+      work_edges.reset();
+        galois::do_all(
+            galois::iterate(nodesWithEdges),
+            BFS(priority, &_graph, dga, work_edges), galois::steal(),
+            galois::no_stats(),
+            galois::loopname(syncSubstrate->get_run_identifier("BFS").c_str()));
+      syncSubstrate->sync<writeDestination, readSource, Reduce_min_dist_current,
                           Bitset_dist_current, async>("BFS");
 
       galois::runtime::reportStat_Tsum(
           "BFS", syncSubstrate->get_run_identifier("NumWorkItems"),
-          (unsigned long)dga.read_local());
+          (unsigned long)work_edges.read_local());
+
       ++_num_iterations;
     } while ((async || (_num_iterations < maxIterations)) &&
              dga.reduce(syncSubstrate->get_run_identifier()));
 
-    if (galois::runtime::getSystemNetworkInterface().ID == 0) {
-      galois::runtime::reportStat_Single(
-          "BFS",
-          "NumIterations_" + std::to_string(syncSubstrate->get_run_num()),
-          (unsigned long)_num_iterations);
-    }
+    galois::runtime::reportStat_Tmax(
+        "BFS",
+        "NumIterations_" + std::to_string(syncSubstrate->get_run_num()),
+        (unsigned long)_num_iterations);
   }
 
   void operator()(GNode src) const {
     NodeData& snode = graph->getData(src);
 
-    for (auto jj : graph->edges(src)) {
-      GNode dst         = graph->getEdgeDst(jj);
-      auto& dnode       = graph->getData(dst);
-      uint32_t new_dist = dnode.dist_current + 1;
-      uint32_t old_dist = galois::min(snode.dist_current, new_dist);
-      if (old_dist > new_dist) {
-        bitset_dist_current.set(src);
-        active_vertices += 1;
+    if (snode.dist_old > snode.dist_current) {
+      active_vertices += 1;
+
+      if (local_priority > snode.dist_current) {
+        snode.dist_old = snode.dist_current;
+
+        for (auto jj : graph->edges(src)) {
+          work_edges += 1;
+
+          GNode dst         = graph->getEdgeDst(jj);
+          auto& dnode       = graph->getData(dst);
+          uint32_t new_dist = 1 + snode.dist_current;
+          uint32_t old_dist = galois::atomicMin(dnode.dist_current, new_dist);
+          if (old_dist > new_dist)
+            bitset_dist_current.set(dst);
+        }
       }
     }
   }
