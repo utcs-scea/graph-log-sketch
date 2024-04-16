@@ -300,40 +300,79 @@ int main(int argc, char* argv[]) {
   InitializeGraph::go((*hg));
   galois::runtime::getHostBarrier().wait();
 
-  uint64_t src               = 4;
-  std::vector<uint64_t> dsts = {5};
+  std::vector<uint64_t> srcs = {0, 1, 6, 8};
+  std::vector<std::vector<uint64_t>> dsts_vec = {{1, 2, 3, 4}, {5, 6, 7}, {8, 9}, {10}};
 
-  hg->addEdgesTopologyOnly(src, dsts);
+  int num_batches = srcs.size();
 
-  src  = 6;
-  dsts = {7};
-
-  hg->addEdgesTopologyOnly(src, dsts);
-
-  // accumulators for use in operators
-  galois::DGAccumulator<uint64_t> DGAccumulator_sum;
-  galois::DGReduceMax<uint32_t> m;
-  int numRuns = 1;
-
-  for (auto run = 0; run < numRuns; ++run) {
-    std::string timer_str("Timer_" + std::to_string(run));
-    galois::StatTimer StatTimer_main(timer_str.c_str(), "BFS");
-
-    StatTimer_main.start();
-    BFS<false>::go(*hg);
-    StatTimer_main.stop();
-
-    // sanity check
-    BFSSanityCheck::go(*hg, DGAccumulator_sum, m);
-
-    if ((run + 1) != numRuns) {
-      bitset_dist_current.reset();
-
-      (*syncSubstrate).set_num_run(run + 1);
-      InitializeGraph::go(*hg);
-      galois::runtime::getHostBarrier().wait();
-    }
+  for (int i=0; i<numVertices; i++) {
+    hg->addVertexTopologyOnly(i);
   }
+
+  std::cout << std::endl;
+
+  for (int i=0; i<num_batches; i++) {
+    uint64_t src = srcs[i];
+    std::vector<uint64_t> dsts = dsts_vec[i];
+
+    hg->addEdgesTopologyOnly(src, dsts);
+
+    std::cout << "Printing graph for round " << i << std::endl;
+
+    galois::do_all(
+      galois::iterate(hg->masterNodesRange()),
+      [&](size_t lid) {
+        auto token = hg->getGID(lid);
+        std::vector<uint64_t> edgeDst;
+        auto end = hg->edge_end(lid);
+        auto itr = hg->edge_begin(lid);
+        for (; itr != end; itr++) {
+          edgeDst.push_back(hg->getGID(hg->getEdgeDst(itr)));
+        }
+        std::vector<uint64_t> edgeDstDbg;
+        for (auto& e : hg->edges(lid)) {
+          edgeDstDbg.push_back(hg->getGID(hg->getEdgeDst(e)));
+        }
+        assert(edgeDst == edgeDstDbg);
+        std::sort(edgeDst.begin(), edgeDst.end());
+        std::cout << token << " ";
+        for (auto edge : edgeDst) {
+          std::cout << edge << " ";
+        }
+        std::cout << std::endl;
+      },
+      galois::steal());
+    
+
+    galois::DGAccumulator<uint64_t> DGAccumulator_sum;
+    galois::DGReduceMax<uint32_t> m;
+    int numRuns = 1;
+
+    std::cout << "Doing BFS for round " << i << std::endl;
+
+    for (auto run = 0; run < numRuns; ++run) {
+      std::string timer_str("Timer_" + std::to_string(run));
+      galois::StatTimer StatTimer_main(timer_str.c_str(), "BFS");
+
+      StatTimer_main.start();
+      BFS<false>::go(*hg);
+      StatTimer_main.stop();
+
+      // sanity check
+      BFSSanityCheck::go(*hg, DGAccumulator_sum, m);
+
+      if ((run + 1) != numRuns) {
+        bitset_dist_current.reset();
+
+        (*syncSubstrate).set_num_run(run + 1);
+        InitializeGraph::go(*hg);
+        galois::runtime::getHostBarrier().wait();
+      }
+    }
+
+    std::cout << std::endl;
+  }
+  
 
   return 0;
 }
