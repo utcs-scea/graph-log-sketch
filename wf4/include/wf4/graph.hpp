@@ -35,6 +35,10 @@ public:
   NetworkEdge() = default;
   NetworkEdge(time_t date, double amount)
       : date_(date), amount_(amount), weight_(0) {}
+  NetworkEdge(uint64_t src_, uint64_t dst_, double amount,
+              agile::workflow1::TYPES type_)
+      : amount_(amount), weight_(0), type(type_), src(src_), dst(dst_),
+        src_glbid(src_), dst_glbid(dst_) {}
   explicit NetworkEdge(const std::vector<std::string>& tokens) {
     double amount_sold = 0;
     if (tokens[7].size() > 0) {

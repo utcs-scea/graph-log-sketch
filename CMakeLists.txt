@@ -68,6 +68,10 @@ set(BUILD_TESTING "${BUILD_TESTING_SAVED}")
 set(PHMAP_DIRECTORY ${Galois_SOURCE_DIR}/external/parallel-hashmap)
 set(PCG_DIRECTORY ${Galois_SOURCE_DIR}/external/pcg-cpp/include)
 
+# wf4 target
+add_library(wf4-galois)
+add_library(wf4-galois::wf4-galois ALIAS wf4-galois)
+
 add_subdirectory(microbench)
 add_subdirectory(scripts)
 add_subdirectory(wf4)
