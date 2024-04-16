@@ -4,7 +4,7 @@
 # Copyright (c) 2023. University of Texas at Austin. All rights reserved.
 
 HOSTS="${HOSTS:-1}"
-PROCD=$(echo "1" | bc)
+PROCD=$(echo "2" | bc)
 PROCS="${PROCS:-${PROCD}}"
 TIME="${TIME:-1:00:00}"
 QUEUE="${QUEUE:-normal}"
