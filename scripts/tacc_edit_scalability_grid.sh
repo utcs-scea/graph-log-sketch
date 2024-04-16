@@ -12,7 +12,7 @@ export WORKLOAD_NUM_VERTICES="124836180"
 
 for i in $(seq $SAMPLES); do ALGOS="tc" THREADS="128" TIME="05:59:00" ./scripts/tacc_edit_scalability.sh; done
 for i in $(seq $SAMPLES); do ALGOS="bfs" THREADS="128" TIME="00:29:00" ./scripts/tacc_edit_scalability.sh; done
-for i in $(seq $SAMPLES); do ALGOS="bc" THREADS="128" TIME="00:59:00" ./scripts/tacc_edit_scalability.sh; done
+for i in $(seq $SAMPLES); do ALGOS="bc" THREADS="128" TIME="01:59:00" ./scripts/tacc_edit_scalability.sh; done
 for i in $(seq $SAMPLES); do ALGOS="pr" THREADS="128" TIME="00:29:00" ./scripts/tacc_edit_scalability.sh; done
 
 ## RMAT27
@@ -22,5 +22,5 @@ export WORKLOAD_NUM_VERTICES="134217728"
 
 for i in $(seq $SAMPLES); do ALGOS="tc" THREADS="128" TIME="05:59:00" ./scripts/tacc_edit_scalability.sh; done
 for i in $(seq $SAMPLES); do ALGOS="bfs" THREADS="128" TIME="00:29:00" ./scripts/tacc_edit_scalability.sh; done
-for i in $(seq $SAMPLES); do ALGOS="bc" THREADS="128" TIME="00:59:00" ./scripts/tacc_edit_scalability.sh; done
+for i in $(seq $SAMPLES); do ALGOS="bc" THREADS="128" TIME="01:59:00" ./scripts/tacc_edit_scalability.sh; done
 for i in $(seq $SAMPLES); do ALGOS="pr" THREADS="128" TIME="00:29:00" ./scripts/tacc_edit_scalability.sh; done
