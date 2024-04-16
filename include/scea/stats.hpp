@@ -49,8 +49,8 @@ public:
     pe.size           = sizeof(struct perf_event_attr);
     pe.config         = config;
     pe.disabled       = 1;
-    pe.exclude_kernel = 1; // Exclude kernel events
-    pe.exclude_hv     = 1; // Exclude hypervisor events
+    pe.exclude_kernel = 0; // Exclude kernel events
+    pe.exclude_hv     = 0; // Exclude hypervisor events
 
     fd = perf_event_open(&pe, 0, -1, -1, 0);
     if (fd == -1) {
@@ -114,12 +114,12 @@ public:
         minorPageFaultsEvent(PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS_MIN),
         majorPageFaultsEvent(PERF_TYPE_SOFTWARE,
                              PERF_COUNT_SW_PAGE_FAULTS_MAJ) {
-    timer.start();
     cacheMissesEvent.start();
     cacheReferencesEvent.start();
     instructionsEvent.start();
     minorPageFaultsEvent.start();
     majorPageFaultsEvent.start();
+    timer.start();
   }
 
   ~ScopeBenchmarker() {

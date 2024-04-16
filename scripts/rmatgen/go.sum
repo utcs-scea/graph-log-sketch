@@ -1,0 +1,6 @@
+github.com/MichaelTJones/pcg v0.0.0-20180122055547-df440c6ed7ed h1:hQC4FSwvsLH6rOLJTndsHnANARF9RwW4PbrDTjks/0A=
+github.com/MichaelTJones/pcg v0.0.0-20180122055547-df440c6ed7ed/go.mod h1:NQ4UMHqyfXyYVmZopcfwPRWJa0rw2aH16eDIltReVUo=
+github.com/emer/empi v1.0.22 h1:FPrM68LNQYydODqgs6ZddVEGRBOdFOrbUrLhIsn3eL8=
+github.com/emer/empi v1.0.22/go.mod h1:wr0eFV/S2/sAyowA7/8jGmK5AjiWW4saT5QMQuw87GY=
+github.com/vmunoz82/shuffle v1.0.2 h1:9QxvJN9F1OdsnRVrPu1+N1F+IU14PPtHATtvlxTSDVI=
+github.com/vmunoz82/shuffle v1.0.2/go.mod h1:MvogPEkxTyK+LU0v+nYDCzWiD8Jlu/rocUCJOvs8mcA=

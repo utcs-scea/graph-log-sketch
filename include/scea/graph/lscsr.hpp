@@ -14,6 +14,7 @@ class LS_CSR : public MutableGraph {
 private:
   galois::graphs::LS_LC_CSR_Graph<void, void> graph;
   float const compact_threshold;
+  bool first_ingest = true;
 
 public:
   LS_CSR(uint64_t num_vertices, float compact_threshold)
@@ -33,16 +34,19 @@ public:
 
   void post_ingest() override {
     float holes_usage  = graph.getLogHolesMemoryUsageBytes();
-    float memory_usage = graph.getMemoryUsageBytes();
-    if (memory_usage > 0.0 && holes_usage / memory_usage > compact_threshold) {
+    float memory_usage = graph.getLogMemoryUsageBytes();
+    if (first_ingest || ((memory_usage > 0.0) &&
+                         ((holes_usage / memory_usage) > compact_threshold))) {
+      std::cout << "compact (holes_usage = " << holes_usage
+                << ", memory_usage = " << memory_usage << ")" << std::endl;
       graph.compact();
     }
+    first_ingest = false;
   }
 
   void for_each_edge(uint64_t src,
                      std::function<void(uint64_t const&)> callback) override {
-    for (auto const& edge : graph.edges(src))
-      callback(graph.getEdgeDst(edge));
+    graph.for_each_edge(src, callback);
   }
 
   void sort_edges(uint64_t src) override { graph.sortEdges(src); }
