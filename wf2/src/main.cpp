@@ -45,16 +45,17 @@ int main(int argc, char* argv[]) {
   sync_substrate = std::make_unique<galois::graphs::GluonSubstrate<wf2::Graph>>(
       *g, net.ID, net.Num, g->isTransposed(), g->cartesianGrid());
   galois::do_all(
-      galois::iterate(g->masterNodesRange().begin(),
-                      g->masterNodesRange().end()),
+      galois::iterate(g->masterNodesRange()),
       [&](const wf2::GlobalNodeID& lNode) {
         auto& node           = g->getData(lNode);
         const uint64_t gNode = g->getGID(lNode);
-
-        for (auto e : g->edges(lNode)) {
-          auto& edge_node = g->getData(g->getEdgeDst(e));
-          auto& edge_data = g->getEdgeData(e);
-          std::cout << node.id << " " << edge_node.id << std::endl;
+        auto end             = g->edge_end(lNode);
+        auto itr             = g->edge_begin(lNode);
+        std::cout << lNode << std::endl;
+        for (; itr != end; itr++) {
+          auto& edge_node = g->getData(g->getEdgeDst(itr));
+          auto& edge_data = g->getEdgeData(itr);
+          std::cout << node.id << " " << edge_node.glbid << std::endl;
         }
       },
       galois::steal());
