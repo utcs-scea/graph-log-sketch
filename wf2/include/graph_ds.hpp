@@ -605,7 +605,9 @@ private:
   std::vector<std::string> files_;
 };
 
-typedef galois::graphs::WMDGraph<wf2::Vertex, wf2::Edge, OECPolicy> Graph;
+typedef galois::graphs::WMDGraph<agile::workflow1::Vertex,
+                                 agile::workflow1::Edge, OECPolicy>
+    Graph;
 
 } // namespace wf2
 

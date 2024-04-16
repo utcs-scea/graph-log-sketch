@@ -16,7 +16,7 @@
 #include "galois/graphs/GenericPartitioners.h"
 #include "graph_ds.hpp"
 #include "import.hpp"
-#include "pattern.hpp"
+//#include "pattern.hpp"
 
 #define DBG_PRINT(x)                                                           \
   { std::cout << "[WF2-DEBUG] " << x << std::endl; }
@@ -54,8 +54,8 @@ int main(int argc, char* argv[]) {
         for (auto e : g->edges(lNode)) {
           auto& edge_node = g->getData(g->getEdgeDst(e));
           auto& edge_data = g->getEdgeData(e);
-          std::cout << node.getToken() << " " << edge_node.getToken()
-                    << std::endl;
+          std::cout << node.id << " " << edge_node.id << " "
+                    << int(edge_data.type) << std::endl;
         }
       },
       galois::steal());

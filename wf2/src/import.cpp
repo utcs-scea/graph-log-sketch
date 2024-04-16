@@ -16,12 +16,13 @@ wf2::Graph* ImportGraph(const std::string filename) {
   auto& net = galois::runtime::getSystemNetworkInterface();
   std::vector<std::string> filenames;
   filenames.emplace_back(filename);
-  std::vector<
-      std::unique_ptr<galois::graphs::FileParser<wf2::Vertex, wf2::Edge>>>
+  std::vector<std::unique_ptr<galois::graphs::FileParser<
+      agile::workflow1::Vertex, agile::workflow1::Edge>>>
       parsers;
   parsers.emplace_back(
-      std::make_unique<wf2::Wf2WMDParser<wf2::Vertex, wf2::Edge>>(10,
-                                                                  filenames));
+      std::make_unique<galois::graphs::WMDParser<agile::workflow1::Vertex,
+                                                 agile::workflow1::Edge>>(
+          10, filenames));
   Graph* graph = new Graph(parsers, net.ID, net.Num, true, false,
                            galois::graphs::BALANCED_EDGES_OF_MASTERS);
   return graph;
