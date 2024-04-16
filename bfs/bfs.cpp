@@ -21,6 +21,7 @@
 
 #include <iostream>
 #include <limits>
+#include <unordered_map>
 
 const uint32_t infinity = std::numeric_limits<uint32_t>::max() / 4;
 
@@ -274,6 +275,23 @@ std::vector<uint32_t> makeResultsCPU(std::unique_ptr<Graph>& hg) {
   return values;
 }
 
+void resetNodeStates(Graph& _graph, GNode src_node) {
+  galois::do_all(
+    galois::iterate(_graph.allNodesRange()),
+    [&](GNode n) {
+      NodeData& data = _graph.getData(n);
+      if (n == src_node) {
+        data.dist_current = 0;
+      } else {
+        data.dist_current = infinity;
+      }
+      data.dist_old = data.dist_current;
+    },
+    galois::no_stats(),
+    galois::loopname("ResetGraphForBFS")
+  );
+}
+
 int main(int argc, char* argv[]) {
 
   std::string filename = argv[1];
@@ -312,9 +330,10 @@ int main(int argc, char* argv[]) {
 
   std::cout << std::endl;
 
-  {
-  DIST_BENCHMARK_SCOPE("bfs-pull", galois::runtime::getSystemNetworkInterface().ID);
   for (int i=0; i<num_batches; i++) {
+
+    resetNodeStates(*hg, src_node);
+
     uint64_t src = srcs[i];
     std::vector<uint64_t> dsts = dsts_vec[i];
 
@@ -350,7 +369,8 @@ int main(int argc, char* argv[]) {
     galois::DGAccumulator<uint64_t> DGAccumulator_sum;
     galois::DGReduceMax<uint32_t> m;
     int numRuns = 1;
-
+    {
+    DIST_BENCHMARK_SCOPE("bfs-pull", galois::runtime::getSystemNetworkInterface().ID);
     for (auto run = 0; run < numRuns; ++run) {
       std::string timer_str("Timer_" + std::to_string(run));
       galois::StatTimer StatTimer_main(timer_str.c_str(), "BFS");
@@ -369,6 +389,7 @@ int main(int argc, char* argv[]) {
         InitializeGraph::go(*hg);
         galois::runtime::getHostBarrier().wait();
       }
+    }
     }
 
     std::cout << std::endl;
