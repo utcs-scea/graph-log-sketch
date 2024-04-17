@@ -57,6 +57,7 @@ uint64_t src_node      = 0;
 uint64_t maxIterations = 1000;
 
 typedef galois::graphs::DistLocalGraph<NodeData, void> Graph;
+typedef galois::graphs::WMDGraph<galois::graphs::ELVertex, galois::graphs::ELEdge, NodeData, void, OECPolicy> ELGraph;
 typedef typename Graph::GraphNode GNode;
 std::unique_ptr<galois::graphs::GluonSubstrate<Graph>> syncSubstrate;
 
@@ -359,9 +360,10 @@ int main(int argc, char* argv[]) {
 
   std::vector<std::string> edit_files;
   edit_files.emplace_back("edits.el");
+  ELGraph* wg = dynamic_cast<ELGraph*>(hg.get());
   graphUpdateManager<galois::graphs::ELVertex,
-                                    galois::graphs::ELEdge> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
-                                    galois::graphs::ELEdge>> (2, edit_files), 100, hg);
+                                    galois::graphs::ELEdge, NodeData, void, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
+                                    galois::graphs::ELEdge>> (2, edit_files), 100, wg);
 
   // std::string edits_file = "testGraph.el";
   // std::ifstream file(edits_file);
