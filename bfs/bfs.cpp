@@ -381,6 +381,7 @@ int main(int argc, char* argv[]) {
     
     galois::DGAccumulator<uint64_t> DGAccumulator_sum;
     galois::DGReduceMax<uint32_t> m;
+    resetNodeStates(*hg, src_node);
     int numRuns = 1;
     {
       DIST_BENCHMARK_SCOPE("bfs-pull", galois::runtime::getSystemNetworkInterface().ID);
