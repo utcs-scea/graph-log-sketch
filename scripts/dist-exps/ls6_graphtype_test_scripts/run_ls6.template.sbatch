@@ -34,18 +34,6 @@ mv total_e2e_*.out $E2E_OUT_DIR
 
 set +x #echo off
 
-# give permissions to output files
-#chmod 664 ${outname}
-#chmod 664 $statname
-
-succeed=$(ls ${statname}.* 2>/dev/null | wc -l)
-if [[ "$succeed" != "0" ]]; then
-	mv ${outname} outputs
-else
-	mv ${outname} fails
-fi
-
 echo "Algorithm: " $EXEC_NAME
 echo "Input: " $INPUT
 echo "Number of nodes: " $SLURM_NNODES
-comment

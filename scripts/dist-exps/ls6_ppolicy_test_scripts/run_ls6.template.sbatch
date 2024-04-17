@@ -21,33 +21,3 @@ mkdir -p $PPOLICY_OUT_DIR
 outname=${EXEC_NAME}_${INPUT}_${PART}_${NUM_HOSTS}_${SLURM_JOB_ID}.out
 basename=${EXEC_NAME}_${INPUT}_${PART}_${SLURM_NNODES}_${SLURM_JOB_ID}
 statname=outputs/${basename}.stats
-
-<<comment
-RUN=mpirun
-mpirun --version
-
-set -x #echo on
-echo PRINT_PER_HOST_STATS=1 GALOIS_DO_NOT_BIND_THREADS=1 $RUN --bind-to none -np $NUM_HOSTS $EXEC -t=$THREADS $FLAGS -statFile=${execdir}/${statname}.var2.1 --variant_type=2
-PRINT_PER_HOST_STATS=1 GALOIS_DO_NOT_BIND_THREADS=1 $RUN --bind-to none -np $NUM_HOSTS $EXEC -t=$THREADS $FLAGS -statFile=${execdir}/${statname}.var2.1 --variant_type=2
-echo PRINT_PER_HOST_STATS=1 GALOIS_DO_NOT_BIND_THREADS=1 $RUN --bind-to none -np $NUM_HOSTS $EXEC -t=$THREADS $FLAGS -statFile=${execdir}/${statname}.var2.2 --variant_type=2
-PRINT_PER_HOST_STATS=1 GALOIS_DO_NOT_BIND_THREADS=1 $RUN --bind-to none -np $NUM_HOSTS $EXEC -t=$THREADS $FLAGS -statFile=${execdir}/${statname}.var2.2 --variant_type=2
-echo PRINT_PER_HOST_STATS=1 GALOIS_DO_NOT_BIND_THREADS=1 $RUN --bind-to none -np $NUM_HOSTS $EXEC -t=$THREADS $FLAGS -statFile=${execdir}/${statname}.var2.3 --variant_type=2
-PRINT_PER_HOST_STATS=1 GALOIS_DO_NOT_BIND_THREADS=1 $RUN --bind-to none -np $NUM_HOSTS $EXEC -t=$THREADS $FLAGS -statFile=${execdir}/${statname}.var2.3 --variant_type=2
-
-set +x #echo off
-
-# give permissions to output files
-#chmod 664 ${outname}
-#chmod 664 $statname
-
-succeed=$(ls ${statname}.* 2>/dev/null | wc -l)
-if [[ "$succeed" != "0" ]]; then
-	mv ${outname} outputs
-else
-	mv ${outname} fails
-fi
-
-echo "Algorithm: " $EXEC_NAME
-echo "Input: " $INPUT
-echo "Number of nodes: " $SLURM_NNODES
-comment
