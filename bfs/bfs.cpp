@@ -61,12 +61,6 @@ typedef galois::graphs::WMDGraph<galois::graphs::ELVertex, galois::graphs::ELEdg
 typedef typename Graph::GraphNode GNode;
 std::unique_ptr<galois::graphs::GluonSubstrate<Graph>> syncSubstrate;
 
-//#include "bfs_pull_sync.hh"
-
-/******************************************************************************/
-/* Algorithm structures */
-/******************************************************************************/
-
 struct InitializeGraph {
   const uint32_t& local_infinity;
   uint64_t& local_src_node;
@@ -297,7 +291,8 @@ void resetNodeStates(Graph& _graph, GNode src_node) {
   );
 }
 
-void printUnorderedMap (std::unordered_map<uint64_t, std::vector<uint64_t>> &edits) {
+void printUnorderedMap (std::unordered_map<uint64_t, std::vector<uint64_t>> &edits, uint64_t id) {
+  std::cout << "Printing for host " << id << std::endl;
   for (const auto &pair : edits) {
     std::cout << pair.first << " ";
     for (auto dst : pair.second) {
@@ -361,246 +356,56 @@ int main(int argc, char* argv[]) {
   InitializeGraph::go((*hg));
   galois::runtime::getHostBarrier().wait();
 
-  std::unordered_map<uint64_t, std::vector<uint64_t>> currentEdgeList;
+  int num_batches = 1;
 
-  CheckGraph(hg, currentEdgeList);
-  // printUnorderedMap(currentEdgeList);
+  for (int i=0; i<num_batches; i++) {
 
-  std::vector<std::string> edit_files;
-  std::string dynFile = "edits";
-  auto& net = galois::runtime::getSystemNetworkInterface();
-  std::string dynamicFile = dynFile + std::to_string(net.ID) + ".el";
-  edit_files.emplace_back(dynamicFile);
-  ELGraph* wg = dynamic_cast<ELGraph*>(hg.get());
-  graphUpdateManager<galois::graphs::ELVertex,
-                                    galois::graphs::ELEdge, NodeData, void, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
-                                    galois::graphs::ELEdge>> (2, edit_files), 100, wg);
-  
-  GUM.start();
-  while (!GUM.stop()) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(GUM.getPeriod()));
-  }
-  galois::runtime::getHostBarrier().wait();
-  GUM.stop2();
+    resetNodeStates(*hg, src_node);
 
-  currentEdgeList.clear();
-  CheckGraph(hg, currentEdgeList);
-  // printUnorderedMap(currentEdgeList);
-
-  std::unordered_map<uint64_t, std::vector<uint64_t>> checkEdgeList;
-
-  for (auto edit_file : edit_files) {
-    std::ifstream file(edit_file);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open file: " << edit_file << std::endl;
-        return 1;
+    std::vector<std::string> edit_files;
+    std::string dynFile = "edits";
+    auto& net = galois::runtime::getSystemNetworkInterface();
+    std::string dynamicFile = dynFile + "_batch" + std::to_string(i) + "_host" + std::to_string(net.ID) + ".el";
+    edit_files.emplace_back(dynamicFile);
+    ELGraph* wg = dynamic_cast<ELGraph*>(hg.get());
+    graphUpdateManager<galois::graphs::ELVertex,
+                                      galois::graphs::ELEdge, NodeData, void, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
+                                      galois::graphs::ELEdge>> (2, edit_files), 100, wg);
+    
+    GUM.start();
+    while (!GUM.stop()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(GUM.getPeriod()));
     }
+    galois::runtime::getHostBarrier().wait();
+    GUM.stop2();
+    
+    galois::DGAccumulator<uint64_t> DGAccumulator_sum;
+    galois::DGReduceMax<uint32_t> m;
+    int numRuns = 1;
+    {
+      DIST_BENCHMARK_SCOPE("bfs-pull", galois::runtime::getSystemNetworkInterface().ID);
+      for (auto run = 0; run < numRuns; ++run) {
+        std::string timer_str("Timer_" + std::to_string(run));
+        galois::StatTimer StatTimer_main(timer_str.c_str(), "BFS");
 
-    std::string line;
+        StatTimer_main.start();
+        BFS<false>::go(*hg);
+        StatTimer_main.stop();
 
-    while (getline(file, line)) {
-        std::istringstream iss(line);
-        uint64_t src, dst;
+        // sanity check
+        BFSSanityCheck::go(*hg, DGAccumulator_sum, m);
 
-        if (iss >> src >> dst) {
-            checkEdgeList[src].push_back(dst);
-        } else {
-            std::cerr << "Failed to parse line: " << line << std::endl;
+        if ((run + 1) != numRuns) {
+          bitset_dist_current.reset();
+
+          (*syncSubstrate).set_num_run(run + 1);
+          InitializeGraph::go(*hg);
+          galois::runtime::getHostBarrier().wait();
         }
+      }
     }
 
-    file.close();
-
   }
-
-  // printUnorderedMap(checkEdgeList);
-
-  if (currentEdgeList==checkEdgeList) {
-    std::cout << "Graph constructed correctly" << std::endl;
-  }
-  else {
-    std::cout << "Graph not constructed correctly" << std::endl;
-  }
-
-  // std::string edits_file = "testGraph.el";
-  // std::ifstream file(edits_file);
-
-  // if (!file.is_open()) {
-  //     std::cerr << "Error opening file: " << filename << std::endl;
-  //     return 1;
-  // }
-
-  // for (int i=0; i<numVertices; i++) {
-  //   hg->addVertexTopologyOnly(i);
-  // }
-
-  // std::unordered_map<uint64_t, std::vector<uint64_t>> edits;
-
-  // int i = -1;
-  // std::string line;
-
-  // while (getline(file, line)) {
-  //   if (line.empty()) {
-  //       i++;
-  //       std::cout << "Batch over." << std::endl;
-  //       printUnorderedMap(edits);
-
-  //       for (auto &pair : edits) {
-  //         resetNodeStates(*hg, src_node);
-
-  //         uint64_t src = pair.first;
-  //         std::vector<uint64_t> dsts = pair.second;
-
-  //         hg->addEdgesTopologyOnly(src, dsts);
-  //       }
-
-  //       std::cout << "Printing graph for round " << i << std::endl;
-
-  //       galois::do_all(
-  //         galois::iterate(hg->masterNodesRange()),
-  //         [&](size_t lid) {
-  //           auto token = hg->getGID(lid);
-  //           std::vector<uint64_t> edgeDst;
-  //           auto end = hg->edge_end(lid);
-  //           auto itr = hg->edge_begin(lid);
-  //           for (; itr != end; itr++) {
-  //             edgeDst.push_back(hg->getGID(hg->getEdgeDst(itr)));
-  //           }
-  //           std::vector<uint64_t> edgeDstDbg;
-  //           for (auto& e : hg->edges(lid)) {
-  //             edgeDstDbg.push_back(hg->getGID(hg->getEdgeDst(e)));
-  //           }
-  //           assert(edgeDst == edgeDstDbg);
-  //           std::sort(edgeDst.begin(), edgeDst.end());
-  //           std::cout << token << " ";
-  //           for (auto edge : edgeDst) {
-  //             std::cout << edge << " ";
-  //           }
-  //           std::cout << std::endl;
-  //         },
-  //         galois::steal());
-
-  //       std::cout << "Doing BFS for round " << i << std::endl;
-
-  //       galois::DGAccumulator<uint64_t> DGAccumulator_sum;
-  //       galois::DGReduceMax<uint32_t> m;
-  //       int numRuns = 1;
-  //       {
-  //         DIST_BENCHMARK_SCOPE("bfs-pull", galois::runtime::getSystemNetworkInterface().ID);
-  //         for (auto run = 0; run < numRuns; ++run) {
-  //           std::string timer_str("Timer_" + std::to_string(run));
-  //           galois::StatTimer StatTimer_main(timer_str.c_str(), "BFS");
-
-  //           StatTimer_main.start();
-  //           BFS<false>::go(*hg);
-  //           StatTimer_main.stop();
-
-  //           // sanity check
-  //           BFSSanityCheck::go(*hg, DGAccumulator_sum, m);
-
-  //           if ((run + 1) != numRuns) {
-  //             bitset_dist_current.reset();
-
-  //             (*syncSubstrate).set_num_run(run + 1);
-  //             InitializeGraph::go(*hg);
-  //             galois::runtime::getHostBarrier().wait();
-  //           }
-  //         }
-  //       }
-
-  //       std::cout << std::endl;
-
-  //       edits.clear();
-  //       continue;
-  //   }
-
-  //   std::istringstream iss(line);
-  //   uint64_t src, dst;
-
-  //   iss >> src;
-
-  //   std::vector<uint64_t> dsts;
-
-  //   while (iss >> dst) {
-  //     dsts.push_back(dst);
-  //   }
-
-  //   edits[src] = dsts;
-  // }
-
-  // if (!edits.empty()) {
-  //   i++;
-  //   std::cout << "Batch over." << std::endl;
-  //   printUnorderedMap(edits);
-
-  //   for (auto &pair : edits) {
-  //     resetNodeStates(*hg, src_node);
-
-  //     uint64_t src = pair.first;
-  //     std::vector<uint64_t> dsts = pair.second;
-
-  //     hg->addEdgesTopologyOnly(src, dsts);
-  //   }
-
-  //   std::cout << "Printing graph for round " << i << std::endl;
-
-  //   galois::do_all(
-  //     galois::iterate(hg->masterNodesRange()),
-  //     [&](size_t lid) {
-  //       auto token = hg->getGID(lid);
-  //       std::vector<uint64_t> edgeDst;
-  //       auto end = hg->edge_end(lid);
-  //       auto itr = hg->edge_begin(lid);
-  //       for (; itr != end; itr++) {
-  //         edgeDst.push_back(hg->getGID(hg->getEdgeDst(itr)));
-  //       }
-  //       std::vector<uint64_t> edgeDstDbg;
-  //       for (auto& e : hg->edges(lid)) {
-  //         edgeDstDbg.push_back(hg->getGID(hg->getEdgeDst(e)));
-  //       }
-  //       assert(edgeDst == edgeDstDbg);
-  //       std::sort(edgeDst.begin(), edgeDst.end());
-  //       std::cout << token << " ";
-  //       for (auto edge : edgeDst) {
-  //         std::cout << edge << " ";
-  //       }
-  //       std::cout << std::endl;
-  //     },
-  //     galois::steal());
-
-  //   std::cout << "Doing BFS for round " << i << std::endl;
-
-  //   galois::DGAccumulator<uint64_t> DGAccumulator_sum;
-  //   galois::DGReduceMax<uint32_t> m;
-  //   int numRuns = 1;
-  //   {
-  //     DIST_BENCHMARK_SCOPE("bfs-pull", galois::runtime::getSystemNetworkInterface().ID);
-  //     for (auto run = 0; run < numRuns; ++run) {
-  //       std::string timer_str("Timer_" + std::to_string(run));
-  //       galois::StatTimer StatTimer_main(timer_str.c_str(), "BFS");
-
-  //       StatTimer_main.start();
-  //       BFS<false>::go(*hg);
-  //       StatTimer_main.stop();
-
-  //       // sanity check
-  //       BFSSanityCheck::go(*hg, DGAccumulator_sum, m);
-
-  //       if ((run + 1) != numRuns) {
-  //         bitset_dist_current.reset();
-
-  //         (*syncSubstrate).set_num_run(run + 1);
-  //         InitializeGraph::go(*hg);
-  //         galois::runtime::getHostBarrier().wait();
-  //       }
-  //     }
-  //   }
-
-  //   std::cout << std::endl;
-  //   edits.clear();
-  // }
-
-  // file.close();
-
+  
   return 0;
 }
