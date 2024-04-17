@@ -16,7 +16,7 @@
 #include "galois/graphs/GenericPartitioners.h"
 #include "graph_ds.hpp"
 #include "import.hpp"
-//#include "pattern.hpp"
+#include "pattern.hpp"
 
 #define DBG_PRINT(x)                                                           \
   { std::cout << "[WF2-DEBUG] " << x << std::endl; }
@@ -29,10 +29,15 @@ int main(int argc, char* argv[]) {
     std::cerr << "Expected graph file name as argument\n";
     return 1;
   }
+  int num_threads = 16;
+  if (argc == 3) {
+    num_threads = std::stoi(argv[2]);
+  }
   std::string filename(argv[1]);
   DBG_PRINT("Reading from file: " << filename);
 
   galois::DistMemSys G; // init galois memory
+  galois::setActiveThreads(num_threads);
   auto& net = galois::runtime::getSystemNetworkInterface();
 
   if (net.ID == 0) {
@@ -44,22 +49,7 @@ int main(int argc, char* argv[]) {
   assert(g != nullptr);
   sync_substrate = std::make_unique<galois::graphs::GluonSubstrate<wf2::Graph>>(
       *g, net.ID, net.Num, g->isTransposed(), g->cartesianGrid());
-  galois::do_all(
-      galois::iterate(g->masterNodesRange().begin(),
-                      g->masterNodesRange().end()),
-      [&](const wf2::GlobalNodeID& lNode) {
-        auto& node           = g->getData(lNode);
-        const uint64_t gNode = g->getGID(lNode);
-
-        for (auto e : g->edges(lNode)) {
-          auto& edge_node = g->getData(g->getEdgeDst(e));
-          auto& edge_data = g->getEdgeData(e);
-          std::cout << node.id << " " << edge_node.id << " "
-                    << int(edge_data.type) << std::endl;
-        }
-      },
-      galois::steal());
-  // wf2::MatchPattern(*g, net);
+  wf2::MatchPattern(*g, net);
 
   return 0;
 }
