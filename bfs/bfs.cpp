@@ -307,6 +307,32 @@ void printUnorderedMap (std::unordered_map<uint64_t, std::vector<uint64_t>> &edi
   }
 }
 
+void PrintGraph (std::unique_ptr<Graph> &hg) {
+  galois::do_all(
+    galois::iterate(hg->masterNodesRange()),
+    [&](size_t lid) {
+      auto token = hg->getGID(lid);
+      std::vector<uint64_t> edgeDst;
+      auto end = hg->edge_end(lid);
+      auto itr = hg->edge_begin(lid);
+      for (; itr != end; itr++) {
+        edgeDst.push_back(hg->getGID(hg->getEdgeDst(itr)));
+      }
+      std::vector<uint64_t> edgeDstDbg;
+      for (auto& e : hg->edges(lid)) {
+        edgeDstDbg.push_back(hg->getGID(hg->getEdgeDst(e)));
+      }
+      assert(edgeDst == edgeDstDbg);
+      std::sort(edgeDst.begin(), edgeDst.end());
+      std::cout << token << " ";
+      for (auto edge : edgeDst) {
+        std::cout << edge << " ";
+      }
+      std::cout << std::endl;
+    },
+    galois::steal());
+}
+
 int main(int argc, char* argv[]) {
 
   std::string filename = argv[1];
@@ -334,29 +360,7 @@ int main(int argc, char* argv[]) {
   InitializeGraph::go((*hg));
   galois::runtime::getHostBarrier().wait();
 
-  galois::do_all(
-    galois::iterate(hg->masterNodesRange()),
-    [&](size_t lid) {
-      auto token = hg->getGID(lid);
-      std::vector<uint64_t> edgeDst;
-      auto end = hg->edge_end(lid);
-      auto itr = hg->edge_begin(lid);
-      for (; itr != end; itr++) {
-        edgeDst.push_back(hg->getGID(hg->getEdgeDst(itr)));
-      }
-      std::vector<uint64_t> edgeDstDbg;
-      for (auto& e : hg->edges(lid)) {
-        edgeDstDbg.push_back(hg->getGID(hg->getEdgeDst(e)));
-      }
-      assert(edgeDst == edgeDstDbg);
-      std::sort(edgeDst.begin(), edgeDst.end());
-      std::cout << token << " ";
-      for (auto edge : edgeDst) {
-        std::cout << edge << " ";
-      }
-      std::cout << std::endl;
-    },
-    galois::steal());
+  PrintGraph(hg);
 
   std::vector<std::string> edit_files;
   edit_files.emplace_back("edits.el");
@@ -364,6 +368,17 @@ int main(int argc, char* argv[]) {
   graphUpdateManager<galois::graphs::ELVertex,
                                     galois::graphs::ELEdge, NodeData, void, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
                                     galois::graphs::ELEdge>> (2, edit_files), 100, wg);
+  
+  GUM.start();
+  while (!GUM.stop()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(GUM.getPeriod()));
+  }
+  galois::runtime::getHostBarrier().wait();
+  GUM.stop2();
+
+  std::cout << std::endl << "Used Graph Update Manager to add edges!" << std::endl << std::endl;
+
+  PrintGraph(hg);
 
   // std::string edits_file = "testGraph.el";
   // std::ifstream file(edits_file);
