@@ -1,24 +1,23 @@
-#include <iostream>
-#include "../include/importer.cpp"
-#include "galois/graphs/DistributedLocalGraph.h"
-#include "galois/graphs/GluonSubstrate.h"
-#include "galois/wmd/WMDPartitioner.h"
-#include "galois/graphs/GenericPartitioners.h"
-#include "galois/DTerminationDetector.h"
-#include "galois/DistGalois.h"
-#include "galois/DReducible.h"
-#include "galois/gstl.h"
-#include "galois/DistGalois.h"
-#include "galois/runtime/SyncStructures.h"
-#include "galois/DReducible.h"
-#include "galois/DTerminationDetector.h"
-#include "galois/gstl.h"
-#include "galois/runtime/Tracer.h"
+// SPDX-License-Identifier: BSD-2-Clause
+// Copyright (c) 2023. University of Texas at Austin. All rights reserved.
 
 #include <iostream>
 #include <limits>
 
-static const float alpha = (1.0 - 0.85);
+#include "../include/importer.hpp"
+
+#include "galois/graphs/DistributedLocalGraph.h"
+#include "galois/graphs/GluonSubstrate.h"
+#include "galois/wmd/WMDPartitioner.h"
+#include "galois/graphs/GenericPartitioners.h"
+#include "galois/DistGalois.h"
+#include "galois/DTerminationDetector.h"
+#include "galois/runtime/SyncStructures.h"
+#include "galois/DReducible.h"
+#include "galois/gstl.h"
+#include "galois/runtime/Tracer.h"
+
+static const float alpha     = (1.0 - 0.85);
 static const float tolerance = 1e-5;
 struct NodeData {
   float value;
@@ -26,15 +25,15 @@ struct NodeData {
   float delta;
   std::atomic<float> residual;
   NodeData() : value(0), nout(0), delta(0), residual(0) {}
-  NodeData(float v) : value(v), nout(0), delta(0), residual(0) {}
+  explicit NodeData(float v) : value(v), nout(0), delta(0), residual(0) {}
 
-  //Copy constructor
-    NodeData(const NodeData& other) {
-        value = other.value;
-        nout = other.nout.load();
-        delta = other.delta;
-        residual = other.residual.load();
-    }
+  // Copy constructor
+  NodeData(const NodeData& other) {
+    value    = other.value;
+    nout     = other.nout.load();
+    delta    = other.delta;
+    residual = other.residual.load();
+  }
 };
 
 uint64_t maxIterations = 1000;
@@ -53,14 +52,14 @@ std::unique_ptr<galois::graphs::GluonSubstrate<Graph>> syncSubstrate;
 struct ResetGraph {
   Graph* graph;
 
-  ResetGraph(Graph* _graph) : graph(_graph) {}
-  void static go(Graph& _graph) {
+  explicit ResetGraph(Graph* _graph) : graph(_graph) {}
+  static void go(Graph& _graph) {
     const auto& allNodes = _graph.allNodesRange();
-      galois::do_all(
-          galois::iterate(allNodes.begin(), allNodes.end()),
-          ResetGraph{&_graph}, galois::no_stats(),
-          galois::loopname(
-              syncSubstrate->get_run_identifier("ResetGraph").c_str()));
+    galois::do_all(
+        galois::iterate(allNodes.begin(), allNodes.end()), ResetGraph{&_graph},
+        galois::no_stats(),
+        galois::loopname(
+            syncSubstrate->get_run_identifier("ResetGraph").c_str()));
   }
 
   void operator()(GNode src) const {
@@ -81,15 +80,15 @@ struct InitializeGraph {
   InitializeGraph(const float& _alpha, Graph* _graph)
       : local_alpha(_alpha), graph(_graph) {}
 
-  void static go(Graph& _graph) {
+  static void go(Graph& _graph) {
     // first initialize all fields to 0 via ResetGraph (can't assume all zero
     // at start)
     ResetGraph::go(_graph);
 
     const auto& nodesWithEdges = _graph.allNodesWithEdgesRange();
 
-      // regular do all without stealing; just initialization of nodes with
-      // outgoing edges
+    // regular do all without stealing; just initialization of nodes with
+    // outgoing edges
     galois::do_all(
         galois::iterate(nodesWithEdges.begin(), nodesWithEdges.end()),
         InitializeGraph{alpha, &_graph}, galois::steal(), galois::no_stats(),
@@ -120,7 +119,7 @@ struct PageRank_delta {
       : local_alpha(_local_alpha), local_tolerance(_local_tolerance),
         graph(_graph) {}
 
-  void static go(Graph& _graph) {
+  static void go(Graph& _graph) {
     const auto& nodesWithEdges = _graph.allNodesWithEdgesRange();
 
     galois::do_all(
@@ -158,7 +157,7 @@ struct PageRank {
   PageRank(Graph* _g, DGTerminatorDetector& _dga)
       : graph(_g), active_vertices(_dga) {}
 
-  void static go(Graph& _graph) {
+  static void go(Graph& _graph) {
     unsigned _num_iterations   = 0;
     const auto& nodesWithEdges = _graph.allNodesWithEdgesRange();
     DGTerminatorDetector dga;
@@ -181,7 +180,7 @@ struct PageRank {
 
       galois::runtime::reportStat_Tsum(
           "PAGERANK", "NumWorkItems_" + (syncSubstrate->get_run_identifier()),
-          (unsigned long)dga.read_local());
+          static_cast<std::uint64_t>(dga.read_local()));
 
       ++_num_iterations;
     } while ((async || (_num_iterations < maxIterations)) &&
@@ -191,7 +190,7 @@ struct PageRank {
       galois::runtime::reportStat_Single(
           "PAGERANK",
           "NumIterations_" + std::to_string(syncSubstrate->get_run_num()),
-          (unsigned long)_num_iterations);
+          static_cast<std::uint64_t>(_num_iterations));
     }
   }
 
@@ -250,7 +249,7 @@ struct PageRankSanity {
         max_value(_max_value), min_value(_min_value),
         max_residual(_max_residual), min_residual(_min_residual) {}
 
-  void static go(Graph& _graph, galois::DGAccumulator<float>& DGA_sum,
+  static void go(Graph& _graph, galois::DGAccumulator<float>& DGA_sum,
                  galois::DGAccumulator<float>& DGA_sum_residual,
                  galois::DGAccumulator<uint64_t>& DGA_residual_over_tolerance,
                  galois::DGReduceMax<float>& max_value,
@@ -267,8 +266,7 @@ struct PageRankSanity {
 
     galois::do_all(galois::iterate(_graph.masterNodesRange().begin(),
                                    _graph.masterNodesRange().end()),
-                   PageRankSanity(tolerance, &_graph, DGA_sum,
-                                  DGA_sum_residual,
+                   PageRankSanity(tolerance, &_graph, DGA_sum, DGA_sum_residual,
                                   DGA_residual_over_tolerance, max_value,
                                   min_value, max_residual, min_residual),
                    galois::no_stats(), galois::loopname("PageRankSanity"));
@@ -314,10 +312,9 @@ struct PageRankSanity {
 };
 
 int main(int argc, char* argv[]) {
-
   std::string filename = argv[1];
 
-  if(argc < 2) {
+  if (argc < 2) {
     std::cerr << "Usage: " << argv[0] << " <filename> <numVertices>\n";
     return 1;
   }
@@ -327,7 +324,7 @@ int main(int argc, char* argv[]) {
 
   std::unique_ptr<Graph> hg;
 
-  hg = distLocalGraphInitialization<galois::graphs::ELVertex,
+  hg            = distLocalGraphInitialization<galois::graphs::ELVertex,
                                     galois::graphs::ELEdge, NodeData, void,
                                     OECPolicy>(filename, numVertices);
   syncSubstrate = gluonInitialization<NodeData, void>(hg);
@@ -365,5 +362,4 @@ int main(int argc, char* argv[]) {
   }
 
   return 0;
-
 }
