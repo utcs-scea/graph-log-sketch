@@ -367,7 +367,10 @@ int main(int argc, char* argv[]) {
   // printUnorderedMap(currentEdgeList);
 
   std::vector<std::string> edit_files;
-  edit_files.emplace_back("edits.el");
+  std::string dynFile = "edits";
+  auto& net = galois::runtime::getSystemNetworkInterface();
+  std::string dynamicFile = dynFile + std::to_string(net.ID) + ".el";
+  edit_files.emplace_back(dynamicFile);
   ELGraph* wg = dynamic_cast<ELGraph*>(hg.get());
   graphUpdateManager<galois::graphs::ELVertex,
                                     galois::graphs::ELEdge, NodeData, void, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
@@ -410,7 +413,7 @@ int main(int argc, char* argv[]) {
 
   }
 
-  // printUnorderedMap(mp_check);
+  // printUnorderedMap(checkEdgeList);
 
   if (currentEdgeList==checkEdgeList) {
     std::cout << "Graph constructed correctly" << std::endl;
