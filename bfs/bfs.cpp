@@ -2,7 +2,12 @@
 // Copyright (c) 2023. University of Texas at Austin. All rights reserved.
 
 #include <iostream>
-#include "../include/importer.cpp"
+#include <limits>
+#include <unordered_map>
+#include <string>
+#include <fstream>
+#include <sstream>
+
 #include "../include/scea/stats.hpp"
 #include "galois/graphs/DistributedLocalGraph.h"
 #include "galois/graphs/GluonSubstrate.h"
@@ -12,20 +17,11 @@
 #include "galois/DistGalois.h"
 #include "galois/DReducible.h"
 #include "galois/gstl.h"
-#include "galois/DistGalois.h"
 #include "galois/runtime/SyncStructures.h"
-#include "galois/DReducible.h"
-#include "galois/DTerminationDetector.h"
-#include "galois/gstl.h"
 #include "galois/runtime/Tracer.h"
 #include "galois/runtime/GraphUpdateManager.h"
 
-#include <iostream>
-#include <limits>
-#include <unordered_map>
-#include <string>
-#include <fstream>
-#include <sstream>
+//#include <iostream>
 
 const uint32_t infinity = std::numeric_limits<uint32_t>::max() / 4;
 
@@ -74,7 +70,7 @@ struct InitializeGraph {
   InitializeGraph(uint64_t& _src_node, const uint32_t& _infinity, Graph* _graph)
       : local_infinity(_infinity), local_src_node(_src_node), graph(_graph) {}
 
-  void static go(Graph& _graph) {
+  static void go(Graph& _graph) {
     const auto& allNodes = _graph.allNodesRange();
     galois::do_all(
         galois::iterate(allNodes), InitializeGraph(src_node, infinity, &_graph),
@@ -96,9 +92,9 @@ template <bool async>
 struct FirstItr_BFS {
   Graph* graph;
 
-  FirstItr_BFS(Graph* _graph) : graph(_graph) {}
+  explicit FirstItr_BFS(Graph* _graph) : graph(_graph) {}
 
-  void static go(Graph& _graph) {
+  static void go(Graph& _graph) {
     uint32_t __begin, __end;
     if (_graph.isLocal(src_node)) {
       __begin = _graph.getLID(src_node);
@@ -153,7 +149,7 @@ struct BFS {
       : local_priority(_local_priority), graph(_graph), active_vertices(_dga),
         work_edges(_work_edges) {}
 
-  void static go(Graph& _graph) {
+  static void go(Graph& _graph) {
     FirstItr_BFS<async>::go(_graph);
 
     unsigned _num_iterations = 1;
@@ -165,7 +161,6 @@ struct BFS {
     DGAccumulatorTy work_edges;
 
     do {
-
       syncSubstrate->set_num_round(_num_iterations);
       dga.reset();
       work_edges.reset();
@@ -179,7 +174,7 @@ struct BFS {
 
       galois::runtime::reportStat_Tsum(
           "BFS", syncSubstrate->get_run_identifier("NumWorkItems"),
-          (unsigned long)work_edges.read_local());
+          static_cast<std::uint64_t>(work_edges.read_local()));
 
       ++_num_iterations;
     } while ((async || (_num_iterations < maxIterations)) &&
@@ -187,7 +182,7 @@ struct BFS {
 
     galois::runtime::reportStat_Tmax(
         "BFS", "NumIterations_" + std::to_string(syncSubstrate->get_run_num()),
-        (unsigned long)_num_iterations);
+        static_cast<std::uint64_t>(_num_iterations));
   }
 
   void operator()(GNode src) const {
@@ -232,7 +227,7 @@ struct BFSSanityCheck {
       : local_infinity(_infinity), graph(_graph), DGAccumulator_sum(dgas),
         DGMax(dgm) {}
 
-  void static go(Graph& _graph, galois::DGAccumulator<uint64_t>& dgas,
+  static void go(Graph& _graph, galois::DGAccumulator<uint64_t>& dgas,
                  galois::DGReduceMax<uint32_t>& dgm) {
     dgas.reset();
     dgm.reset();
@@ -281,23 +276,22 @@ std::vector<uint32_t> makeResultsCPU(std::unique_ptr<Graph>& hg) {
 
 void resetNodeStates(Graph& _graph, GNode src_node) {
   galois::do_all(
-    galois::iterate(_graph.allNodesRange()),
-    [&](GNode n) {
-      NodeData& data = _graph.getData(n);
-      if (n == src_node) {
-        data.dist_current = 0;
-      } else {
-        data.dist_current = infinity;
-      }
-      data.dist_old = data.dist_current;
-    },
-    galois::no_stats(),
-    galois::loopname("ResetGraphForBFS")
-  );
+      galois::iterate(_graph.allNodesRange()),
+      [&](GNode n) {
+        NodeData& data = _graph.getData(n);
+        if (n == src_node) {
+          data.dist_current = 0;
+        } else {
+          data.dist_current = infinity;
+        }
+        data.dist_old = data.dist_current;
+      },
+      galois::no_stats(), galois::loopname("ResetGraphForBFS"));
 }
 
-void printUnorderedMap (std::unordered_map<uint64_t, std::vector<uint64_t>> &edits) {
-  for (const auto &pair : edits) {
+void printUnorderedMap(
+    std::unordered_map<uint64_t, std::vector<uint64_t>>& edits) {
+  for (const auto& pair : edits) {
     std::cout << pair.first << " ";
     for (auto dst : pair.second) {
       std::cout << dst << " ";
@@ -307,7 +301,6 @@ void printUnorderedMap (std::unordered_map<uint64_t, std::vector<uint64_t>> &edi
 }
 
 int main(int argc, char* argv[]) {
-
   std::string filename = argv[1];
   if (argc > 2) {
     src_node = std::stoul(argv[2]);
@@ -320,6 +313,12 @@ int main(int argc, char* argv[]) {
 
   uint64_t numVertices = std::stoul(argv[3]);
   galois::DistMemSys G;
+  {
+    DIST_BENCHMARK_SCOPE("test_scope",
+                         galois::runtime::getSystemNetworkInterface().ID);
+    for (int i = 0; i < 10000; ++i)
+      continue;
+  }
 
   std::unique_ptr<Graph> hg;
 
@@ -329,39 +328,42 @@ int main(int argc, char* argv[]) {
   syncSubstrate = gluonInitialization<NodeData, void>(hg);
 
   bitset_dist_current.resize(hg->size());
-
   InitializeGraph::go((*hg));
   galois::runtime::getHostBarrier().wait();
 
   galois::do_all(
-    galois::iterate(hg->masterNodesRange()),
-    [&](size_t lid) {
-      auto token = hg->getGID(lid);
-      std::vector<uint64_t> edgeDst;
-      auto end = hg->edge_end(lid);
-      auto itr = hg->edge_begin(lid);
-      for (; itr != end; itr++) {
-        edgeDst.push_back(hg->getGID(hg->getEdgeDst(itr)));
-      }
-      std::vector<uint64_t> edgeDstDbg;
-      for (auto& e : hg->edges(lid)) {
-        edgeDstDbg.push_back(hg->getGID(hg->getEdgeDst(e)));
-      }
-      assert(edgeDst == edgeDstDbg);
-      std::sort(edgeDst.begin(), edgeDst.end());
-      std::cout << token << " ";
-      for (auto edge : edgeDst) {
-        std::cout << edge << " ";
-      }
-      std::cout << std::endl;
-    },
-    galois::steal());
+      galois::iterate(hg->masterNodesRange()),
+      [&](size_t lid) {
+        auto token = hg->getGID(lid);
+        std::vector<uint64_t> edgeDst;
+        auto end = hg->edge_end(lid);
+        auto itr = hg->edge_begin(lid);
+        for (; itr != end; itr++) {
+          edgeDst.push_back(hg->getGID(hg->getEdgeDst(itr)));
+        }
+        std::vector<uint64_t> edgeDstDbg;
+        for (auto& e : hg->edges(lid)) {
+          edgeDstDbg.push_back(hg->getGID(hg->getEdgeDst(e)));
+        }
+        assert(edgeDst == edgeDstDbg);
+        std::sort(edgeDst.begin(), edgeDst.end());
+        std::cout << token << " ";
+        for (auto edge : edgeDst) {
+          std::cout << edge << " ";
+        }
+        std::cout << std::endl;
+      },
+      galois::steal());
 
+  /*
   std::vector<std::string> edit_files;
   edit_files.emplace_back("edits.el");
   graphUpdateManager<galois::graphs::ELVertex,
-                                    galois::graphs::ELEdge> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
-                                    galois::graphs::ELEdge>> (2, edit_files), 100, hg);
+                                    galois::graphs::ELEdge>
+  GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
+                                    galois::graphs::ELEdge>> (2, edit_files),
+  100, hg);
+                                    */
 
   // std::string edits_file = "testGraph.el";
   // std::ifstream file(edits_file);
@@ -427,8 +429,9 @@ int main(int argc, char* argv[]) {
   //       galois::DGReduceMax<uint32_t> m;
   //       int numRuns = 1;
   //       {
-  //         DIST_BENCHMARK_SCOPE("bfs-pull", galois::runtime::getSystemNetworkInterface().ID);
-  //         for (auto run = 0; run < numRuns; ++run) {
+  //         DIST_BENCHMARK_SCOPE("bfs-pull",
+  //         galois::runtime::getSystemNetworkInterface().ID); for (auto run =
+  //         0; run < numRuns; ++run) {
   //           std::string timer_str("Timer_" + std::to_string(run));
   //           galois::StatTimer StatTimer_main(timer_str.c_str(), "BFS");
 
@@ -515,8 +518,9 @@ int main(int argc, char* argv[]) {
   //   galois::DGReduceMax<uint32_t> m;
   //   int numRuns = 1;
   //   {
-  //     DIST_BENCHMARK_SCOPE("bfs-pull", galois::runtime::getSystemNetworkInterface().ID);
-  //     for (auto run = 0; run < numRuns; ++run) {
+  //     DIST_BENCHMARK_SCOPE("bfs-pull",
+  //     galois::runtime::getSystemNetworkInterface().ID); for (auto run = 0;
+  //     run < numRuns; ++run) {
   //       std::string timer_str("Timer_" + std::to_string(run));
   //       galois::StatTimer StatTimer_main(timer_str.c_str(), "BFS");
 
