@@ -10,12 +10,12 @@
 ALGOS="${ALGOS:-bfs tc}"
 # BFS_SRC is the source vertex for BFS. Does nothing if BFS is not in ALGOS.
 BFS_SRC="${BFS_SRC:-101}"
-BC_NUM_SRC="${BC_NUM_SRC:-1024}"
+BC_NUM_SRC="${BC_NUM_SRC:-512}"
 # THREADS is a list of thread counts to run.
-THREADS="${THREADS:-64 96 128}"
+THREADS="${THREADS:-128}"
 # GRAPHS is a list of graph representations to use.
 GRAPHS="${GRAPHS:-lscsr adj csr}"
-LSCSR_COMPACT_THRESHOLD="${LSCSR_COMPACT_THRESHOLD:-0.3}"
+LSCSR_COMPACT_THRESHOLD="${LSCSR_COMPACT_THRESHOLD:-0.6}"
 
 ENV="${ENV:-${WORK}/scea/graph-log-sketch/scripts/tacc_env.sh}"
 
