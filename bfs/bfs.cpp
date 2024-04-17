@@ -307,7 +307,7 @@ void printUnorderedMap (std::unordered_map<uint64_t, std::vector<uint64_t>> &edi
   }
 }
 
-void PrintGraph (std::unique_ptr<Graph> &hg) {
+void CheckGraph (std::unique_ptr<Graph> &hg, std::unordered_map<uint64_t, std::vector<uint64_t>> &mp) {
   galois::do_all(
     galois::iterate(hg->masterNodesRange()),
     [&](size_t lid) {
@@ -324,11 +324,12 @@ void PrintGraph (std::unique_ptr<Graph> &hg) {
       }
       assert(edgeDst == edgeDstDbg);
       std::sort(edgeDst.begin(), edgeDst.end());
-      std::cout << token << " ";
+      // std::cout << token << " ";
       for (auto edge : edgeDst) {
-        std::cout << edge << " ";
+        // std::cout << edge << " ";
+        mp[token].push_back(edge);
       }
-      std::cout << std::endl;
+      // std::cout << std::endl;
     },
     galois::steal());
 }
@@ -360,7 +361,10 @@ int main(int argc, char* argv[]) {
   InitializeGraph::go((*hg));
   galois::runtime::getHostBarrier().wait();
 
-  PrintGraph(hg);
+  std::unordered_map<uint64_t, std::vector<uint64_t>> currentEdgeList;
+
+  CheckGraph(hg, currentEdgeList);
+  // printUnorderedMap(currentEdgeList);
 
   std::vector<std::string> edit_files;
   edit_files.emplace_back("edits.el");
@@ -376,9 +380,44 @@ int main(int argc, char* argv[]) {
   galois::runtime::getHostBarrier().wait();
   GUM.stop2();
 
-  std::cout << std::endl << "Used Graph Update Manager to add edges!" << std::endl << std::endl;
+  currentEdgeList.clear();
+  CheckGraph(hg, currentEdgeList);
+  // printUnorderedMap(currentEdgeList);
 
-  PrintGraph(hg);
+  std::unordered_map<uint64_t, std::vector<uint64_t>> checkEdgeList;
+
+  for (auto edit_file : edit_files) {
+    std::ifstream file(edit_file);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file: " << edit_file << std::endl;
+        return 1;
+    }
+
+    std::string line;
+
+    while (getline(file, line)) {
+        std::istringstream iss(line);
+        uint64_t src, dst;
+
+        if (iss >> src >> dst) {
+            checkEdgeList[src].push_back(dst);
+        } else {
+            std::cerr << "Failed to parse line: " << line << std::endl;
+        }
+    }
+
+    file.close();
+
+  }
+
+  // printUnorderedMap(mp_check);
+
+  if (currentEdgeList==checkEdgeList) {
+    std::cout << "Graph constructed correctly" << std::endl;
+  }
+  else {
+    std::cout << "Graph not constructed correctly" << std::endl;
+  }
 
   // std::string edits_file = "testGraph.el";
   // std::ifstream file(edits_file);
