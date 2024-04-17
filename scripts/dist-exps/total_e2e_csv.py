@@ -67,10 +67,10 @@ def main():
     e2e_[app_name]_[input_graph]
       |_ [graph_type1]
       |    |_ [num_hosts0]
-      |    |  |_ total_e2e.out
+      |    |  |_ total_e2e_[host_id].out
       |    |
       |    |_ [num_hosts1]
-      |       |_ total_e2e.out
+      |       |_ total_e2e_[host_id].out
       |
       |_ [graph_type2]
           ...

@@ -316,8 +316,18 @@ int main(int argc, char* argv[]) {
         "test_scope",
         std::to_string(galois::runtime::getSystemNetworkInterface().ID) +
             ".out");
-    for (int i = 0; i < 10000; ++i)
-      continue;
+
+    {
+      BENCHMARK_SCOPE_FILE(
+          "total_e2e_test_scope",
+          "total_e2e_" +
+              std::to_string(galois::runtime::getSystemNetworkInterface().ID) +
+              ".out");
+
+      int dummy{0};
+      for (int i = 0; i < 10000; ++i)
+        dummy += 1;
+    }
   }
 
   std::unique_ptr<Graph> hg;
