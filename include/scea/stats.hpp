@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <asm/unistd.h>
 #include <cstdint>
+#include <cstring>
 #include <chrono>
 #include <iostream>
 #include <string>
@@ -93,7 +94,7 @@ private:
   PerfEvent instructionsEvent;
   PerfEvent minorPageFaultsEvent;
   PerfEvent majorPageFaultsEvent;
-  std::uint32_t hostID;
+  std::string fileName;
   bool isDist = false;
 
   static uint64_t getMaxRSS() {
@@ -124,16 +125,16 @@ public:
     majorPageFaultsEvent.start();
   }
 
-  explicit ScopeBenchmarker(const std::string& name, std::uint32_t _hostID)
+  explicit ScopeBenchmarker(const std::string& name,
+                            const std::string& _fileName)
       : scopeName(name),
         cacheMissesEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES),
         cacheReferencesEvent(PERF_TYPE_HARDWARE,
                              PERF_COUNT_HW_CACHE_REFERENCES),
         instructionsEvent(PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS),
         minorPageFaultsEvent(PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS_MIN),
-        majorPageFaultsEvent(PERF_TYPE_SOFTWARE,
-                             PERF_COUNT_SW_PAGE_FAULTS_MAJ),
-        hostID(_hostID), isDist(true) {}
+        majorPageFaultsEvent(PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS_MAJ),
+        fileName(_fileName), isDist(true) {}
 
   ~ScopeBenchmarker() {
     timer.stop();
@@ -150,18 +151,17 @@ public:
     uint64_t minorPageFaults = minorPageFaultsEvent.readValue();
     uint64_t majorPageFaults = majorPageFaultsEvent.readValue();
 
-    std::string output = "Benchmark results for " + scopeName + ":\n" +
-                         "Duration: " + std::to_string(timer.getDurationNano()) +
-                         " nanoseconds\n" +
-                         "Max RSS: " + std::to_string(max_rss) + " KB\n" +
-                         "Cache Misses: " + std::to_string(cacheMisses) + "\n" +
-                         "Cache References: " + std::to_string(cacheReferences) + "\n" +
-                         "Instructions: " + std::to_string(instructions) + "\n" +
-                         "Minor Page Faults: " + std::to_string(minorPageFaults) + "\n" +
-                         "Major Page Faults: " + std::to_string(majorPageFaults) + "\n";
+    std::string output =
+        "Benchmark results for " + scopeName + ":\n" +
+        "Duration: " + std::to_string(timer.getDurationNano()) +
+        " nanoseconds\n" + "Max RSS: " + std::to_string(max_rss) + " KB\n" +
+        "Cache Misses: " + std::to_string(cacheMisses) + "\n" +
+        "Cache References: " + std::to_string(cacheReferences) + "\n" +
+        "Instructions: " + std::to_string(instructions) + "\n" +
+        "Minor Page Faults: " + std::to_string(minorPageFaults) + "\n" +
+        "Major Page Faults: " + std::to_string(majorPageFaults) + "\n";
     if (isDist) {
-      std::string fname = "host"+std::to_string(hostID)+".stats";
-      std::ofstream fp(fname, std::ios::out);
+      std::ofstream fp(fileName, std::ios::out);
       fp << output;
       fp.close();
     } else {
@@ -171,4 +171,5 @@ public:
 };
 
 #define BENCHMARK_SCOPE(name) ScopeBenchmarker benchmarker##__LINE__(name)
-#define DIST_BENCHMARK_SCOPE(name, host_id) ScopeBenchmarker benchmarker##__LINE__(name, host_id)
+#define BENCHMARK_SCOPE_FILE(name, file_name)                                  \
+  ScopeBenchmarker benchmarker##__LINE__(name, file_name)

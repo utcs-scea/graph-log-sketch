@@ -8,20 +8,18 @@
 #include <fstream>
 #include <sstream>
 
+#include "../include/importer.hpp"
 #include "../include/scea/stats.hpp"
-#include "galois/graphs/DistributedLocalGraph.h"
+#include "galois/DistGalois.h"
 #include "galois/graphs/GluonSubstrate.h"
 #include "galois/wmd/WMDPartitioner.h"
 #include "galois/graphs/GenericPartitioners.h"
 #include "galois/DTerminationDetector.h"
-#include "galois/DistGalois.h"
 #include "galois/DReducible.h"
 #include "galois/gstl.h"
 #include "galois/runtime/SyncStructures.h"
 #include "galois/runtime/Tracer.h"
 #include "galois/runtime/GraphUpdateManager.h"
-
-//#include <iostream>
 
 const uint32_t infinity = std::numeric_limits<uint32_t>::max() / 4;
 
@@ -314,8 +312,10 @@ int main(int argc, char* argv[]) {
   uint64_t numVertices = std::stoul(argv[3]);
   galois::DistMemSys G;
   {
-    DIST_BENCHMARK_SCOPE("test_scope",
-                         galois::runtime::getSystemNetworkInterface().ID);
+    BENCHMARK_SCOPE_FILE(
+        "test_scope",
+        std::to_string(galois::runtime::getSystemNetworkInterface().ID) +
+            ".out");
     for (int i = 0; i < 10000; ++i)
       continue;
   }
