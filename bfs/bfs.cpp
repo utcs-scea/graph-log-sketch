@@ -383,17 +383,18 @@ std::vector<std::vector<uint64_t>> genMirrorNodes(Graph &hg, std::string filenam
 
 int main(int argc, char* argv[]) {
 
-  std::string filename = argv[1];
-  if (argc > 2) {
-    src_node = std::stoul(argv[2]);
-  }
-  if (argc < 3) {
+  if (argc < 6) {
     std::cerr << "Usage: " << argv[0]
-              << " <filename> <src_node> <numVertices>\n";
+              << " <filename> <src_node> <numVertices> <numBatches> <maxEditsInBatch>\n";
     return 1;
   }
 
+  std::string filename = argv[1];
+  src_node = std::stoul(argv[2]);
   uint64_t numVertices = std::stoul(argv[3]);
+  uint64_t num_batches = std::stoul(argv[4]);
+  uint64_t max_edits_in_batch = std::stoul(argv[5]);
+
   galois::DistMemSys G;
 
   std::unique_ptr<Graph> hg;
@@ -410,7 +411,6 @@ int main(int argc, char* argv[]) {
 
   galois::runtime::getHostBarrier().wait();
 
-  int num_batches = 2;
   ELGraph* wg = dynamic_cast<ELGraph*>(hg.get());
 
   auto& net = galois::runtime::getSystemNetworkInterface();
@@ -426,6 +426,7 @@ int main(int argc, char* argv[]) {
     graphUpdateManager<galois::graphs::ELVertex,
                                       galois::graphs::ELEdge, NodeData, int, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
                                       galois::graphs::ELEdge>> (1, edit_files), 100, wg);
+    GUM.setBatchSize(max_edits_in_batch);
     GUM.start();
     while (!GUM.stop()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(GUM.getPeriod()));
