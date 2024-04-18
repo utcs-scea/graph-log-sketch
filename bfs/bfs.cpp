@@ -154,7 +154,7 @@ struct BFS {
 
     unsigned _num_iterations = 1;
 
-    const auto& nodesWithEdges = _graph.allNodesWithEdgesRange();
+    const auto& nodesWithEdges = _graph.allNodesRange();
 
     uint32_t priority = std::numeric_limits<uint32_t>::max();
     DGTerminatorDetector dga;
@@ -170,6 +170,7 @@ struct BFS {
           BFS(priority, &_graph, dga, work_edges), galois::steal(),
           galois::no_stats(),
           galois::loopname(syncSubstrate->get_run_identifier("BFS").c_str()));
+          galois::runtime::getHostBarrier().wait();
       syncSubstrate->sync<writeDestination, readSource, Reduce_min_dist_current,
                           Bitset_dist_current, async>("BFS");
 
@@ -180,7 +181,6 @@ struct BFS {
       ++_num_iterations;
     } while ((async || (_num_iterations < maxIterations)) &&
              dga.reduce(syncSubstrate->get_run_identifier()));
-
     galois::runtime::reportStat_Tmax(
         "BFS", "NumIterations_" + std::to_string(syncSubstrate->get_run_num()),
         (unsigned long)_num_iterations);
@@ -188,7 +188,8 @@ struct BFS {
 
   void operator()(GNode src) const {
     NodeData& snode = graph->getData(src);
-    std::cout << "src: " << graph->getGID(src) << " dist_old " << snode.dist_old << " curr " << snode.dist_current << std::endl;
+    auto& net = galois::runtime::getSystemNetworkInterface();
+    std::cout << "src: " << graph->getGID(src) << " dist_old " << snode.dist_old << " dist_current " << snode.dist_current << " host " << net.ID << std::endl;
 
     if (snode.dist_old > snode.dist_current) {
       active_vertices += 1;
@@ -404,20 +405,17 @@ int main(int argc, char* argv[]) {
 
   std::unordered_map<uint64_t, std::vector<uint64_t>> edits;
   CheckGraph(hg, edits);
-  printUnorderedMap(edits, galois::runtime::getSystemNetworkInterface().ID)  ;
+  //printUnorderedMap(edits, galois::runtime::getSystemNetworkInterface().ID)  ;
 
 
-  InitializeGraph::go((*hg));
   galois::runtime::getHostBarrier().wait();
 
   int num_batches = 2;
   ELGraph* wg = dynamic_cast<ELGraph*>(hg.get());
 
+  auto& net = galois::runtime::getSystemNetworkInterface();
   for (int i=0; i<num_batches; i++) {
-
-    auto& net = galois::runtime::getSystemNetworkInterface();
-
-    PrintMasterMirrorNodes(*hg, net.ID);
+    //PrintMasterMirrorNodes(*hg, net.ID);
 
     std::vector<std::string> edit_files;
     std::string dynFile = "edits";
@@ -425,7 +423,7 @@ int main(int argc, char* argv[]) {
     edit_files.emplace_back(dynamicFile);
     graphUpdateManager<galois::graphs::ELVertex,
                                       galois::graphs::ELEdge, NodeData, int, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
-                                      galois::graphs::ELEdge>> (2, edit_files), 100, wg);
+                                      galois::graphs::ELEdge>> (1, edit_files), 100, wg);
     GUM.start();
     while (!GUM.stop()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(GUM.getPeriod()));
@@ -433,22 +431,22 @@ int main(int argc, char* argv[]) {
     galois::runtime::getHostBarrier().wait();
     GUM.stop2();
 
-    PrintMasterMirrorNodes(*hg, net.ID);
+    //PrintMasterMirrorNodes(*hg, net.ID);
 
     std::vector<std::vector<uint64_t>> delta_mirrors = genMirrorNodes(*hg, dynFile, i);
 
     syncSubstrate->addDeltaMirrors(delta_mirrors);
     PrintMasterMirrorNodes(*hg, net.ID);
     galois::runtime::getHostBarrier().wait();
-    std::cout << "Added delta mirrors" << std::endl;
     
     bitset_dist_current.resize(hg->size());
     galois::DGAccumulator<uint64_t> DGAccumulator_sum;
     galois::DGReduceMax<uint32_t> m;
     InitializeGraph::go(*hg);
     galois::runtime::getHostBarrier().wait();
+    syncSubstrate->printMirrors();
     {
-      DIST_BENCHMARK_SCOPE("bfs-pull", galois::runtime::getSystemNetworkInterface().ID);
+      DIST_BENCHMARK_SCOPE("bfs-push", galois::runtime::getSystemNetworkInterface().ID);
         std::string timer_str("Timer_" + std::to_string(i));
         galois::StatTimer StatTimer_main(timer_str.c_str(), "BFS");
 
@@ -461,9 +459,8 @@ int main(int argc, char* argv[]) {
 
         if ((i + 1) != num_batches) {
           bitset_dist_current.reset();
-
+          InitializeGraph::go((*hg));
           (*syncSubstrate).set_num_run(i + 1);
-          InitializeGraph::go(*hg);
           galois::runtime::getHostBarrier().wait();
         }
     }
