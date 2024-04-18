@@ -1,5 +1,5 @@
 #include <iostream>
-#include "../include/importer.cpp"
+#include "../include/importer.hpp"
 #include "galois/graphs/DistributedLocalGraph.h"
 #include "galois/graphs/GluonSubstrate.h"
 #include "galois/wmd/WMDPartitioner.h"
