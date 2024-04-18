@@ -358,7 +358,7 @@ void parser(const char* line, Graph &hg, std::vector<std::vector<uint64_t>> &del
   line = elGetOne(line, src);
   line = elGetOne(line, dst);
   std::cout << "src: " << src << " dst: " << dst << " isowned " << hg.isOwned(src) << " " << hg.isOwned(dst) << "\n";
-  if((hg.isOwned(src)) && (!hg.isOwned(dst)) && (!hg.isLocal(src)) {
+  if((hg.isOwned(src)) && (!hg.isLocal(dst))) {
     uint32_t h = hg.getHostID(dst);
     delta_mirrors[h].push_back(dst);
   }
