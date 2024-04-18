@@ -14,6 +14,7 @@ def distribute_edges(file_path, num_batches, num_hosts):
     remainder = total_edges % total_parts
 
     current_edge = 0
+    max_batch_size = 0
     for i in range(num_batches):
         for j in range(num_hosts):
             this_part_size = part_size + (1 if remainder > 0 else 0)
@@ -22,12 +23,17 @@ def distribute_edges(file_path, num_batches, num_hosts):
             part_edges = edges[current_edge:current_edge + this_part_size]
             current_edge += this_part_size
 
+            if len(part_edges) > max_batch_size:
+                max_batch_size = len(part_edges)
+
             filename = f"edits_batch{i}_host{j}.el"
             with open(filename, 'w') as outfile:
                 outfile.writelines(part_edges)
 
+    print(f"Maximum batch size: {max_batch_size}")
+
 def main():
-    parser = argparse.ArgumentParser(description="Distribute edge list into batches for hosts.")
+    parser = argparse.ArgumentParser(description="Distribute edge list into batches for hosts and print max batch size.")
     parser.add_argument('file_path', type=str, help="The path to the edge list file.")
     parser.add_argument('num_batches', type=int, help="The number of batches.")
     parser.add_argument('num_hosts', type=int, help="The number of hosts.")
