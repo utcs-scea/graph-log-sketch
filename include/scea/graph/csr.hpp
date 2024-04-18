@@ -32,10 +32,14 @@ private:
       m_pfx_sum;
 
 public:
-  CSR() : m_vertices(1, 0ul), m_pfx_sum(&m_edges[0], &m_vertices[1]) {}
-  virtual ~CSR(){};
+  explicit CSR(uint64_t num_vertices)
+      : m_adj(num_vertices),
+        m_vertices(num_vertices + 1, 0ul), m_pfx_sum{&m_adj[0],
+                                                     &m_vertices[1]} {}
 
-  uint64_t size() noexcept override { return m_vertices.size() - 1; }
+  virtual ~CSR() {}
+
+  uint64_t size() noexcept override { return m_adj.size(); }
 
   uint64_t get_out_degree(uint64_t src) override {
     return m_vertices[src + 1] - m_vertices[src];

@@ -74,6 +74,7 @@ add_library(wf4-galois::wf4-galois ALIAS wf4-galois)
 
 add_subdirectory(microbench)
 add_subdirectory(scripts)
+add_subdirectory(betweennesscentrality)
 add_subdirectory(wf4)
 
 # tests
