@@ -358,7 +358,7 @@ void parser(const char* line, Graph &hg, std::vector<std::vector<uint64_t>> &del
   line = elGetOne(line, src);
   line = elGetOne(line, dst);
   std::cout << "src: " << src << " dst: " << dst << " isowned " << hg.isOwned(src) << " " << hg.isOwned(dst) << "\n";
-  if((hg.isOwned(src)) && (!hg.isOwned(dst))) {
+  if((hg.isOwned(src)) && (!hg.isOwned(dst)) && (!hg.isLocal(src)) {
     uint32_t h = hg.getHostID(dst);
     delta_mirrors[h].push_back(dst);
   }
@@ -421,6 +421,8 @@ int main(int argc, char* argv[]) {
     std::string dynFile = "edits";
     std::string dynamicFile = dynFile + "_batch" + std::to_string(i) + "_host" + std::to_string(net.ID) + ".el";
     edit_files.emplace_back(dynamicFile);
+    //IMPORTANT: CAll genMirrorNodes before creating the graphUpdateManager!!!!!!!!
+    std::vector<std::vector<uint64_t>> delta_mirrors = genMirrorNodes(*hg, dynFile, i);
     graphUpdateManager<galois::graphs::ELVertex,
                                       galois::graphs::ELEdge, NodeData, int, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
                                       galois::graphs::ELEdge>> (1, edit_files), 100, wg);
@@ -431,9 +433,6 @@ int main(int argc, char* argv[]) {
     galois::runtime::getHostBarrier().wait();
     GUM.stop2();
 
-    //PrintMasterMirrorNodes(*hg, net.ID);
-
-    std::vector<std::vector<uint64_t>> delta_mirrors = genMirrorNodes(*hg, dynFile, i);
 
     syncSubstrate->addDeltaMirrors(delta_mirrors);
     PrintMasterMirrorNodes(*hg, net.ID);
