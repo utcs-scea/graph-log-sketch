@@ -3,14 +3,57 @@
 # SPDX-License-Identifier: BSD-2-Clause
 # Copyright (c) 2023. University of Texas at Austin. All rights reserved.
 
-import graphscope
 import sys
 import time
+import graphscope
+
+print(graphscope.__version__)
 
 # command parameters:
 # <graph-dir> <number of partitions>
 #
 
+with graphscope.session(
+            cluster_type='k8s',
+            k8s_namespace='default',
+            preemptive=False,
+            k8s_deploy_mode="eager",
+            k8s_client_config="/home/pkenney/.kube/scea-config",
+            num_workers=2,
+            k8s_vineyard_cpu=.5,
+            k8s_vineyard_mem="4Gi",
+            k8s_engine_cpu=5,
+            k8s_engine_mem="16Gi",
+            k8s_coordinator_cpu=.5,
+            k8s_coordinator_mem="1Gi",
+            vineyard_shared_mem="8Gi",
+            k8s_volumes={
+                "local-data" : {
+                    "type": "hostPath", "field": {
+                        "path": "/var/local/graphs/rmat20", "type": "Directory"
+                    }, "mounts": [
+                        {
+                            "mountPath": "/tmp/data"
+                        }
+                    ]
+                }
+            }) as sess:
+    #graph = load_ogbn_mag(sess, '/dataset/ogbn_mag_small')
+    graph_dir = "/tmp/data"
+    graph = sess.g(directed=False)
+    graph = graph.add_vertices(graph_dir + "/nodes.csv", label="src")
+    graph = graph.add_edges(graph_dir + "/edges_0.csv", label="_")
+    print("finished import")
+    print(graph.schema)
+    start = time.time()
+    #pr_res = graphscope.pagerank(graph, delta=0.85, max_round=10)
+    #bfs_res = graphscope.bfs(graph, 0)
+    tc_res = graphscope.triangles(graph)
+    print(tc_res)
+    end = time.time()
+    print("Triangle Counting Time: " + str(end - start) + "s")
+
+'''
 graph_dir = sys.argv[1]
 partitions = int(sys.argv[2])
 
@@ -61,3 +104,4 @@ for algo in range(0, 5):
   algo_end = time.time()
   print("Total time across partitions: " + str(algo_end - algo_start) + "s\n\n")
   sess.close()
+'''
