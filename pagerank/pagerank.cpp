@@ -86,7 +86,7 @@ struct InitializeGraph {
     // at start)
     ResetGraph::go(_graph);
 
-    const auto& nodesWithEdges = _graph.allNodesWithEdgesRange();
+    const auto& nodesWithEdges = _graph.allNodesRange();
 
       // regular do all without stealing; just initialization of nodes with
       // outgoing edges
@@ -121,7 +121,7 @@ struct PageRank_delta {
         graph(_graph) {}
 
   void static go(Graph& _graph) {
-    const auto& nodesWithEdges = _graph.allNodesWithEdgesRange();
+    const auto& nodesWithEdges = _graph.allNodesRange();
 
     galois::do_all(
         galois::iterate(nodesWithEdges.begin(), nodesWithEdges.end()),
@@ -160,7 +160,7 @@ struct PageRank {
 
   void static go(Graph& _graph) {
     unsigned _num_iterations   = 0;
-    const auto& nodesWithEdges = _graph.allNodesWithEdgesRange();
+    const auto& nodesWithEdges = _graph.allNodesRange();
     DGTerminatorDetector dga;
 
     do {
