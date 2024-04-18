@@ -26,7 +26,7 @@ def distribute_edges(file_path, out_path, num_batches, num_hosts):
             if len(part_edges) > max_batch_size:
                 max_batch_size = len(part_edges)
 
-            filename = out_path+"/edits_batch"+i+"_host"+j+".el"
+            filename = f"{out_path}/edits_batch{i}_host{j}.el"
             with open(filename, 'w') as outfile:
                 outfile.writelines(part_edges)
 
