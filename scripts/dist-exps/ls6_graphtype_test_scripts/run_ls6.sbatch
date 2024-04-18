@@ -1,44 +1,41 @@
 #!/bin/bash
-#SBATCH -J connected-components-cli-dist_twitter40_blocked-cvc_2
-#SBATCH -o connected-components-cli-dist_twitter40_blocked-cvc_2_%j.out
-#SBATCH -N 2 -n 2
-#SBATCH -p skx-normal
-#SBATCH -t 01:30:00
+#SBATCH -J bfs_chain2.el_1
+#SBATCH -o bfs_chain2.el_1_%j.out
+#SBATCH -N 1 -n 1
+#SBATCH -p normal
+#SBATCH -t 00:10:00
 #SBATCH --mail-user=hochan@utexas.edu
 #SBATCH --mail-type=begin
 #SBATCH --mail-type=fail
 #SBATCH --mail-type=end
+#SBATCH -A ASC23036
 
 EXEC_NAME=${1}
 INPUT=${2}
-PART=${3}
-NUM_HOSTS=${4}
-THREADS=${5}
-GRAPH_TYPE=${6}
+NUM_HOSTS=${3}
+THREADS=${4}
+GRAPH_TYPE=${5}
 
 execdir=$(pwd)
-EXEC=${execdir}/binaries/${EXEC_NAME}
+EXEC=${execdir}/bin/${EXEC_NAME}
 OUTPUT=${execdir}/${EXEC_NAME}
 
 # Create directory structures
 E2E_OUT_DIR="e2e_${EXEC_NAME}_${INPUT}/${GRAPH_TYPE}/${NUM_HOSTS}"
 mkdir -p $E2E_OUT_DIR
 
-outname=${EXEC_NAME}_${INPUT}_${PART}_${NUM_HOSTS}_${SLURM_JOB_ID}.out
-basename=${EXEC_NAME}_${INPUT}_${PART}_${SLURM_NNODES}_${SLURM_JOB_ID}
+outname=${EXEC_NAME}_${INPUT}_${NUM_HOSTS}_${SLURM_JOB_ID}.out
+basename=${EXEC_NAME}_${INPUT}_${SLURM_NNODES}_${SLURM_JOB_ID}
 statname=outputs/${basename}.stats
 
-<<comment
 RUN=mpirun
 mpirun --version
 
 set -x #echo on
-echo PRINT_PER_HOST_STATS=1 GALOIS_DO_NOT_BIND_THREADS=1 $RUN --bind-to none -np $NUM_HOSTS $EXEC -t=$THREADS $FLAGS -statFile=${execdir}/${statname}.var2.1 --variant_type=2
-PRINT_PER_HOST_STATS=1 GALOIS_DO_NOT_BIND_THREADS=1 $RUN --bind-to none -np $NUM_HOSTS $EXEC -t=$THREADS $FLAGS -statFile=${execdir}/${statname}.var2.1 --variant_type=2
-echo PRINT_PER_HOST_STATS=1 GALOIS_DO_NOT_BIND_THREADS=1 $RUN --bind-to none -np $NUM_HOSTS $EXEC -t=$THREADS $FLAGS -statFile=${execdir}/${statname}.var2.2 --variant_type=2
-PRINT_PER_HOST_STATS=1 GALOIS_DO_NOT_BIND_THREADS=1 $RUN --bind-to none -np $NUM_HOSTS $EXEC -t=$THREADS $FLAGS -statFile=${execdir}/${statname}.var2.2 --variant_type=2
-echo PRINT_PER_HOST_STATS=1 GALOIS_DO_NOT_BIND_THREADS=1 $RUN --bind-to none -np $NUM_HOSTS $EXEC -t=$THREADS $FLAGS -statFile=${execdir}/${statname}.var2.3 --variant_type=2
-PRINT_PER_HOST_STATS=1 GALOIS_DO_NOT_BIND_THREADS=1 $RUN --bind-to none -np $NUM_HOSTS $EXEC -t=$THREADS $FLAGS -statFile=${execdir}/${statname}.var2.3 --variant_type=2
+echo $RUN --bind-to none -np $NUM_HOSTS $EXEC $INPUT 0 10
+$RUN --bind-to none -np $NUM_HOSTS $EXEC $INPUT 0 10
+
+mv total_e2e_*.out $E2E_OUT_DIR
 
 set +x #echo off
 
