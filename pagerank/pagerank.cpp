@@ -402,13 +402,18 @@ int main(int argc, char* argv[]) {
                                     OECPolicy>(filename, numVertices);
   syncSubstrate = gluonInitialization<NodeData, void>(hg);
 
+  if (hg == nullptr || syncSubstrate == nullptr) {
+    std::cerr << "Initialization failed.";
+    return 1;
+  }
+
   galois::runtime::getHostBarrier().wait();
 
   ELGraph* wg = dynamic_cast<ELGraph*>(hg.get());
 
   auto& net = galois::runtime::getSystemNetworkInterface();
   for (int i=0; i<num_batches; i++) {
-    //PrintMasterMirrorNodes(*hg, net.ID);
+    PrintMasterMirrorNodes(*hg, net.ID);
 
     std::vector<std::string> edit_files;
     std::string dynFile = "edits";
@@ -416,6 +421,7 @@ int main(int argc, char* argv[]) {
     edit_files.emplace_back(dynamicFile);
     //IMPORTANT: CAll genMirrorNodes before creating the graphUpdateManager!!!!!!!!
     std::vector<std::vector<uint64_t>> delta_mirrors = genMirrorNodes(*hg, dynFile, i);
+    std::cout << "Starting Graph Update Manager" << std::endl;
     graphUpdateManager<galois::graphs::ELVertex,
                                       galois::graphs::ELEdge, NodeData, int, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
                                       galois::graphs::ELEdge>> (1, edit_files), 100, wg);
@@ -424,8 +430,10 @@ int main(int argc, char* argv[]) {
     while (!GUM.stop()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(GUM.getPeriod()));
     }
+    std::cout << "Finished Graph Update Manager" << std::endl;
     galois::runtime::getHostBarrier().wait();
     GUM.stop2();
+
 
     syncSubstrate->addDeltaMirrors(delta_mirrors);
     PrintMasterMirrorNodes(*hg, net.ID);
@@ -445,22 +453,20 @@ int main(int argc, char* argv[]) {
     galois::DGReduceMax<float> max_residual;
     galois::DGReduceMin<float> min_residual;
 
-    for (auto run = 0; run < 1; ++run) {
-      PageRank<false>::go(*hg);
+    PageRank<false>::go(*hg);
 
-      // sanity check
-      PageRankSanity::go(*hg, DGA_sum, DGA_sum_residual,
-                        DGA_residual_over_tolerance, max_value, min_value,
-                        max_residual, min_residual);
+    // sanity check
+    PageRankSanity::go(*hg, DGA_sum, DGA_sum_residual,
+                      DGA_residual_over_tolerance, max_value, min_value,
+                      max_residual, min_residual);
 
-      if ((run + 1) != 1) {
-        bitset_residual.reset();
-        bitset_nout.reset();
+    if ((i + 1) != num_batches) {
+      bitset_residual.reset();
+      bitset_nout.reset();
 
-        (*syncSubstrate).set_num_run(run + 1);
-        InitializeGraph::go(*hg);
-        galois::runtime::getHostBarrier().wait();
-      }
+      (*syncSubstrate).set_num_run(i + 1);
+      InitializeGraph::go(*hg);
+      galois::runtime::getHostBarrier().wait();
     }
   }
 
