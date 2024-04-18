@@ -451,8 +451,8 @@ int main(int argc, char* argv[]) {
     galois::runtime::getHostBarrier().wait();
     syncSubstrate->printMirrors();
     {
-      DIST_BENCHMARK_SCOPE("bfs-push",
-                           galois::runtime::getSystemNetworkInterface().ID);
+      // BENCHMARK_SCOPE("bfs-push",
+      //                 galois::runtime::getSystemNetworkInterface().ID);
       std::string timer_str("Timer_" + std::to_string(i));
       galois::StatTimer StatTimer_main(timer_str.c_str(), "BFS");
 
