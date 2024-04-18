@@ -16,6 +16,7 @@
 #include "galois/DReducible.h"
 #include "galois/gstl.h"
 #include "galois/runtime/Tracer.h"
+#include "galois/runtime/GraphUpdateManager.h"
 
 struct NodeData {
   std::atomic<uint32_t> comp_current;
@@ -30,6 +31,7 @@ constexpr static const char* const REGION_NAME = "ConnectedComp";
 galois::DynamicBitSet bitset_comp_current;
 
 typedef galois::graphs::DistLocalGraph<NodeData, void> Graph;
+typedef galois::graphs::WMDGraph<galois::graphs::ELVertex, galois::graphs::ELEdge, NodeData, void, OECPolicy> ELGraph;
 typedef typename Graph::GraphNode GNode;
 
 std::unique_ptr<galois::graphs::GluonSubstrate<Graph>> syncSubstrate;
@@ -208,15 +210,84 @@ struct ConnectedCompSanityCheck {
   }
 };
 
-int main(int argc, char* argv[]) {
-  std::string filename = argv[1];
+const char* elGetOne(const char* line, std::uint64_t& val) {
+  bool found = false;
+  val        = 0;
+  char c;
+  while ((c = *line++) != '\0' && isspace(c)) {
+  }
+  do {
+    if (isdigit(c)) {
+      found = true;
+      val *= 10;
+      val += (c - '0');
+    } else if (c == '_') {
+      continue;
+    } else {
+      break;
+    }
+  } while ((c = *line++) != '\0' && !isspace(c));
+  if (!found)
+    val = UINT64_MAX;
+  return line;
+}
 
-  if (argc < 2) {
-    std::cerr << "Usage: " << argv[0] << " <filename> <numVertices>\n";
+void parser(const char* line, Graph &hg, std::vector<std::vector<uint64_t>> &delta_mirrors) {
+  uint64_t src, dst;
+  line = elGetOne(line, src);
+  line = elGetOne(line, dst);
+  std::cout << "src: " << src << " dst: " << dst << " isowned " << hg.isOwned(src) << " " << hg.isOwned(dst) << "\n";
+  if((hg.isOwned(src)) && (!hg.isLocal(dst))) {
+    uint32_t h = hg.getHostID(dst);
+    delta_mirrors[h].push_back(dst);
+  }
+}
+
+std::vector<std::vector<uint64_t>> genMirrorNodes(Graph &hg, std::string filename, int batch) {
+
+  auto& net = galois::runtime::getSystemNetworkInterface();
+  std::vector<std::vector<uint64_t>> delta_mirrors(net.Num);
+
+  for(uint32_t i=0; i<net.Num; i++) {
+    std::string dynamicFile = filename + "_batch" + std::to_string(batch) + "_host" + std::to_string(i) + ".el";
+    std::ifstream file(dynamicFile);
+    std::string line;
+    while (std::getline(file, line)) {
+      parser(line.c_str(), hg, delta_mirrors);
+    }
+  }
+  return delta_mirrors;
+}
+
+void PrintMasterMirrorNodes (Graph &hg, uint64_t id) {
+  std::cout << "Master nodes on host " << id <<std::endl;
+  for (auto node : hg.masterNodesRange()) {
+    std::cout << hg.getGID(node) << " ";
+  }
+  std::cout << std::endl;
+  std::cout << "Mirror nodes on host " << id <<std::endl;
+  auto mirrors = hg.getMirrorNodes();
+  for (auto vec : mirrors) {
+    for (auto node : vec) {
+      std::cout << node << " ";
+    }
+  }
+  std::cout << std::endl;
+}
+
+int main(int argc, char* argv[]) {
+
+  if (argc < 5) {
+    std::cerr << "Usage: " << argv[0]
+              << " <filename> <numVertices> <numBatches> <maxEditsInBatch>\n";
     return 1;
   }
 
+  std::string filename = argv[1];
   uint64_t numVertices = std::stoul(argv[2]);
+  uint64_t num_batches = std::stoul(argv[3]);
+  uint64_t max_edits_in_batch = std::stoul(argv[4]);
+
   galois::DistMemSys G;
 
   std::unique_ptr<Graph> hg;
@@ -228,20 +299,52 @@ int main(int argc, char* argv[]) {
 
   bitset_comp_current.resize(hg->size());
 
-  InitializeGraph::go((*hg));
   galois::runtime::getHostBarrier().wait();
 
-  galois::DGAccumulator<uint64_t> active_vertices64;
+  ELGraph* wg = dynamic_cast<ELGraph*>(hg.get());
 
-  for (auto run = 0; run < 1; ++run) {
+  auto& net = galois::runtime::getSystemNetworkInterface();
+
+  for (int i=0; i<num_batches; i++) {
+    PrintMasterMirrorNodes(*hg, net.ID);
+
+    std::vector<std::string> edit_files;
+    std::string dynFile = "edits";
+    std::string dynamicFile = dynFile + "_batch" + std::to_string(i) + "_host" + std::to_string(net.ID) + ".el";
+    edit_files.emplace_back(dynamicFile);
+    //IMPORTANT: CAll genMirrorNodes before creating the graphUpdateManager!!!!!!!!
+    std::vector<std::vector<uint64_t>> delta_mirrors = genMirrorNodes(*hg, dynFile, i);
+    std::cout << "Starting Graph Update Manager" << std::endl;
+    graphUpdateManager<galois::graphs::ELVertex,
+                                      galois::graphs::ELEdge, NodeData, void, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
+                                      galois::graphs::ELEdge>> (1, edit_files), 100, wg);
+    GUM.setBatchSize(max_edits_in_batch);
+    GUM.start();
+    while (!GUM.stop()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(GUM.getPeriod()));
+    }
+    std::cout << "Finished Graph Update Manager" << std::endl;
+    galois::runtime::getHostBarrier().wait();
+    GUM.stop2();
+
+
+    syncSubstrate->addDeltaMirrors(delta_mirrors);
+    PrintMasterMirrorNodes(*hg, net.ID);
+    galois::runtime::getHostBarrier().wait();
+
+    InitializeGraph::go((*hg));
+    galois::runtime::getHostBarrier().wait();
+
+    galois::DGAccumulator<uint64_t> active_vertices64;
+
     ConnectedComp<false>::go(*hg);
 
     ConnectedCompSanityCheck::go(*hg, active_vertices64);
 
-    if ((run + 1) != 1) {
+    if ((i + 1) != 1) {
       bitset_comp_current.reset();
 
-      (*syncSubstrate).set_num_run(run + 1);
+      (*syncSubstrate).set_num_run(i + 1);
       InitializeGraph::go((*hg));
       galois::runtime::getHostBarrier().wait();
     }
