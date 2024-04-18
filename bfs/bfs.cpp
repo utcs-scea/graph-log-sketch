@@ -330,6 +330,22 @@ void CheckGraph (std::unique_ptr<Graph> &hg, std::unordered_map<uint64_t, std::v
     galois::steal());
 }
 
+void PrintMasterMirrorNodes (Graph &hg, uint64_t id) {
+  std::cout << "Master nodes on host " << id <<std::endl;
+  for (auto node : hg.masterNodesRange()) {
+    std::cout << hg.getGID(node) << " ";
+  }
+  std::cout << std::endl;
+  std::cout << "Mirror nodes on host " << id <<std::endl;
+  auto mirrors = hg.getMirrorNodes();
+  for (auto vec : mirrors) {
+    for (auto node : vec) {
+      std::cout << hg.getGID(node) << " ";
+    }
+  }
+  std::cout << std::endl;
+}
+
 const char* elGetOne(const char* line, std::uint64_t& val) {
   bool found = false;
   val        = 0;
@@ -416,23 +432,26 @@ int main(int argc, char* argv[]) {
   for (int i=0; i<num_batches; i++) {
 
     resetNodeStates(*hg, src_node);
+    auto& net = galois::runtime::getSystemNetworkInterface();
+
+    PrintMasterMirrorNodes(*hg, net.ID);
 
     std::vector<std::string> edit_files;
     std::string dynFile = "edits";
-    auto& net = galois::runtime::getSystemNetworkInterface();
     std::string dynamicFile = dynFile + "_batch" + std::to_string(i) + "_host" + std::to_string(net.ID) + ".el";
     edit_files.emplace_back(dynamicFile);
     ELGraph* wg = dynamic_cast<ELGraph*>(hg.get());
     graphUpdateManager<galois::graphs::ELVertex,
                                       galois::graphs::ELEdge, NodeData, int, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
                                       galois::graphs::ELEdge>> (2, edit_files), 100, wg);
-    syncSubstrate->printMirrors();
     GUM.start();
     while (!GUM.stop()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(GUM.getPeriod()));
     }
     galois::runtime::getHostBarrier().wait();
     GUM.stop2();
+
+    PrintMasterMirrorNodes(*hg, net.ID);
 
     std::vector<std::vector<uint64_t>> delta_mirrors = genMirrorNodes(*hg, dynFile);
     resetNodeStates(*hg, src_node);
