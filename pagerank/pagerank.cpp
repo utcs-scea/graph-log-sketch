@@ -44,7 +44,7 @@ galois::DynamicBitSet bitset_residual;
 galois::DynamicBitSet bitset_nout;
 
 typedef galois::graphs::DistLocalGraph<NodeData, void> Graph;
-typedef galois::graphs::WMDGraph<galois::graphs::ELVertex, galois::graphs::ELEdge, NodeData, int, OECPolicy> ELGraph;
+typedef galois::graphs::WMDGraph<galois::graphs::ELVertex, galois::graphs::ELEdge, NodeData, void, OECPolicy> ELGraph;
 typedef typename Graph::GraphNode GNode;
 typedef GNode WorkItem;
 
@@ -423,7 +423,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::vector<uint64_t>> delta_mirrors = genMirrorNodes(*hg, dynFile, i);
     std::cout << "Starting Graph Update Manager" << std::endl;
     graphUpdateManager<galois::graphs::ELVertex,
-                                      galois::graphs::ELEdge, NodeData, int, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
+                                      galois::graphs::ELEdge, NodeData, void, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
                                       galois::graphs::ELEdge>> (1, edit_files), 100, wg);
     GUM.setBatchSize(max_edits_in_batch);
     GUM.start();
