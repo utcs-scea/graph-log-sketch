@@ -1,7 +1,7 @@
 import argparse
 import random
 
-def distribute_edges(file_path, num_batches, num_hosts):
+def distribute_edges(file_path, out_path, num_batches, num_hosts):
     with open(file_path, 'r') as file:
         edges = file.readlines()
 
@@ -26,7 +26,7 @@ def distribute_edges(file_path, num_batches, num_hosts):
             if len(part_edges) > max_batch_size:
                 max_batch_size = len(part_edges)
 
-            filename = f"edits_batch{i}_host{j}.el"
+            filename = out_path+"/edits_batch"+i+"_host"+j+".el"
             with open(filename, 'w') as outfile:
                 outfile.writelines(part_edges)
 
@@ -35,12 +35,13 @@ def distribute_edges(file_path, num_batches, num_hosts):
 def main():
     parser = argparse.ArgumentParser(description="Distribute edge list into batches for hosts and print max batch size.")
     parser.add_argument('file_path', type=str, help="The path to the edge list file.")
+    parser.add_argument('out_path', type=str, help="The path to the edge list file.")
     parser.add_argument('num_batches', type=int, help="The number of batches.")
     parser.add_argument('num_hosts', type=int, help="The number of hosts.")
 
     args = parser.parse_args()
 
-    distribute_edges(args.file_path, args.num_batches, args.num_hosts)
+    distribute_edges(args.file_path, args.out_path, args.num_batches, args.num_hosts)
 
 if __name__ == "__main__":
     main()
