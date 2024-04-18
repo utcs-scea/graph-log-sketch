@@ -56,8 +56,8 @@ galois::DynamicBitSet bitset_dist_current;
 uint64_t src_node      = 0;
 uint64_t maxIterations = 1000;
 
-typedef galois::graphs::DistLocalGraph<NodeData, void> Graph;
-typedef galois::graphs::WMDGraph<galois::graphs::ELVertex, galois::graphs::ELEdge, NodeData, void, OECPolicy> ELGraph;
+typedef galois::graphs::DistLocalGraph<NodeData, int> Graph;
+typedef galois::graphs::WMDGraph<galois::graphs::ELVertex, galois::graphs::ELEdge, NodeData, int, OECPolicy> ELGraph;
 typedef typename Graph::GraphNode GNode;
 std::unique_ptr<galois::graphs::GluonSubstrate<Graph>> syncSubstrate;
 
@@ -125,8 +125,9 @@ struct FirstItr_BFS {
       auto& dnode       = graph->getData(dst);
       uint32_t new_dist = 1 + snode.dist_current;
       uint32_t old_dist = galois::atomicMin(dnode.dist_current, new_dist);
-      if (old_dist > new_dist)
+      if (old_dist > new_dist) {
         bitset_dist_current.set(dst);
+      }
     }
   }
 };
@@ -292,9 +293,8 @@ void resetNodeStates(Graph& _graph, GNode src_node) {
 }
 
 void printUnorderedMap (std::unordered_map<uint64_t, std::vector<uint64_t>> &edits, uint64_t id) {
-  std::cout << "Printing for host " << id << std::endl;
   for (const auto &pair : edits) {
-    std::cout << pair.first << " ";
+    std::cout << " Printing for host " << id << " src " << pair.first << " ";
     for (auto dst : pair.second) {
       std::cout << dst << " ";
     }
@@ -304,12 +304,13 @@ void printUnorderedMap (std::unordered_map<uint64_t, std::vector<uint64_t>> &edi
 
 void CheckGraph (std::unique_ptr<Graph> &hg, std::unordered_map<uint64_t, std::vector<uint64_t>> &mp) {
   galois::do_all(
-    galois::iterate(hg->masterNodesRange()),
+    galois::iterate(hg->allNodesRange()),
     [&](size_t lid) {
       auto token = hg->getGID(lid);
       std::vector<uint64_t> edgeDst;
       auto end = hg->edge_end(lid);
       auto itr = hg->edge_begin(lid);
+      std::cout << "token: " << token << "\n";
       for (; itr != end; itr++) {
         edgeDst.push_back(hg->getGID(hg->getEdgeDst(itr)));
       }
@@ -327,6 +328,57 @@ void CheckGraph (std::unique_ptr<Graph> &hg, std::unordered_map<uint64_t, std::v
       // std::cout << std::endl;
     },
     galois::steal());
+}
+
+const char* elGetOne(const char* line, std::uint64_t& val) {
+  bool found = false;
+  val        = 0;
+  char c;
+  while ((c = *line++) != '\0' && isspace(c)) {
+  }
+  do {
+    if (isdigit(c)) {
+      found = true;
+      val *= 10;
+      val += (c - '0');
+    } else if (c == '_') {
+      continue;
+    } else {
+      break;
+    }
+  } while ((c = *line++) != '\0' && !isspace(c));
+  if (!found)
+    val = UINT64_MAX;
+  return line;
+}
+
+void parser(const char* line, Graph &hg, std::vector<std::vector<uint64_t>> &delta_mirrors) {
+  uint64_t src, dst;
+  line = elGetOne(line, src);
+  line = elGetOne(line, dst);
+  std::cout << "src: " << src << " dst: " << dst << " isowned " << hg.isOwned(src) << " " << hg.isOwned(dst) << "\n";
+  if((hg.isOwned(src)) && (!hg.isOwned(dst))) {
+    uint32_t h = hg.getHostID(dst);
+    std::cout << "adding " << dst << " to host " << h << "\n";
+    delta_mirrors[h].push_back(dst);
+  }
+
+}
+
+std::vector<std::vector<uint64_t>> genMirrorNodes(Graph &hg, std::string filename) {
+
+  auto& net = galois::runtime::getSystemNetworkInterface();
+  std::vector<std::vector<uint64_t>> delta_mirrors(net.Num);
+
+  for(uint32_t i=0; i<net.Num; i++) {
+    std::string dynamicFile = filename + "_batch" + std::to_string(0) + "_host" + std::to_string(i) + ".el";
+    std::ifstream file(dynamicFile);
+    std::string line;
+    while (std::getline(file, line)) {
+      parser(line.c_str(), hg, delta_mirrors);
+    }
+  }
+  return delta_mirrors;
 }
 
 int main(int argc, char* argv[]) {
@@ -347,11 +399,14 @@ int main(int argc, char* argv[]) {
   std::unique_ptr<Graph> hg;
 
   hg            = distLocalGraphInitialization<galois::graphs::ELVertex,
-                                    galois::graphs::ELEdge, NodeData, void,
+                                    galois::graphs::ELEdge, NodeData, int,
                                     OECPolicy>(filename, numVertices);
-  syncSubstrate = gluonInitialization<NodeData, void>(hg);
+  syncSubstrate = gluonInitialization<NodeData, int>(hg);
 
-  bitset_dist_current.resize(hg->size());
+  std::unordered_map<uint64_t, std::vector<uint64_t>> edits;
+  CheckGraph(hg, edits);
+  printUnorderedMap(edits, galois::runtime::getSystemNetworkInterface().ID)  ;
+
 
   InitializeGraph::go((*hg));
   galois::runtime::getHostBarrier().wait();
@@ -369,19 +424,29 @@ int main(int argc, char* argv[]) {
     edit_files.emplace_back(dynamicFile);
     ELGraph* wg = dynamic_cast<ELGraph*>(hg.get());
     graphUpdateManager<galois::graphs::ELVertex,
-                                      galois::graphs::ELEdge, NodeData, void, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
+                                      galois::graphs::ELEdge, NodeData, int, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
                                       galois::graphs::ELEdge>> (2, edit_files), 100, wg);
-    
+    syncSubstrate->printMirrors();
     GUM.start();
     while (!GUM.stop()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(GUM.getPeriod()));
     }
     galois::runtime::getHostBarrier().wait();
     GUM.stop2();
+
+    std::vector<std::vector<uint64_t>> delta_mirrors = genMirrorNodes(*hg, dynFile);
+    resetNodeStates(*hg, src_node);
+
+    syncSubstrate->addDeltaMirrors(delta_mirrors);
+    galois::runtime::getHostBarrier().wait();
+    std::cout << "Added delta mirrors" << std::endl;
+
     
+    bitset_dist_current.resize(hg->size());
     galois::DGAccumulator<uint64_t> DGAccumulator_sum;
     galois::DGReduceMax<uint32_t> m;
-    resetNodeStates(*hg, src_node);
+          InitializeGraph::go(*hg);
+          galois::runtime::getHostBarrier().wait();
     int numRuns = 1;
     {
       DIST_BENCHMARK_SCOPE("bfs-pull", galois::runtime::getSystemNetworkInterface().ID);
