@@ -1,13 +1,14 @@
+// SPDX-License-Identifier: BSD-2-Clause
+// Copyright (c) 2023. University of Texas at Austin. All rights reserved.
+
 #include <iostream>
-#include "../include/importer.cpp"
+#include <limits>
+
+#include "../include/importer.hpp"
 #include "galois/graphs/DistributedLocalGraph.h"
 #include "galois/graphs/GluonSubstrate.h"
 #include "galois/wmd/WMDPartitioner.h"
 #include "galois/graphs/GenericPartitioners.h"
-#include "galois/DTerminationDetector.h"
-#include "galois/DistGalois.h"
-#include "galois/DReducible.h"
-#include "galois/gstl.h"
 #include "galois/DistGalois.h"
 #include "galois/runtime/SyncStructures.h"
 #include "galois/DReducible.h"
@@ -16,10 +17,7 @@
 #include "galois/runtime/Tracer.h"
 #include "galois/runtime/GraphUpdateManager.h"
 
-#include <iostream>
-#include <limits>
-
-static const float alpha = (1.0 - 0.85);
+static const float alpha     = (1.0 - 0.85);
 static const float tolerance = 1e-5;
 struct NodeData {
   float value;
@@ -27,15 +25,15 @@ struct NodeData {
   float delta;
   std::atomic<float> residual;
   NodeData() : value(0), nout(0), delta(0), residual(0) {}
-  NodeData(float v) : value(v), nout(0), delta(0), residual(0) {}
+  explicit NodeData(float v) : value(v), nout(0), delta(0), residual(0) {}
 
-  //Copy constructor
-    NodeData(const NodeData& other) {
-        value = other.value;
-        nout = other.nout.load();
-        delta = other.delta;
-        residual = other.residual.load();
-    }
+  // Copy constructor
+  NodeData(const NodeData& other) {
+    value    = other.value;
+    nout     = other.nout.load();
+    delta    = other.delta;
+    residual = other.residual.load();
+  }
 };
 
 uint64_t maxIterations = 1000;
@@ -44,7 +42,9 @@ galois::DynamicBitSet bitset_residual;
 galois::DynamicBitSet bitset_nout;
 
 typedef galois::graphs::DistLocalGraph<NodeData, void> Graph;
-typedef galois::graphs::WMDGraph<galois::graphs::ELVertex, galois::graphs::ELEdge, NodeData, int, OECPolicy> ELGraph;
+typedef galois::graphs::WMDGraph<
+    galois::graphs::ELVertex, galois::graphs::ELEdge, NodeData, int, OECPolicy>
+    ELGraph;
 typedef typename Graph::GraphNode GNode;
 typedef GNode WorkItem;
 
@@ -55,14 +55,14 @@ std::unique_ptr<galois::graphs::GluonSubstrate<Graph>> syncSubstrate;
 struct ResetGraph {
   Graph* graph;
 
-  ResetGraph(Graph* _graph) : graph(_graph) {}
-  void static go(Graph& _graph) {
+  explicit ResetGraph(Graph* _graph) : graph(_graph) {}
+  static void go(Graph& _graph) {
     const auto& allNodes = _graph.allNodesRange();
-      galois::do_all(
-          galois::iterate(allNodes.begin(), allNodes.end()),
-          ResetGraph{&_graph}, galois::no_stats(),
-          galois::loopname(
-              syncSubstrate->get_run_identifier("ResetGraph").c_str()));
+    galois::do_all(
+        galois::iterate(allNodes.begin(), allNodes.end()), ResetGraph{&_graph},
+        galois::no_stats(),
+        galois::loopname(
+            syncSubstrate->get_run_identifier("ResetGraph").c_str()));
   }
 
   void operator()(GNode src) const {
@@ -83,15 +83,15 @@ struct InitializeGraph {
   InitializeGraph(const float& _alpha, Graph* _graph)
       : local_alpha(_alpha), graph(_graph) {}
 
-  void static go(Graph& _graph) {
+  static void go(Graph& _graph) {
     // first initialize all fields to 0 via ResetGraph (can't assume all zero
     // at start)
     ResetGraph::go(_graph);
 
     const auto& nodesWithEdges = _graph.allNodesRange();
 
-      // regular do all without stealing; just initialization of nodes with
-      // outgoing edges
+    // regular do all without stealing; just initialization of nodes with
+    // outgoing edges
     galois::do_all(
         galois::iterate(nodesWithEdges.begin(), nodesWithEdges.end()),
         InitializeGraph{alpha, &_graph}, galois::steal(), galois::no_stats(),
@@ -122,7 +122,7 @@ struct PageRank_delta {
       : local_alpha(_local_alpha), local_tolerance(_local_tolerance),
         graph(_graph) {}
 
-  void static go(Graph& _graph) {
+  static void go(Graph& _graph) {
     const auto& nodesWithEdges = _graph.allNodesRange();
 
     galois::do_all(
@@ -160,7 +160,7 @@ struct PageRank {
   PageRank(Graph* _g, DGTerminatorDetector& _dga)
       : graph(_g), active_vertices(_dga) {}
 
-  void static go(Graph& _graph) {
+  static void go(Graph& _graph) {
     unsigned _num_iterations   = 0;
     const auto& nodesWithEdges = _graph.allNodesRange();
     DGTerminatorDetector dga;
@@ -183,7 +183,7 @@ struct PageRank {
 
       galois::runtime::reportStat_Tsum(
           "PAGERANK", "NumWorkItems_" + (syncSubstrate->get_run_identifier()),
-          (unsigned long)dga.read_local());
+          static_cast<std::uint64_t>(dga.read_local()));
 
       ++_num_iterations;
     } while ((async || (_num_iterations < maxIterations)) &&
@@ -193,7 +193,7 @@ struct PageRank {
       galois::runtime::reportStat_Single(
           "PAGERANK",
           "NumIterations_" + std::to_string(syncSubstrate->get_run_num()),
-          (unsigned long)_num_iterations);
+          static_cast<std::uint64_t>(_num_iterations));
     }
   }
 
@@ -252,7 +252,7 @@ struct PageRankSanity {
         max_value(_max_value), min_value(_min_value),
         max_residual(_max_residual), min_residual(_min_residual) {}
 
-  void static go(Graph& _graph, galois::DGAccumulator<float>& DGA_sum,
+  static void go(Graph& _graph, galois::DGAccumulator<float>& DGA_sum,
                  galois::DGAccumulator<float>& DGA_sum_residual,
                  galois::DGAccumulator<uint64_t>& DGA_residual_over_tolerance,
                  galois::DGReduceMax<float>& max_value,
@@ -269,8 +269,7 @@ struct PageRankSanity {
 
     galois::do_all(galois::iterate(_graph.masterNodesRange().begin(),
                                    _graph.masterNodesRange().end()),
-                   PageRankSanity(tolerance, &_graph, DGA_sum,
-                                  DGA_sum_residual,
+                   PageRankSanity(tolerance, &_graph, DGA_sum, DGA_sum_residual,
                                   DGA_residual_over_tolerance, max_value,
                                   min_value, max_residual, min_residual),
                    galois::no_stats(), galois::loopname("PageRankSanity"));
@@ -337,24 +336,27 @@ const char* elGetOne(const char* line, std::uint64_t& val) {
   return line;
 }
 
-void parser(const char* line, Graph &hg, std::vector<std::vector<uint64_t>> &delta_mirrors) {
+void parser(const char* line, Graph& hg,
+            std::vector<std::vector<uint64_t>>& delta_mirrors) {
   uint64_t src, dst;
   line = elGetOne(line, src);
   line = elGetOne(line, dst);
-  std::cout << "src: " << src << " dst: " << dst << " isowned " << hg.isOwned(src) << " " << hg.isOwned(dst) << "\n";
-  if((hg.isOwned(src)) && (!hg.isLocal(dst))) {
+  std::cout << "src: " << src << " dst: " << dst << " isowned "
+            << hg.isOwned(src) << " " << hg.isOwned(dst) << "\n";
+  if ((hg.isOwned(src)) && (!hg.isLocal(dst))) {
     uint32_t h = hg.getHostID(dst);
     delta_mirrors[h].push_back(dst);
   }
 }
 
-std::vector<std::vector<uint64_t>> genMirrorNodes(Graph &hg, std::string filename, int batch) {
-
+std::vector<std::vector<uint64_t>>
+genMirrorNodes(Graph& hg, std::string filename, int batch) {
   auto& net = galois::runtime::getSystemNetworkInterface();
   std::vector<std::vector<uint64_t>> delta_mirrors(net.Num);
 
-  for(uint32_t i=0; i<net.Num; i++) {
-    std::string dynamicFile = filename + "_batch" + std::to_string(batch) + "_host" + std::to_string(i) + ".el";
+  for (uint32_t i = 0; i < net.Num; i++) {
+    std::string dynamicFile = filename + "_batch" + std::to_string(batch) +
+                              "_host" + std::to_string(i) + ".el";
     std::ifstream file(dynamicFile);
     std::string line;
     while (std::getline(file, line)) {
@@ -364,13 +366,13 @@ std::vector<std::vector<uint64_t>> genMirrorNodes(Graph &hg, std::string filenam
   return delta_mirrors;
 }
 
-void PrintMasterMirrorNodes (Graph &hg, uint64_t id) {
-  std::cout << "Master nodes on host " << id <<std::endl;
+void PrintMasterMirrorNodes(Graph& hg, uint64_t id) {
+  std::cout << "Master nodes on host " << id << std::endl;
   for (auto node : hg.masterNodesRange()) {
     std::cout << hg.getGID(node) << " ";
   }
   std::cout << std::endl;
-  std::cout << "Mirror nodes on host " << id <<std::endl;
+  std::cout << "Mirror nodes on host " << id << std::endl;
   auto mirrors = hg.getMirrorNodes();
   for (auto vec : mirrors) {
     for (auto node : vec) {
@@ -381,23 +383,22 @@ void PrintMasterMirrorNodes (Graph &hg, uint64_t id) {
 }
 
 int main(int argc, char* argv[]) {
-
   if (argc < 5) {
     std::cerr << "Usage: " << argv[0]
               << " <filename> <numVertices> <numBatches> <maxEditsInBatch>\n";
     return 1;
   }
 
-  std::string filename = argv[1];
-  uint64_t numVertices = std::stoul(argv[2]);
-  uint64_t num_batches = std::stoul(argv[3]);
+  std::string filename        = argv[1];
+  uint64_t numVertices        = std::stoul(argv[2]);
+  uint64_t num_batches        = std::stoul(argv[3]);
   uint64_t max_edits_in_batch = std::stoul(argv[4]);
 
   galois::DistMemSys G;
 
   std::unique_ptr<Graph> hg;
 
-  hg = distLocalGraphInitialization<galois::graphs::ELVertex,
+  hg            = distLocalGraphInitialization<galois::graphs::ELVertex,
                                     galois::graphs::ELEdge, NodeData, void,
                                     OECPolicy>(filename, numVertices);
   syncSubstrate = gluonInitialization<NodeData, void>(hg);
@@ -407,18 +408,24 @@ int main(int argc, char* argv[]) {
   ELGraph* wg = dynamic_cast<ELGraph*>(hg.get());
 
   auto& net = galois::runtime::getSystemNetworkInterface();
-  for (int i=0; i<num_batches; i++) {
-    //PrintMasterMirrorNodes(*hg, net.ID);
+  for (int i = 0; i < num_batches; i++) {
+    // PrintMasterMirrorNodes(*hg, net.ID);
 
     std::vector<std::string> edit_files;
-    std::string dynFile = "edits";
-    std::string dynamicFile = dynFile + "_batch" + std::to_string(i) + "_host" + std::to_string(net.ID) + ".el";
+    std::string dynFile     = "edits";
+    std::string dynamicFile = dynFile + "_batch" + std::to_string(i) + "_host" +
+                              std::to_string(net.ID) + ".el";
     edit_files.emplace_back(dynamicFile);
-    //IMPORTANT: CAll genMirrorNodes before creating the graphUpdateManager!!!!!!!!
-    std::vector<std::vector<uint64_t>> delta_mirrors = genMirrorNodes(*hg, dynFile, i);
-    graphUpdateManager<galois::graphs::ELVertex,
-                                      galois::graphs::ELEdge, NodeData, int, OECPolicy> GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
-                                      galois::graphs::ELEdge>> (1, edit_files), 100, wg);
+    // IMPORTANT: CAll genMirrorNodes before creating the
+    // graphUpdateManager!!!!!!!!
+    std::vector<std::vector<uint64_t>> delta_mirrors =
+        genMirrorNodes(*hg, dynFile, i);
+    graphUpdateManager<galois::graphs::ELVertex, galois::graphs::ELEdge,
+                       NodeData, int, OECPolicy>
+        GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
+                                                      galois::graphs::ELEdge>>(
+                1, edit_files),
+            100, wg);
     GUM.setBatchSize(max_edits_in_batch);
     GUM.start();
     while (!GUM.stop()) {
@@ -450,8 +457,8 @@ int main(int argc, char* argv[]) {
 
       // sanity check
       PageRankSanity::go(*hg, DGA_sum, DGA_sum_residual,
-                        DGA_residual_over_tolerance, max_value, min_value,
-                        max_residual, min_residual);
+                         DGA_residual_over_tolerance, max_value, min_value,
+                         max_residual, min_residual);
 
       if ((run + 1) != 1) {
         bitset_residual.reset();
@@ -465,5 +472,4 @@ int main(int argc, char* argv[]) {
   }
 
   return 0;
-
 }
