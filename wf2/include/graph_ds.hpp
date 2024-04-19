@@ -599,6 +599,13 @@ public:
       return galois::graphs::ParsedGraphStructure<V, E>(edges);
     }
   }
+  std::vector<V> GetDstData(std::vector<E>& edges) override {
+    std::vector<V> dstData;
+    for (auto& edge : edges) {
+      dstData.emplace_back(edge.dst, 0, edge.dst_type);
+    }
+    return dstData;
+  }
 
 private:
   uint64_t csvFields_;
