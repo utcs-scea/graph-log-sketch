@@ -34,13 +34,6 @@ struct NodeData {
   // Copy constructor
   NodeData(const NodeData& other)
       : dist_current(other.dist_current.load()), dist_old(other.dist_old) {}
-
-  // Copy assignment operator
-  NodeData& operator=(const NodeData& other) {
-    dist_current.store(other.dist_current.load());
-    dist_old = other.dist_old;
-    return *this;
-  }
 };
 
 galois::DynamicBitSet bitset_dist_current;
@@ -50,9 +43,9 @@ galois::DynamicBitSet bitset_dist_current;
 uint64_t src_node      = 0;
 uint64_t maxIterations = 1000;
 
-typedef galois::graphs::DistLocalGraph<NodeData, int> Graph;
+typedef galois::graphs::DistLocalGraph<NodeData, void> Graph;
 typedef galois::graphs::WMDGraph<
-    galois::graphs::ELVertex, galois::graphs::ELEdge, NodeData, int, OECPolicy>
+    galois::graphs::ELVertex, galois::graphs::ELEdge, NodeData, void, OECPolicy>
     ELGraph;
 typedef typename Graph::GraphNode GNode;
 std::unique_ptr<galois::graphs::GluonSubstrate<Graph>> syncSubstrate;
@@ -394,9 +387,9 @@ int main(int argc, char* argv[]) {
   std::unique_ptr<Graph> hg;
 
   hg            = distLocalGraphInitialization<galois::graphs::ELVertex,
-                                    galois::graphs::ELEdge, NodeData, int,
+                                    galois::graphs::ELEdge, NodeData, void,
                                     OECPolicy>(filename, numVertices);
-  syncSubstrate = gluonInitialization<NodeData, int>(hg);
+  syncSubstrate = gluonInitialization<NodeData, void>(hg);
 
   std::unordered_map<uint64_t, std::vector<uint64_t>> edits;
   CheckGraph(hg, edits);
@@ -420,7 +413,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::vector<uint64_t>> delta_mirrors =
         genMirrorNodes(*hg, dynFile, i);
     graphUpdateManager<galois::graphs::ELVertex, galois::graphs::ELEdge,
-                       NodeData, int, OECPolicy>
+                       NodeData, void, OECPolicy>
         GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
                                                       galois::graphs::ELEdge>>(
                 1, edit_files),
@@ -432,6 +425,7 @@ int main(int argc, char* argv[]) {
     }
     galois::runtime::getHostBarrier().wait();
     GUM.stop2();
+    galois::runtime::getHostBarrier().wait();
 
     syncSubstrate->addDeltaMirrors(delta_mirrors);
     galois::runtime::getHostBarrier().wait();
@@ -456,7 +450,6 @@ int main(int argc, char* argv[]) {
 
       if ((i + 1) != num_batches) {
         bitset_dist_current.reset();
-        InitializeGraph::go((*hg));
         (*syncSubstrate).set_num_run(i + 1);
         galois::runtime::getHostBarrier().wait();
       }
