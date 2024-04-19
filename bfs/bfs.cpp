@@ -26,14 +26,18 @@ const uint32_t infinity = std::numeric_limits<uint32_t>::max() / 4;
 struct NodeData {
   std::atomic<uint32_t> dist_current;
   uint32_t dist_old;
-
   NodeData() : dist_current(0), dist_old(0) {}
   NodeData(uint32_t cur_dist, uint32_t old_dist)
       : dist_current(cur_dist), dist_old(old_dist) {}
-
   // Copy constructor
   NodeData(const NodeData& other)
       : dist_current(other.dist_current.load()), dist_old(other.dist_old) {}
+  // Move constructor
+  NodeData(NodeData&& other) noexcept
+      : dist_current(other.dist_current.load()),
+        dist_old(std::exchange(other.dist_old, 0)) {}
+
+  //~NodeData() {std::cout << "NodeData destructor called" << std::endl;}
 };
 
 galois::DynamicBitSet bitset_dist_current;
@@ -140,7 +144,6 @@ struct BFS {
 
   static void go(Graph& _graph) {
     FirstItr_BFS<async>::go(_graph);
-
     unsigned _num_iterations = 1;
 
     const auto& nodesWithEdges = _graph.allNodesRange();
@@ -252,16 +255,6 @@ struct BFSSanityCheck {
 /* Make results */
 /******************************************************************************/
 
-std::vector<uint32_t> makeResultsCPU(std::unique_ptr<Graph>& hg) {
-  std::vector<uint32_t> values;
-
-  values.reserve(hg->numMasters());
-  for (auto node : hg->masterNodesRange()) {
-    values.push_back(hg->getData(node).dist_current);
-  }
-
-  return values;
-}
 
 void printUnorderedMap(
     std::unordered_map<uint64_t, std::vector<uint64_t>>& edits, uint64_t id) {
@@ -294,10 +287,8 @@ void CheckGraph(std::unique_ptr<Graph>& hg,
         std::sort(edgeDst.begin(), edgeDst.end());
         // std::cout << token << " ";
         for (auto edge : edgeDst) {
-          // std::cout << edge << " ";
           mp[token].push_back(edge);
         }
-        // std::cout << std::endl;
       },
       galois::steal());
 }
@@ -341,13 +332,17 @@ const char* elGetOne(const char* line, std::uint64_t& val) {
 }
 
 void parser(const char* line, Graph& hg,
-            std::vector<std::vector<uint64_t>>& delta_mirrors) {
+            std::vector<std::vector<uint64_t>>& delta_mirrors,
+            std::unordered_set<uint64_t>& mirrors) {
   uint64_t src, dst;
   line = elGetOne(line, src);
   line = elGetOne(line, dst);
   if ((hg.isOwned(src)) && (!hg.isLocal(dst))) {
     uint32_t h = hg.getHostID(dst);
-    delta_mirrors[h].push_back(dst);
+    if(mirrors.find(dst) == mirrors.end()) {
+      mirrors.insert(dst);
+      delta_mirrors[h].push_back(dst);
+    }
   }
 }
 
@@ -355,6 +350,7 @@ std::vector<std::vector<uint64_t>>
 genMirrorNodes(Graph& hg, std::string filename, int batch) {
   auto& net = galois::runtime::getSystemNetworkInterface();
   std::vector<std::vector<uint64_t>> delta_mirrors(net.Num);
+  std::unordered_set<uint64_t> mirrors;
 
   for (uint32_t i = 0; i < net.Num; i++) {
     std::string dynamicFile = filename + "_batch" + std::to_string(batch) +
@@ -362,17 +358,16 @@ genMirrorNodes(Graph& hg, std::string filename, int batch) {
     std::ifstream file(dynamicFile);
     std::string line;
     while (std::getline(file, line)) {
-      parser(line.c_str(), hg, delta_mirrors);
+      parser(line.c_str(), hg, delta_mirrors, mirrors);
     }
   }
   return delta_mirrors;
 }
 
 int main(int argc, char* argv[]) {
-  if (argc < 6) {
+  if (argc < 5) {
     std::cerr << "Usage: " << argv[0]
-              << " <filename> <src_node> <numVertices> <numBatches> "
-                 "<maxEditsInBatch>\n";
+              << " <filename> <src_node> <numVertices> <numBatches> \n";
     return 1;
   }
 
@@ -380,7 +375,6 @@ int main(int argc, char* argv[]) {
   src_node                    = std::stoul(argv[2]);
   uint64_t numVertices        = std::stoul(argv[3]);
   uint64_t num_batches        = std::stoul(argv[4]);
-  uint64_t max_edits_in_batch = std::stoul(argv[5]);
 
   galois::DistMemSys G;
 
@@ -401,8 +395,6 @@ int main(int argc, char* argv[]) {
 
   auto& net = galois::runtime::getSystemNetworkInterface();
   for (int i = 0; i < num_batches; i++) {
-    // PrintMasterMirrorNodes(*hg, net.ID);
-
     std::vector<std::string> edit_files;
     std::string dynFile     = "edits";
     std::string dynamicFile = dynFile + "_batch" + std::to_string(i) + "_host" +
@@ -412,24 +404,19 @@ int main(int argc, char* argv[]) {
     // graphUpdateManager!!!!!!!!
     std::vector<std::vector<uint64_t>> delta_mirrors =
         genMirrorNodes(*hg, dynFile, i);
+    galois::runtime::getHostBarrier().wait();
     graphUpdateManager<galois::graphs::ELVertex, galois::graphs::ELEdge,
                        NodeData, void, OECPolicy>
         GUM(std::make_unique<galois::graphs::ELParser<galois::graphs::ELVertex,
                                                       galois::graphs::ELEdge>>(
                 1, edit_files),
             100, wg);
-    GUM.setBatchSize(max_edits_in_batch);
-    GUM.start();
-    while (!GUM.stop()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(GUM.getPeriod()));
-    }
-    galois::runtime::getHostBarrier().wait();
-    GUM.stop2();
+    GUM.update();
     galois::runtime::getHostBarrier().wait();
 
     syncSubstrate->addDeltaMirrors(delta_mirrors);
     galois::runtime::getHostBarrier().wait();
-
+    delta_mirrors.clear();
     bitset_dist_current.resize(hg->size());
     galois::DGAccumulator<uint64_t> DGAccumulator_sum;
     galois::DGReduceMax<uint32_t> m;
@@ -440,18 +427,15 @@ int main(int argc, char* argv[]) {
       //                 galois::runtime::getSystemNetworkInterface().ID);
       std::string timer_str("Timer_" + std::to_string(i));
       galois::StatTimer StatTimer_main(timer_str.c_str(), "BFS");
-
       StatTimer_main.start();
       BFS<false>::go(*hg);
       StatTimer_main.stop();
-
       // sanity check
       BFSSanityCheck::go(*hg, DGAccumulator_sum, m);
-
       if ((i + 1) != num_batches) {
         bitset_dist_current.reset();
         (*syncSubstrate).set_num_run(i + 1);
-        galois::runtime::getHostBarrier().wait();
+      galois::runtime::getHostBarrier().wait();
       }
     }
   }
