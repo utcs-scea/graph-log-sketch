@@ -184,10 +184,6 @@ struct BFS {
   void operator()(GNode src) const {
     NodeData& snode = graph->getData(src);
     auto& net       = galois::runtime::getSystemNetworkInterface();
-    std::cout << "src: " << graph->getGID(src) << " dist_old " << snode.dist_old
-              << " dist_current " << snode.dist_current << " host " << net.ID
-              << std::endl;
-
     if (snode.dist_old > snode.dist_current) {
       active_vertices += 1;
 
@@ -294,7 +290,6 @@ void CheckGraph(std::unique_ptr<Graph>& hg,
         std::vector<uint64_t> edgeDst;
         auto end = hg->edge_end(lid);
         auto itr = hg->edge_begin(lid);
-        std::cout << "token: " << token << "\n";
         for (; itr != end; itr++) {
           edgeDst.push_back(hg->getGID(hg->getEdgeDst(itr)));
         }
@@ -357,8 +352,6 @@ void parser(const char* line, Graph& hg,
   uint64_t src, dst;
   line = elGetOne(line, src);
   line = elGetOne(line, dst);
-  std::cout << "src: " << src << " dst: " << dst << " isowned "
-            << hg.isOwned(src) << " " << hg.isOwned(dst) << "\n";
   if ((hg.isOwned(src)) && (!hg.isLocal(dst))) {
     uint32_t h = hg.getHostID(dst);
     delta_mirrors[h].push_back(dst);
@@ -441,7 +434,6 @@ int main(int argc, char* argv[]) {
     GUM.stop2();
 
     syncSubstrate->addDeltaMirrors(delta_mirrors);
-    PrintMasterMirrorNodes(*hg, net.ID);
     galois::runtime::getHostBarrier().wait();
 
     bitset_dist_current.resize(hg->size());
@@ -449,7 +441,6 @@ int main(int argc, char* argv[]) {
     galois::DGReduceMax<uint32_t> m;
     InitializeGraph::go(*hg);
     galois::runtime::getHostBarrier().wait();
-    syncSubstrate->printMirrors();
     {
       // BENCHMARK_SCOPE("bfs-push",
       //                 galois::runtime::getSystemNetworkInterface().ID);
