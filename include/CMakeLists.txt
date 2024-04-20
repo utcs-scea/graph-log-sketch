@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2023. University of Texas at Austin. All rights reserved.
+
 # Create a library target
 add_library(libdist INTERFACE)
 add_library(Scea::lib ALIAS libdist)
