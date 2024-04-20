@@ -7,6 +7,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <boost/program_options.hpp>
 
 #include "../include/importer.hpp"
 #include "../include/scea/stats.hpp"
@@ -20,6 +21,8 @@
 #include "galois/runtime/SyncStructures.h"
 #include "galois/runtime/Tracer.h"
 #include "galois/runtime/GraphUpdateManager.h"
+
+namespace po = boost::program_options;
 
 const uint32_t infinity = std::numeric_limits<uint32_t>::max() / 4;
 
@@ -365,16 +368,34 @@ genMirrorNodes(Graph& hg, std::string filename, int batch) {
 }
 
 int main(int argc, char* argv[]) {
-  if (argc < 5) {
-    std::cerr << "Usage: " << argv[0]
-              << " <filename> <src_node> <numVertices> <numBatches> \n";
+  std::string filename;
+  uint64_t src_node;
+  uint64_t numVertices;
+  uint64_t num_batches;
+  po::options_description desc("Allowed options");
+  desc.add_options()("help", "print help info")(
+      "staticFile", po::value<std::string>(&filename)->required(),
+      "Input file for initial static graph")(
+      "numVertices", po::value<uint64_t>(&numVertices)->required(),
+      "Number of total vertices")(
+      "numBatches", po::value<uint64_t>(&num_batches)->required(),
+      "Number of Batches")(
+      "srcNode", po::value<uint64_t>(&src_node)->default_value(0),
+      "Source node for BFS");
+
+  po::variables_map vm;
+  try {
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
+  } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     return 1;
   }
 
-  std::string filename        = argv[1];
-  src_node                    = std::stoul(argv[2]);
-  uint64_t numVertices        = std::stoul(argv[3]);
-  uint64_t num_batches        = std::stoul(argv[4]);
+  if (vm.count("help")) {
+    std::cout << desc << "\n";
+    return 1;
+  }
 
   galois::DistMemSys G;
 

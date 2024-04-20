@@ -8,4 +8,4 @@ set(sources
 add_executable(bfs)
 target_sources(bfs PRIVATE ${sources})
 target_include_directories(bfs PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include ${PHMAP_DIRECTORY} ${PCG_DIRECTORY} ${graph-log-sketch_SOURCE_DIR}/include)
-target_link_libraries(bfs PRIVATE Galois::cusp Galois::dist_async Galois::gluon Galois::wmd)
+target_link_libraries(bfs PRIVATE Galois::cusp Galois::dist_async Galois::gluon Galois::wmd Boost::program_options)

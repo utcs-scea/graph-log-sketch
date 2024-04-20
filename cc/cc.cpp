@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <limits>
+#include <boost/program_options.hpp>
 
 #include "../include/importer.hpp"
 
@@ -17,6 +18,8 @@
 #include "galois/gstl.h"
 #include "galois/runtime/Tracer.h"
 #include "galois/runtime/GraphUpdateManager.h"
+
+namespace po = boost::program_options;
 
 struct NodeData {
   std::atomic<uint32_t> comp_current;
@@ -281,15 +284,26 @@ void PrintMasterMirrorNodes (Graph &hg, uint64_t id) {
 
 int main(int argc, char* argv[]) {
 
-  if (argc < 4) {
-    std::cerr << "Usage: " << argv[0]
-              << " <filename> <numVertices> <numBatches> \n";
+  std::string filename;
+  uint64_t numVertices;
+  uint64_t num_batches;
+  po::options_description desc("Allowed options");
+  desc.add_options()("help", "print help info")(
+      "staticFile", po::value<std::string>(&filename)->required(),
+      "Input file for initial static graph")(
+      "numVertices", po::value<uint64_t>(&numVertices)->required(),
+      "Number of total vertices")(
+      "numBatches", po::value<uint64_t>(&num_batches)->required(),
+      "Number of Batches");
+
+  po::variables_map vm;
+  try {
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
+  } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     return 1;
   }
-
-  std::string filename = argv[1];
-  uint64_t numVertices = std::stoul(argv[2]);
-  uint64_t num_batches = std::stoul(argv[3]);
 
   galois::DistMemSys G;
 
