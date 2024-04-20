@@ -35,6 +35,6 @@ for task in $SET; do
 
 	echo "CPU-only " $EXEC $INPUT $1 $threads ${EXEC}_${INPUT}_${1}_${GRAPH_TYPE}
 	sbatch run_ls6.sbatch $EXEC $INPUT $1 $threads ${GRAPH_TYPE}
-  # source run_ls6.sbatch $EXEC $INPUT $PART $1 $threads ${GRAPH_TYPE}
+	# source run_ls6.sbatch $EXEC $INPUT $PART $1 $threads ${GRAPH_TYPE}
 	#rm run_ls6.sbatch
 done

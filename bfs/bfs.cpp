@@ -258,7 +258,6 @@ struct BFSSanityCheck {
 /* Make results */
 /******************************************************************************/
 
-
 void printUnorderedMap(
     std::unordered_map<uint64_t, std::vector<uint64_t>>& edits, uint64_t id) {
   for (const auto& pair : edits) {
@@ -342,7 +341,7 @@ void parser(const char* line, Graph& hg,
   line = elGetOne(line, dst);
   if ((hg.isOwned(src)) && (!hg.isLocal(dst))) {
     uint32_t h = hg.getHostID(dst);
-    if(mirrors.find(dst) == mirrors.end()) {
+    if (mirrors.find(dst) == mirrors.end()) {
       mirrors.insert(dst);
       delta_mirrors[h].push_back(dst);
     }
@@ -377,9 +376,9 @@ int main(int argc, char* argv[]) {
       "staticFile", po::value<std::string>(&filename)->required(),
       "Input file for initial static graph")(
       "numVertices", po::value<uint64_t>(&numVertices)->required(),
-      "Number of total vertices")(
-      "numBatches", po::value<uint64_t>(&num_batches)->required(),
-      "Number of Batches")(
+      "Number of total vertices")("numBatches",
+                                  po::value<uint64_t>(&num_batches)->required(),
+                                  "Number of Batches")(
       "srcNode", po::value<uint64_t>(&src_node)->default_value(0),
       "Source node for BFS");
 
@@ -456,7 +455,7 @@ int main(int argc, char* argv[]) {
       if ((i + 1) != num_batches) {
         bitset_dist_current.reset();
         (*syncSubstrate).set_num_run(i + 1);
-      galois::runtime::getHostBarrier().wait();
+        galois::runtime::getHostBarrier().wait();
       }
     }
   }

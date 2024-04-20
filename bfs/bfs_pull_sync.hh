@@ -16,9 +16,13 @@
  * including but not limited to those resulting from defects in Software and/or
  * Documentation, or loss or inaccuracy of data of any kind.
  */
+#ifndef GRAPH_LOG_SKETCH_BFS_BFS_PULL_SYNC_HH_
+#define GRAPH_LOG_SKETCH_BFS_BFS_PULL_SYNC_HH_
 
 #include "galois/runtime/SyncStructures.h"
 
 GALOIS_SYNC_STRUCTURE_REDUCE_SET(dist_current, unsigned int);
 GALOIS_SYNC_STRUCTURE_REDUCE_MIN(dist_current, unsigned int);
 GALOIS_SYNC_STRUCTURE_BITSET(dist_current);
+
+#endif /* GRAPH_LOG_SKETCH_BFS_BFS_PULL_SYNC_HH_ */

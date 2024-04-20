@@ -22,19 +22,19 @@ SET="1,00:10:00"
 
 # Format: (input-graph;\"${SET}\"")
 
-INPUTS=("chain.el;\"${SET}\"" "chain2.el;\"${SET}\"" )
+INPUTS=("chain.el;\"${SET}\"" "chain2.el;\"${SET}\"")
 
 QUEUE=normal
 
-GRAPH_TYPES=( "lscsr" "adj" )
+GRAPH_TYPES=("lscsr" "adj")
 
 for j in "${INPUTS[@]}"; do
 	IFS=";"
 	set $j
 	for i in "${EXECS[@]}"; do
-    for g in "${GRAPH_TYPES[@]}"; do
-      echo "./run_stampede_all.sh ${i} ${1} ${2} $QUEUE $a $g"
-      ./run_ls6_all.sh ${i} ${1} ${2} $QUEUE $a $g |& tee -a jobs
-    done
+		for g in "${GRAPH_TYPES[@]}"; do
+			echo "./run_stampede_all.sh ${i} ${1} ${2} $QUEUE $a $g"
+			./run_ls6_all.sh ${i} ${1} ${2} $QUEUE $a $g |& tee -a jobs
+		done
 	done
 done

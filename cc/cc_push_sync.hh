@@ -1,7 +1,7 @@
 /*
- * This file belongs to the Galois project, a C++ library for exploiting parallelism.
- * The code is being released under the terms of the 3-Clause BSD License (a
- * copy is located in LICENSE.txt at the top-level directory).
+ * This file belongs to the Galois project, a C++ library for exploiting
+ * parallelism. The code is being released under the terms of the 3-Clause BSD
+ * License (a copy is located in LICENSE.txt at the top-level directory).
  *
  * Copyright (C) 2018, The University of Texas at Austin. All rights reserved.
  * UNIVERSITY EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES CONCERNING THIS
@@ -17,8 +17,13 @@
  * Documentation, or loss or inaccuracy of data of any kind.
  */
 
+#ifndef GRAPH_LOG_SKETCH_CC_CC_PUSH_SYNC_HH_
+#define GRAPH_LOG_SKETCH_CC_CC_PUSH_SYNC_HH_
+
 #include "galois/runtime/SyncStructures.h"
 
 GALOIS_SYNC_STRUCTURE_REDUCE_SET(comp_current, uint32_t);
 GALOIS_SYNC_STRUCTURE_REDUCE_MIN(comp_current, uint32_t);
 GALOIS_SYNC_STRUCTURE_BITSET(comp_current);
+
+#endif // GRAPH_LOG_SKETCH_CC_CC_PUSH_SYNC_HH_

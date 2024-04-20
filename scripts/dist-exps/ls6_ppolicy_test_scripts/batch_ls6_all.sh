@@ -36,7 +36,7 @@ QUEUE=skx-normal
 
 #PARTS=( "oec" "cvc" )
 #PARTS=( "blocked-oec" )
-PARTS=( "oec" "divija" "cvc" )
+PARTS=("oec" "divija" "cvc")
 #PARTS=( "random-oec" )
 #PARTS=( "random-oec" )
 #PARTS=( "random-cvc" )
@@ -46,8 +46,8 @@ for j in "${INPUTS[@]}"; do
 	set $j
 	for i in "${EXECS[@]}"; do
 		for p in "${PARTS[@]}"; do
-      echo "./run_stampede_all.sh ${i} ${1} ${2} $QUEUE $p $a"
-      ./run_ls6_all.sh ${i} ${1} ${2} $QUEUE $p $a |& tee -a jobs
+			echo "./run_stampede_all.sh ${i} ${1} ${2} $QUEUE $p $a"
+			./run_ls6_all.sh ${i} ${1} ${2} $QUEUE $p $a |& tee -a jobs
 		done
 	done
 done
