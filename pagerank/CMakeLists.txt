@@ -8,4 +8,4 @@ set(sources
 add_executable(pagerank)
 target_sources(pagerank PRIVATE ${sources})
 target_include_directories(pagerank PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include ${PHMAP_DIRECTORY} ${PCG_DIRECTORY} ${graph-log-sketch_SOURCE_DIR}/include)
-target_link_libraries(pagerank PRIVATE Galois::cusp Galois::dist_async Galois::gluon Galois::wmd Boost::program_options)
+target_link_libraries(pagerank PRIVATE Galois::cusp Galois::dist_async Galois::gluon Galois::wmd Boost::program_options Scea::lib)

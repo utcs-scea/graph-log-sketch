@@ -72,6 +72,7 @@ add_subdirectory(microbench)
 add_subdirectory(scripts)
 add_subdirectory(bfs)
 add_subdirectory(cc)
+add_subdirectory(include)
 add_subdirectory(pagerank)
 
 # tests

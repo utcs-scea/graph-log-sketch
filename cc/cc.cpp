@@ -5,7 +5,7 @@
 #include <limits>
 #include <boost/program_options.hpp>
 
-#include "../include/importer.hpp"
+#include "importer.hpp"
 
 #include "galois/graphs/DistributedLocalGraph.h"
 #include "galois/graphs/GluonSubstrate.h"

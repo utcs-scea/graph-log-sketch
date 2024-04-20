@@ -9,8 +9,8 @@
 #include <sstream>
 #include <boost/program_options.hpp>
 
-#include "../include/importer.hpp"
-#include "../include/scea/stats.hpp"
+#include "importer.hpp"
+#include "stats.hpp"
 #include "galois/DistGalois.h"
 #include "galois/graphs/GluonSubstrate.h"
 #include "galois/wmd/WMDPartitioner.h"
