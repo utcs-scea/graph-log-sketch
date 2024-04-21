@@ -48,8 +48,8 @@ public:
   void operator()(scea::graph::MutableGraph& g) override { compute(g); }
 
   void operator()(scea::graph::MutableGraph& g, std::ostream& output) override {
-    auto ans = compute(g);
-    output << "Number of triangles: " << ans << std::endl;
+    auto answer = compute(g);
+    output << "Number of triangles: " << answer << std::endl;
   }
 };
 

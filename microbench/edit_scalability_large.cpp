@@ -291,9 +291,6 @@ int main(int argc, char const* argv[]) {
         algo_threads ? algo_threads
                      : galois::substrate::getThreadPool().getMaxThreads());
     {
-      if (algo_output.is_open()) {
-      }
-
       BENCHMARK_SCOPE("Algorithm for Batch " + std::to_string(batch_number));
       if (algo_output.is_open()) {
         algo_output << "==== running " << algo_name << " after batch "
