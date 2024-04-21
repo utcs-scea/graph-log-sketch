@@ -40,6 +40,8 @@ public:
   galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode,
                                        wf4::FullNetworkEdge>
   ParseLine(char* line, uint64_t lineLength) override;
+  std::vector<wf4::FullNetworkNode>
+  GetDstData(std::vector<wf4::FullNetworkEdge>& edges) override;
 
 private:
   uint64_t csv_fields_ = 11;
@@ -55,6 +57,8 @@ public:
   galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode,
                                        wf4::FullNetworkEdge>
   ParseLine(char* line, uint64_t lineLength) override;
+  std::vector<wf4::FullNetworkNode>
+  GetDstData(std::vector<wf4::FullNetworkEdge>& edges) override;
 
 private:
   uint64_t csv_fields_ = 2;
@@ -70,6 +74,8 @@ public:
   galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode,
                                        wf4::FullNetworkEdge>
   ParseLine(char* line, uint64_t lineLength) override;
+  std::vector<wf4::FullNetworkNode>
+  GetDstData(std::vector<wf4::FullNetworkEdge>& edges) override;
 
 private:
   uint64_t csv_fields_ = 2;
@@ -80,11 +86,14 @@ class NodeParser : public galois::graphs::FileParser<wf4::FullNetworkNode,
                                                      wf4::FullNetworkEdge> {
 public:
   explicit NodeParser(std::vector<std::string> files) : files_(files) {}
+  virtual ~NodeParser();
 
   const std::vector<std::string>& GetFiles() override { return files_; }
   galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode,
                                        wf4::FullNetworkEdge>
   ParseLine(char* line, uint64_t lineLength) override;
+  std::vector<wf4::FullNetworkNode>
+  GetDstData(std::vector<wf4::FullNetworkEdge>& edges) override;
 
 private:
   uint64_t csv_fields_ = 7;
