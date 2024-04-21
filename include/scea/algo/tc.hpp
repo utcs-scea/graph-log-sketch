@@ -20,7 +20,7 @@ public:
     numTriangles.reset();
 
     galois::do_all(
-        galois::iterate(g),
+        galois::iterate(0ul, g.size()),
         [&](uint64_t const& vertex) { g.sort_edges(vertex); },
         galois::steal(), //
         galois::loopname("SortEdges"));
