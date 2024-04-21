@@ -20,9 +20,14 @@ public:
     numTriangles.reset();
 
     galois::do_all(
+        galois::iterate(g),
+        [&](uint64_t const& vertex) { g.sort_edges(vertex); },
+        galois::steal(), //
+        galois::loopname("SortEdges"));
+
+    galois::do_all(
         galois::iterate((uint64_t)0, g.size()),
         [&](uint64_t const& v0) {
-          g.sort_edges(v0);
           g.for_each_edge(v0, [&](uint64_t const& v1) {
             if (v0 >= v1)
               return;
@@ -41,6 +46,11 @@ public:
   }
 
   void operator()(scea::graph::MutableGraph& g) override { compute(g); }
+
+  void operator()(scea::graph::MutableGraph& g, std::ostream& output) override {
+    auto ans = compute(g);
+    output << "Number of triangles: " << ans << std::endl;
+  }
 };
 
 } // namespace scea::algo

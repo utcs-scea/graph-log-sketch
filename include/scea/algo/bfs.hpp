@@ -30,6 +30,10 @@ public:
     galois::LargeArray<uint64_t> shortest_path;
     shortest_path.create(g.size(), UNVISITED);
 
+    if (src >= g.size()) {
+      std::cout << "warn: source vertex out of bounds" << std::endl;
+      return shortest_path;
+    }
     nextSt->push(src);
 
     uint64_t level = 0U;

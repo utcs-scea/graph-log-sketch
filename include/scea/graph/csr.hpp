@@ -9,16 +9,16 @@
 #include <algorithm>
 
 #include "galois/Galois.h"
-#include "scea/graph/mutable_graph_interface.hpp"
+#include "scea/graph/adj.hpp"
 
 namespace scea::graph {
 
-class CSR : public MutableGraph {
+class CSR : public AdjGraph {
 private:
-  std::vector<std::vector<uint64_t>> m_adj;
+  static constexpr uint64_t PARALLEL_PREFIX_SUM_VERTEX_THRESHOLD = 1ul << 25;
 
   std::vector<uint64_t> m_vertices;
-  std::vector<uint64_t> m_edges;
+  std::vector<uint64_t> m_edges_compact;
 
   static uint64_t transmute(std::vector<uint64_t> const& p) { return p.size(); }
   static uint64_t scan_op(std::vector<uint64_t> const& p, const uint64_t& l) {
@@ -32,49 +32,60 @@ private:
       m_pfx_sum;
 
 public:
-  explicit CSR(uint64_t num_vertices)
-      : m_adj(num_vertices), m_vertices(num_vertices + 1, 0ul),
-        m_pfx_sum{&m_adj[0], &m_vertices[1]} {}
+  CSR() : m_vertices(1, 0ul), m_pfx_sum(&m_edges[0], &m_vertices[1]) {}
+  virtual ~CSR(){};
 
-  virtual ~CSR() {}
-
-  uint64_t size() noexcept override { return m_adj.size(); }
+  uint64_t size() noexcept override { return m_vertices.size() - 1; }
 
   uint64_t get_out_degree(uint64_t src) override {
     return m_vertices[src + 1] - m_vertices[src];
   }
 
-  void add_edges(uint64_t src, const std::vector<uint64_t> dsts) override {
-    std::copy(dsts.begin(), dsts.end(), std::back_inserter(m_adj[src]));
-  }
-
   void post_ingest() override {
-    m_pfx_sum.computePrefixSum(m_adj.size());
-    m_edges.resize(m_vertices[m_adj.size()]);
+    // from the adjacency list:
+    const size_t num_vertices = m_edges.size();
+    if (num_vertices == 0)
+      return;
+
+    // compute prefix sum on the vertices
+    m_vertices.resize(num_vertices + 1);
+    m_pfx_sum.src = &m_edges[0];
+    // note: this prefix sum is inclusive!
+    m_pfx_sum.dst = &m_vertices[1];
+    if (num_vertices < PARALLEL_PREFIX_SUM_VERTEX_THRESHOLD) {
+      m_pfx_sum.computePrefixSumSerially(num_vertices);
+    } else {
+      m_pfx_sum.computePrefixSum(num_vertices);
+    }
+    GALOIS_ASSERT(m_vertices[0] == 0,
+                  "First entry of CSR vertex array should always be 0!");
+
+    // Compact edges.
+    m_edges_compact.resize(m_vertices.back());
     galois::do_all(
-        galois::iterate(0ul, m_adj.size()),
+        galois::iterate(0ul, num_vertices),
         [&](uint64_t const& i) {
-          std::copy(m_adj[i].begin(), m_adj[i].end(),
-                    m_edges.begin() + m_vertices[i]);
+          std::copy(m_edges[i].begin(), m_edges[i].end(),
+                    m_edges_compact.begin() + m_vertices[i]);
         },
-        galois::loopname("LC_CSR::post_ingest"));
+        galois::steal(), galois::loopname("CreateCSR"));
   }
 
   void for_each_edge(uint64_t src,
                      std::function<void(uint64_t const&)> callback) override {
-    for (auto i = m_vertices[src]; i < m_vertices[src + 1]; ++i) {
-      callback(m_edges[i]);
-    }
+    for (auto i = m_vertices[src]; i < m_vertices[src + 1]; ++i)
+      callback(m_edges_compact[i]);
   }
 
   void sort_edges(uint64_t src) override {
-    std::sort(m_edges.begin() + m_vertices[src],
-              m_edges.begin() + m_vertices[src]);
+    std::sort(m_edges_compact.begin() + m_vertices[src],
+              m_edges_compact.begin() + m_vertices[src]);
   }
 
   bool find_edge_sorted(uint64_t src, uint64_t dst) override {
-    return std::binary_search(m_edges.begin() + m_vertices[src],
-                              m_edges.begin() + m_vertices[src + 1], dst);
+    return std::binary_search(m_edges_compact.begin() + m_vertices[src],
+                              m_edges_compact.begin() + m_vertices[src + 1],
+                              dst);
   }
 };
 

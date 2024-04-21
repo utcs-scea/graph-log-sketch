@@ -99,15 +99,15 @@ int main(int argc, char const* argv[]) {
   std::unique_ptr<scea::graph::MutableGraph> graph;
   if (graph_type == "lscsr") {
     float thresh = vm["lscsr-compact-threshold"].as<float>();
-    graph        = std::make_unique<scea::graph::LS_CSR>(num_vertices, thresh);
+    graph        = std::make_unique<scea::graph::LS_CSR>(thresh);
   } else if (graph_type == "lccsr") {
-    graph = std::make_unique<scea::graph::LC_CSR>(num_vertices);
+    graph = std::make_unique<scea::graph::LC_CSR>();
   } else if (graph_type == "csr") {
-    graph = std::make_unique<scea::graph::CSR>(num_vertices);
+    graph = std::make_unique<scea::graph::CSR>();
   } else if (graph_type == "morph") {
-    graph = std::make_unique<scea::graph::MorphGraph>(num_vertices);
+    graph = std::make_unique<scea::graph::MorphGraph>();
   } else if (graph_type == "adj") {
-    graph = std::make_unique<scea::graph::AdjGraph>(num_vertices);
+    graph = std::make_unique<scea::graph::AdjGraph>();
   } else {
     std::cerr << "unknown graph type: " << graph_type << std::endl;
     return 1;
@@ -125,8 +125,7 @@ int main(int argc, char const* argv[]) {
   } else if (algo_name == "bc") {
     auto const rseed   = vm["bc-rseed"].as<unsigned int>();
     auto const num_src = vm["bc-num-src"].as<uint64_t>();
-    algo = std::make_unique<scea::algo::BetweennessCentrality>(num_vertices,
-                                                               rseed, num_src);
+    algo = std::make_unique<scea::algo::BetweennessCentrality>(rseed, num_src);
   } else {
     std::cerr << "unknown algorithm: " << algo_name << std::endl;
     return 1;
@@ -168,6 +167,7 @@ int main(int argc, char const* argv[]) {
 
     // parse the insertions
     std::unordered_map<uint64_t, std::vector<uint64_t>> insertions;
+    uint64_t num_edges = 0;
 
     std::string batch_raw;
     while (std::getline(*in, batch_raw)) {
@@ -193,27 +193,31 @@ int main(int argc, char const* argv[]) {
         if (!validate_vertex(tmp))
           continue;
 #endif
+        ++num_edges;
         insertions[src].emplace_back(tmp);
       }
     }
 
-    // execute the insertions
-    if (!insertions.empty()) {
-      BENCHMARK_SCOPE("Ingestion for Batch " + std::to_string(batch));
+    std::vector<std::pair<uint64_t, std::vector<uint64_t>>> insertions_vec(
+        std::make_move_iterator(insertions.begin()),
+        std::make_move_iterator(insertions.end()));
+    std::cout << "batch has " << insertions_vec.size()
+              << " modified vertices and " << num_edges << " total edges"
+              << std::endl;
+    if (!insertions_vec.empty()) {
+      // ingest
+      {
+        BENCHMARK_SCOPE("Ingestion for Batch " + std::to_string(batch));
+        galois::setActiveThreads(ingest_threads);
+        graph->ingest(std::move(insertions_vec));
+        std::cout << "graph size after ingest: " << graph->size() << std::endl;
+      }
+      // post-ingest
+      {
+        BENCHMARK_SCOPE("Post-ingest for Batch " + std::to_string(batch));
 
-      galois::setActiveThreads(ingest_threads);
-      galois::do_all(
-          galois::iterate(insertions.begin(), insertions.end()),
-          [&](std::pair<uint64_t, std::vector<uint64_t>> const& operation) {
-            graph->add_edges(operation.first, operation.second);
-          },
-          galois::steal(), galois::loopname("Ingestion"));
-    }
-
-    if (!insertions.empty()) {
-      BENCHMARK_SCOPE("Post-ingest for Batch " + std::to_string(batch));
-
-      graph->post_ingest();
+        graph->post_ingest();
+      }
     }
 
     // execute the algorithm

@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <vector>
+#include <utility>
 
 #include "galois/Galois.h"
 
@@ -13,8 +14,6 @@ namespace scea::graph {
 /* Contains the minimal functionalities that are benchmarked. */
 class MutableGraph {
 public:
-  virtual void add_edges(uint64_t src, const std::vector<uint64_t> dsts) = 0;
-
   /**
    * Return the number of vertices in the graph. Vertices are identified as
    * `0, 1, ..., size()`.
@@ -24,6 +23,8 @@ public:
   /** Return the out degree of a vertex.*/
   virtual uint64_t get_out_degree(uint64_t src) = 0;
 
+  virtual void
+  ingest(std::vector<std::pair<uint64_t, std::vector<uint64_t>>> edges)     = 0;
   virtual void post_ingest()                                                = 0;
   virtual void for_each_edge(uint64_t src,
                              std::function<void(uint64_t const&)> callback) = 0;
