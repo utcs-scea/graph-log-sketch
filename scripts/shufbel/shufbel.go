@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
-	"sync"
 	"syscall"
 	"unsafe"
 
@@ -22,6 +21,7 @@ func roundFunction(v, key shuffle.FeistelWord) shuffle.FeistelWord {
 func main() {
 	// parse CLI options
 	threads := flag.Int("threads", runtime.NumCPU(), "number of threads")
+	goroutines := flag.Int("goroutines", runtime.NumCPU(), "number of goroutines")
 	rseed := flag.Int64("rseed", 0, "random seed")
 	flag.Parse()
 
@@ -97,22 +97,30 @@ func main() {
 	// keys should be an array of 4 random uint64s
 	keys := []shuffle.FeistelWord{shuffle.FeistelWord(rand.Uint64()), shuffle.FeistelWord(rand.Uint64()), shuffle.FeistelWord(rand.Uint64()), shuffle.FeistelWord(rand.Uint64())}
 
-	var wg sync.WaitGroup
+	limiter := make(chan struct{}, *goroutines)
+	for i := 0; i < *goroutines; i++ {
+		limiter <- struct{}{}
+	}
 	// spawn a goroutine for every page, since each page can fault
 	// todo (meyer): should we limit the number of concurrent goroutines?
 	for i := uint64(0); i < num_edges; i += uint64(pageSize / 16) {
-		wg.Add(1)
+		// wait until a ticket is available
+		<-limiter
 		go func(i uint64) {
-			defer wg.Done()
 			fn := shuffle.NewFeistel(keys, roundFunction)
 			for j := i; j < i+uint64(pageSize/16) && j < num_edges; j++ {
 				src, _ := shuffle.GetIndex(shuffle.FeistelWord(j), shuffle.FeistelWord(num_edges), fn)
 				// move 16 bytes from data to output
 				copy(output[j*16:], data[src*16:src*16+16])
 			}
+			// release the ticket
+			limiter <- struct{}{}
 		}(i)
 	}
-	wg.Wait()
+	// wait for all goroutines to finish
+	for i := 0; i < *goroutines; i++ {
+		<-limiter
+	}
 
 	err = syscall.Munmap(data)
 	if err != nil {
