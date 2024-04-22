@@ -7,11 +7,13 @@
 #include "scea/graph/morph.hpp"
 #include "scea/algo/bfs.hpp"
 
+using el = std::pair<uint64_t, std::vector<uint64_t>>;
+
 TEST(BFS, Small) {
   galois::SharedMemSys sys;
   galois::setActiveThreads(1);
 
-  scea::graph::MorphGraph graph(7);
+  scea::graph::MorphGraph graph;
 
   /*
    * 0 - 1
@@ -21,13 +23,9 @@ TEST(BFS, Small) {
    *     4 - 5 - 6
    */
 
-  graph.add_edges(0, {1, 2, 3});
-  graph.add_edges(1, {0, 2, 3});
-  graph.add_edges(2, {0, 1, 3});
-  graph.add_edges(3, {0, 1, 2, 4, 5});
-  graph.add_edges(4, {3, 5});
-  graph.add_edges(5, {3, 4, 6});
-  graph.add_edges(6, {5});
+  graph.ingest({el(0, {1, 2, 3}), el(1, {0, 2, 3}), el(2, {0, 1, 3}),
+                el(3, {0, 1, 2, 4, 5}), el(4, {3, 5}), el(5, {3, 4, 6}),
+                el(6, {5})});
 
   {
     auto result = scea::algo::SSSP_BFS::compute(graph, 1);

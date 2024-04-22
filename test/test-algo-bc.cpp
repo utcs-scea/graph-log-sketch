@@ -7,21 +7,21 @@
 #include "scea/graph/morph.hpp"
 #include "scea/algo/bc.hpp"
 
+using el = std::pair<uint64_t, std::vector<uint64_t>>;
+
 TEST(BC, Short) {
   galois::SharedMemSys sys;
   galois::setActiveThreads(1);
 
-  scea::graph::MorphGraph graph(3);
+  scea::graph::MorphGraph graph;
 
   /*
    * 0 - 1 - 2
    */
 
-  graph.add_edges(0, {1});
-  graph.add_edges(1, {0, 2});
-  graph.add_edges(2, {1});
+  graph.ingest({el(0, {1}), el(1, {0, 2}), el(2, {1})});
 
-  auto result = scea::algo::BetweennessCentrality::compute(graph, {0, 1, 2});
+  auto result = scea::algo::BetweennessCentrality::compute(graph);
   {
     EXPECT_EQ(result[0], 0);
     EXPECT_EQ(result[1], 2);
@@ -33,18 +33,15 @@ TEST(BC, Long) {
   galois::SharedMemSys sys;
   galois::setActiveThreads(1);
 
-  scea::graph::MorphGraph graph(4);
+  scea::graph::MorphGraph graph;
 
   /*
    * 0 - 1 - 2 - 3
    */
 
-  graph.add_edges(0, {1});
-  graph.add_edges(1, {0, 2});
-  graph.add_edges(2, {1, 3});
-  graph.add_edges(3, {2});
+  graph.ingest({el(0, {1}), el(1, {0, 2}), el(2, {1, 3}), el(3, {2})});
 
-  auto result = scea::algo::BetweennessCentrality::compute(graph, {0, 1, 2, 3});
+  auto result = scea::algo::BetweennessCentrality::compute(graph);
   {
     EXPECT_EQ(result[0], 0);
     EXPECT_EQ(result[1], 4);
@@ -57,7 +54,7 @@ TEST(BC, Square) {
   galois::SharedMemSys sys;
   galois::setActiveThreads(1);
 
-  scea::graph::MorphGraph graph(4);
+  scea::graph::MorphGraph graph;
 
   /*
    * 0 - 1
@@ -65,12 +62,9 @@ TEST(BC, Square) {
    * 2 - 3
    */
 
-  graph.add_edges(0, {1, 2});
-  graph.add_edges(1, {0, 3});
-  graph.add_edges(2, {0, 3});
-  graph.add_edges(3, {1, 2});
+  graph.ingest({el(0, {1, 2}), el(1, {0, 3}), el(2, {0, 3}), el(3, {1, 2})});
 
-  auto result = scea::algo::BetweennessCentrality::compute(graph, {0, 1, 2, 3});
+  auto result = scea::algo::BetweennessCentrality::compute(graph);
   {
     EXPECT_EQ(result[0], 1);
     EXPECT_EQ(result[1], 1);
@@ -83,7 +77,7 @@ TEST(BC, Star) {
   galois::SharedMemSys sys;
   galois::setActiveThreads(1);
 
-  scea::graph::MorphGraph graph(4);
+  scea::graph::MorphGraph graph;
 
   /*
    * 0 - 1
@@ -91,12 +85,9 @@ TEST(BC, Star) {
    * 2   3
    */
 
-  graph.add_edges(0, {1, 2, 3});
-  graph.add_edges(1, {0});
-  graph.add_edges(2, {0});
-  graph.add_edges(3, {0});
+  graph.ingest({el(0, {1, 2, 3}), el(1, {0}), el(2, {0}), el(3, {0})});
 
-  auto result = scea::algo::BetweennessCentrality::compute(graph, {0, 1, 2, 3});
+  auto result = scea::algo::BetweennessCentrality::compute(graph);
   {
     EXPECT_EQ(result[0], 6);
     EXPECT_EQ(result[1], 0);
@@ -109,7 +100,7 @@ TEST(BC, Bipartite) {
   galois::SharedMemSys sys;
   galois::setActiveThreads(1);
 
-  scea::graph::MorphGraph graph(5);
+  scea::graph::MorphGraph graph;
 
   /*
    *    0
@@ -119,14 +110,10 @@ TEST(BC, Bipartite) {
    *    4
    */
 
-  graph.add_edges(0, {1, 2, 3});
-  graph.add_edges(1, {0, 4});
-  graph.add_edges(2, {0, 4});
-  graph.add_edges(3, {0, 4});
-  graph.add_edges(4, {1, 2, 3});
+  graph.ingest({el(0, {1, 2, 3}), el(1, {0, 4}), el(2, {0, 4}), el(3, {0, 4}),
+                el(4, {1, 2, 3})});
 
-  auto result =
-      scea::algo::BetweennessCentrality::compute(graph, {0, 1, 2, 3, 4});
+  auto result = scea::algo::BetweennessCentrality::compute(graph);
   {
     EXPECT_EQ(result[0], 3);
     EXPECT_EQ(result[1], 2 / 3.);
@@ -140,7 +127,7 @@ TEST(BC, IO) {
   galois::SharedMemSys sys;
   galois::setActiveThreads(1);
 
-  scea::graph::MorphGraph graph(5);
+  scea::graph::MorphGraph graph;
 
   /*
    *    0
@@ -150,14 +137,10 @@ TEST(BC, IO) {
    *    4
    */
 
-  graph.add_edges(0, {1, 2, 3});
-  graph.add_edges(1, {0, 4});
-  graph.add_edges(2, {0, 4});
-  graph.add_edges(3, {0, 4});
-  graph.add_edges(4, {1, 2, 3});
+  graph.ingest({el(0, {1, 2, 3}), el(1, {0, 4}), el(2, {0, 4}), el(3, {0, 4}),
+                el(4, {1, 2, 3})});
 
-  auto result =
-      scea::algo::BetweennessCentrality::compute(graph, {0, 1, 2, 3, 4});
+  auto result = scea::algo::BetweennessCentrality::compute(graph);
   {
     EXPECT_EQ(result[0], 3);
     EXPECT_EQ(result[1], 2 / 3.);

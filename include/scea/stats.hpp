@@ -86,13 +86,13 @@ public:
 
 class ScopeBenchmarker {
 private:
+  std::string scopeName;
   HighResTimer timer;
   PerfEvent cacheMissesEvent;
   PerfEvent cacheReferencesEvent;
   PerfEvent instructionsEvent;
   PerfEvent minorPageFaultsEvent;
   PerfEvent majorPageFaultsEvent;
-  std::string scopeName;
 
   static uint64_t getMaxRSS() {
     struct rusage usage;

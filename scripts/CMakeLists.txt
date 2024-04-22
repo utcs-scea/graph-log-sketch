@@ -7,3 +7,6 @@ target_link_libraries(divide-into-batches PRIVATE Boost::program_options)
 
 add_executable(count-batched count_batched.cpp)
 target_link_libraries(count-batched PRIVATE Boost::program_options)
+
+add_executable(shufbel shufbel.cpp)
+target_link_libraries(shufbel PRIVATE Boost::program_options)

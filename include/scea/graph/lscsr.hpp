@@ -4,7 +4,9 @@
 #pragma once
 
 #include <vector>
+#include <utility>
 
+#include "galois/ParallelSTL.h"
 #include "galois/graphs/LS_LC_CSR_Graph.h"
 #include "scea/graph/mutable_graph_interface.hpp"
 
@@ -14,11 +16,10 @@ class LS_CSR : public MutableGraph {
 private:
   galois::graphs::LS_LC_CSR_Graph<void, void> graph;
   float const compact_threshold;
-  bool first_ingest = true;
 
 public:
-  LS_CSR(uint64_t num_vertices, float compact_threshold)
-      : graph(num_vertices), compact_threshold(compact_threshold) {}
+  explicit LS_CSR(float compact_threshold)
+      : graph(0), compact_threshold(compact_threshold) {}
 
   virtual ~LS_CSR() {}
 
@@ -28,20 +29,26 @@ public:
     return graph.getDegree(src);
   }
 
-  void add_edges(uint64_t src, const std::vector<uint64_t> dsts) override {
-    graph.addEdgesTopologyOnly(src, dsts);
+  void ingest(
+      std::vector<std::pair<uint64_t, std::vector<uint64_t>>> edges) override {
+    // galois::ParallelSTL::sort(
+    //     edges.begin(), edges.end(),
+    //     [](auto const& a, auto const& b) { return a.first < b.first; });
+
+    graph.addBatchTopologyOnly<false>(edges);
   }
 
   void post_ingest() override {
-    float holes_usage  = graph.getLogHolesMemoryUsageBytes();
-    float memory_usage = graph.getLogMemoryUsageBytes();
-    if (first_ingest || ((memory_usage > 0.0) &&
-                         ((holes_usage / memory_usage) > compact_threshold))) {
-      std::cout << "compact (holes_usage = " << holes_usage
+    size_t csr_usage    = graph.getCSRMemoryUsageBytes();
+    size_t memory_usage = graph.getLogMemoryUsageBytes();
+    if (memory_usage > compact_threshold * csr_usage) {
+      std::cout << "compact (csr_usage = " << csr_usage
                 << ", memory_usage = " << memory_usage << ")" << std::endl;
       graph.compact();
+      std::cout << "compacted (csr_usage = " << graph.getCSRMemoryUsageBytes()
+                << ", memory_usage = " << graph.getLogMemoryUsageBytes() << ")"
+                << std::endl;
     }
-    first_ingest = false;
   }
 
   void for_each_edge(uint64_t src,

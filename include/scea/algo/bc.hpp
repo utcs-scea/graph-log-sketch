@@ -8,6 +8,8 @@
 #include <string>
 #include <limits>
 #include <unordered_set>
+#include <algorithm>
+#include <random>
 
 #include "galois/AtomicHelpers.h"
 #include "galois/LargeArray.h"
@@ -23,23 +25,31 @@ class BetweennessCentrality : public Algo {
       std::numeric_limits<uint64_t>::max() / 4;
   constexpr static const unsigned LEVEL_CHUNK_SIZE = 256u;
 
-  std::vector<uint64_t> sources; // empty if all vertices are sources
+  unsigned int const rseed;
+  uint64_t const num_src;
 
 public:
-  BetweennessCentrality(uint64_t num_vertices, unsigned int rseed = 0,
-                        uint64_t num_src = 0) {
-    sources.resize(num_vertices);
-    std::iota(sources.begin(), sources.end(), 0);
+  explicit BetweennessCentrality(unsigned int rseed = 0, uint64_t num_src = 0)
+      : rseed(rseed), num_src(num_src) {}
 
-    if (num_src > 0 && num_src != num_vertices) {
+  static galois::LargeArray<double> compute(scea::graph::MutableGraph& g,
+                                            unsigned int rseed = 0,
+                                            uint64_t num_src   = 0) {
+    std::vector<uint64_t> sources;
+
+    // Select source vertices.
+    sources.resize(g.size());
+    galois::do_all(
+        galois::iterate(0ul, g.size()),    //
+        [&](size_t i) { sources[i] = i; }, //
+        galois::no_stats(),                //
+        galois::loopname("InitializeSources"));
+    if (num_src > 0) {
       std::mt19937 gen(rseed);
       std::shuffle(sources.begin(), sources.end(), gen);
-      sources.resize(num_src);
+      sources.resize(std::min(g.size(), num_src));
     }
-  }
 
-  static galois::LargeArray<double>
-  compute(scea::graph::MutableGraph& g, std::vector<uint64_t> const& sources) {
     galois::LargeArray<uint64_t> distance;
     galois::LargeArray<std::atomic<uint64_t>> shortestPathCount;
     galois::LargeArray<double> dependency;
@@ -155,7 +165,7 @@ public:
   }
 
   void operator()(scea::graph::MutableGraph& g) override {
-    compute(g, sources);
+    compute(g, rseed, num_src);
   }
 };
 

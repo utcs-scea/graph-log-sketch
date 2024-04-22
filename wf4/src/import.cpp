@@ -88,6 +88,10 @@ wf4::internal::CyberParser::ParseLine(char* line, uint64_t lineLength) {
   return galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode,
                                               wf4::FullNetworkEdge>(edges);
 }
+std::vector<wf4::FullNetworkNode>
+wf4::internal::CyberParser::GetDstData(std::vector<wf4::FullNetworkEdge>&) {
+  throw std::runtime_error("Not implemented");
+}
 
 galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode, wf4::FullNetworkEdge>
 wf4::internal::SocialParser::ParseLine(char* line, uint64_t lineLength) {
@@ -102,6 +106,11 @@ wf4::internal::SocialParser::ParseLine(char* line, uint64_t lineLength) {
                                               wf4::FullNetworkEdge>(edges);
 }
 
+std::vector<wf4::FullNetworkNode>
+wf4::internal::SocialParser::GetDstData(std::vector<wf4::FullNetworkEdge>&) {
+  throw std::runtime_error("Not implemented");
+}
+
 galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode, wf4::FullNetworkEdge>
 wf4::internal::UsesParser::ParseLine(char* line, uint64_t lineLength) {
   std::vector<std::string> tokens =
@@ -114,6 +123,13 @@ wf4::internal::UsesParser::ParseLine(char* line, uint64_t lineLength) {
   return galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode,
                                               wf4::FullNetworkEdge>(edges);
 }
+
+std::vector<wf4::FullNetworkNode>
+wf4::internal::UsesParser::GetDstData(std::vector<wf4::FullNetworkEdge>&) {
+  throw std::runtime_error("Not implemented");
+}
+
+wf4::internal::NodeParser::~NodeParser() {}
 
 galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode, wf4::FullNetworkEdge>
 wf4::internal::NodeParser::ParseLine(char* line, uint64_t lineLength) {
@@ -132,4 +148,9 @@ wf4::internal::NodeParser::ParseLine(char* line, uint64_t lineLength) {
 
   return galois::graphs::ParsedGraphStructure<wf4::FullNetworkNode,
                                               wf4::FullNetworkEdge>(node);
+}
+
+std::vector<wf4::FullNetworkNode>
+wf4::internal::NodeParser::GetDstData(std::vector<wf4::FullNetworkEdge>&) {
+  throw std::runtime_error("Not implemented");
 }

@@ -7,3 +7,7 @@ include(${graph-log-sketch_SOURCE_DIR}/cmake/GaloisCompilerOptions.cmake)
 galois_add_executable(edit-scalability edit_scalability.cpp)
 target_link_libraries(edit-scalability PRIVATE Galois::shmem Boost::program_options)
 target_include_directories(edit-scalability PRIVATE ${graph-log-sketch_SOURCE_DIR}/include)
+
+galois_add_executable(edit-scalability-large edit_scalability_large.cpp)
+target_link_libraries(edit-scalability-large PRIVATE Galois::shmem Boost::program_options)
+target_include_directories(edit-scalability-large PRIVATE ${graph-log-sketch_SOURCE_DIR}/include)

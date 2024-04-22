@@ -36,7 +36,7 @@ int main(int argc, char const* argv[]) {
     po::notify(vm);
   } catch (po::error& e) {
     cout << e.what() << endl;
-    cout << desc << endl;
+    return 1;
   }
 
   // Check for help option
