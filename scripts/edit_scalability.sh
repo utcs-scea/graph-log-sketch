@@ -36,7 +36,7 @@ echo "RESULTS_DIR=$RESULTS_DIR"
 GRAPHS="${GRAPHS:-lscsr adj csr}"
 echo "GRAPHS=$GRAPHS"
 
-ALGOS="${ALGOS:-bfs pr tc}"
+ALGOS="${ALGOS:-bfs pr tc bc}"
 echo "ALGOS=$ALGOS"
 
 COMPACT_THRESHOLDS="${COMPACT_THRESHOLDS:-0.5}"
